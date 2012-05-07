@@ -226,7 +226,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	}
 	sleep(1);
 
-	/*
+	
 #define MONITOR 0
 #if MONITOR
 	monitor_try_connected_thread();
@@ -235,7 +235,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 		printf("start_udp_transfer error\n");
 	}
 #endif
-*/
+
 	msg.msg_type = VS_MESSAGE_ID;
 	msg.msg[0] = VS_MESSAGE_MAIN_PROCESS_START;
 	msg.msg[1] = 0;
