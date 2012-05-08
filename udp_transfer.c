@@ -159,7 +159,7 @@ void touch_cli_port(uint32_t ip, uint16_t port)
 	from.sin_port=port;
 	sendto(sockfd, "touch", strlen("touch"), 0,(struct sockaddr *) &from, fromlen); 
 }
-int touch_playback_port(uint16_t localport,uint32_t ip,uint16_t port)
+static inline int touch_port(uint16_t localport,uint32_t ip,uint16_t port)
 {
 	int sockfd;
 	int on;
@@ -185,6 +185,27 @@ int touch_playback_port(uint16_t localport,uint32_t ip,uint16_t port)
 	  sendto(sockfd, "touch", strlen("touch"), 0,(struct sockaddr *) &from, fromlen);
 	  close(sockfd);
 	  return 0;
+}
+ int touch_v_rtp_port(uint32_t ip,uint16_t port)
+{
+	return touch_port(VIDEO_SESS_PORT,  ip,  port);
+}
+ int touch_v_rtcp_port(uint32_t ip,uint16_t port)
+{
+	return touch_port(VIDEO_SESS_PORT+1,  ip,  port);
+}
+ int touch_a_rtp_port(uint32_t ip,uint16_t port)
+{
+	return touch_port(AUDIO_SESS_PORT,  ip,  port);
+}
+ int touch_a_rtcp_port(uint32_t ip,uint16_t port)
+{
+	return touch_port(AUDIO_SESS_PORT+1,  ip,  port);
+}
+
+int touch_playback_port(uint16_t localport,uint32_t ip,uint16_t port)
+{
+	return touch_port( localport,  ip,  port);
 }
 #define BUF_SZ 512
 static int build_nat_addr(int type,int recvsock)
@@ -452,8 +473,12 @@ int transfer_thread()
 						p->local_pb_port=local_port[CMD_PB_PORT];
 						touch_playback_port(local_port[CMD_PB_PORT], pdest->ip, pdest->port[CMD_PB_PORT]);
 						touch_cli_port(pdest->ip,pdest->port[CMD_CLI_PORT]);
-						videosess_add_dstaddr(pdest->ip, pdest->port[CMD_V_RTP_PORT], pdest->port[CMD_V_RTCP_PORT]);
-						audiosess_add_dstaddr(pdest->ip, pdest->port[CMD_A_RTP_PORT], pdest->port[CMD_A_RTCP_PORT]);
+						touch_v_rtp_port(pdest->ip, pdest->port[CMD_V_RTP_PORT]);
+						touch_v_rtcp_port(pdest->ip,  pdest->port[CMD_V_RTCP_PORT]);
+						touch_a_rtp_port(pdest->ip, pdest->port[CMD_A_RTP_PORT]);
+						touch_a_rtcp_port(pdest->ip, pdest->port[CMD_A_RTCP_PORT]);
+						//videosess_add_dstaddr(pdest->ip, pdest->port[CMD_V_RTP_PORT], pdest->port[CMD_V_RTCP_PORT]);
+						//audiosess_add_dstaddr(pdest->ip, pdest->port[CMD_A_RTP_PORT], pdest->port[CMD_A_RTCP_PORT]);
 						add_to_ready_list( p);
 						printf("after add to ready list\n");
 						printf("ready_count==%d\n",get_ready_count());
