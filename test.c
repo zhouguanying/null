@@ -679,6 +679,12 @@ __ok:
 		printf("open config file erro\n");
 	}else{
 		printf("try to read config file\n");
+		if(fscanf(fd,"name=%s",(threadcfg.name))!=1){
+			printf("read name error\n");
+		}else{
+			fgetc(fd);
+			printf("name==%s\n",threadcfg.name);
+		}
 		if(fscanf(fd,"framerate=%d",&(threadcfg.xfps))!=1){
 			printf("read framerate error\n");
 		}else{
@@ -726,12 +732,6 @@ __ok:
 		}else{
 			fgetc(fd);
 			printf("bitrate==%d\n",threadcfg.bitrate);
-		}
-		if(fscanf(fd,"name=%s",(threadcfg.name))!=1){
-			printf("read name error\n");
-		}else{
-			fgetc(fd);
-			printf("name==%s\n",threadcfg.name);
 		}
 		if(fscanf(fd,"brightness=%d",&(threadcfg.brightness))!=1){
 			printf("read brightness error\n");
