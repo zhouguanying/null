@@ -41,6 +41,8 @@ int set_ready_struct_connected(uint32_t ip,uint16_t cliport)
 	while(p!=NULL){
 		if(p->destaddrs.ip==ip&&p->destaddrs.port[CMD_CLI_PORT]==cliport){
 			p->connected=1;
+			videosess_add_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_V_RTP_PORT], p->destaddrs.port[CMD_V_RTCP_PORT]);
+			audiosess_add_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_A_RTP_PORT], p->destaddrs.port[CMD_A_RTCP_PORT]);
 			ret=0;
 			break;
 		}
@@ -105,7 +107,7 @@ int get_ready_count()
 	pthread_mutex_unlock(&ready_list_lock);
 	return ret;
 }
-struct mapping *remove_from_ready_list(uint32_t addr,uint16_t cliport)
+int remove_from_ready_list(uint32_t addr,uint16_t cliport)
 {
 	struct mapping *p;
 	struct mapping ** tmp;
@@ -121,7 +123,14 @@ struct mapping *remove_from_ready_list(uint32_t addr,uint16_t cliport)
 		ready_count--;
 	}
 	pthread_mutex_unlock(&ready_list_lock);
-	return p;
+	if(p){
+		put_playback_port(p->destaddrs.port[CMD_PB_PORT]);
+		videosess_remove_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_V_RTP_PORT], p->destaddrs.port[CMD_V_RTCP_PORT]);
+		audiosess_remove_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_A_RTP_PORT], p->destaddrs.port[CMD_A_RTCP_PORT]);
+		free(p);
+		return 0;
+	}
+	return -1;
 }
 struct udp_transfer *get_udp_transfer(uint32_t addr,uint16_t cliport)
 {
