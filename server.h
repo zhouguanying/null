@@ -123,6 +123,9 @@ struct sess_ctx {
  struct threadconfig
  {
 	pthread_mutex_t threadcfglock;
+	char     	name[32];
+	char    	password[64];
+	char 	monitor_mode[32];
 	volatile int xfps;				//frame rate
 	volatile long long  xuspf;//u seconds  per frame
 	char compression[10]; 
@@ -136,10 +139,13 @@ struct sess_ctx {
 	volatile int contrast;
 	volatile int saturation;
 	volatile int gain;
+	char     record_mode[32];
+	volatile int record_sensitivity;
+	volatile int record_slow_speed;
+	volatile int record_fast_speed;
 	volatile int email_alarm;
-	volatile int alarm_sensitivity;
-	char     mailbox[32];
-	char     name[10];
+	char     mailbox[64];
+	volatile int inet_mode;
 };
 /* Housekeeping globals used termintate program */
 extern struct sess_ctx *global_ctx; // EJA

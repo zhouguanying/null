@@ -431,7 +431,7 @@ int main()
 	sleep(1);
 	system("switch host");
 	sleep(1);
-
+	/*
 	system("mkdir /tmp/wpa_supplicant");
 	system("killall wpa_supplicant");
 	sleep(1);
@@ -458,7 +458,7 @@ int main()
 	printf("############end###############\n");
 	for(i= 0; i < 4; i++)
 		free(argv[i]);
-	
+	*/
 	check_wlan0 = 1;
 //	system("ifconfig eth0 192.168.1.121");
 //	system("echo host > /sys/devices/platform/fsl-usb2-otg/status");
@@ -685,6 +685,18 @@ __ok:
 			fgetc(fd);
 			printf("name==%s\n",threadcfg.name);
 		}
+		if(fscanf(fd,"password=%s",(threadcfg.password))!=1){
+			printf("read password error\n");
+		}else{
+			fgetc(fd);
+			printf("password==%s\n",threadcfg.password);
+		}
+		if(fscanf(fd,"monitor_mode=%s",(threadcfg.monitor_mode))!=1){
+			printf("read monitor_mode error\n");
+		}else{
+			fgetc(fd);
+			printf("monitor_mode==%s\n",threadcfg.monitor_mode);
+		}
 		if(fscanf(fd,"framerate=%d",&(threadcfg.xfps))!=1){
 			printf("read framerate error\n");
 		}else{
@@ -757,23 +769,47 @@ __ok:
 			fgetc(fd);
 			printf("gain==%d\n",threadcfg.gain);
 		}
+		if(fscanf(fd,"record_mode=%s",(threadcfg.record_mode))!=1){
+			printf("read record_mode error\n");
+		}else{
+			fgetc(fd);
+			printf("record_mode==%s\n",threadcfg.record_mode);
+		}
+		if(fscanf(fd,"record_sensitivity=%d",&(threadcfg.record_sensitivity))!=1){
+			printf("read record_sensitivity error\n");
+		}else{
+			fgetc(fd);
+			printf("record_sensitivity==%d\n",threadcfg.record_sensitivity);
+		}
+		if(fscanf(fd,"record_slow_speed=%d",&(threadcfg.record_slow_speed))!=1){
+			printf("read record_slow_speed error\n");
+		}else{
+			fgetc(fd);
+			printf("record_slow_speed==%d\n",threadcfg.record_slow_speed);
+		}
+		if(fscanf(fd,"record_fast_speed=%d",&(threadcfg.record_fast_speed))!=1){
+			printf("read record_fast_speed error\n");
+		}else{
+			fgetc(fd);
+			printf("record_fast_speed==%d\n",threadcfg.record_fast_speed);
+		}
 		if(fscanf(fd,"email_alarm=%d",&(threadcfg.email_alarm))!=1){
 			printf("read email_alarm error\n");
 		}else{
 			fgetc(fd);
 			printf("email_alarm==%d\n",threadcfg.email_alarm);
 		}
-		if(fscanf(fd,"alarm_sensitivity=%d",&(threadcfg.alarm_sensitivity))!=1){
-			printf("read alarm_sensitivity error\n");
-		}else{
-			fgetc(fd);
-			printf("alarm_sensitivity==%d\n",threadcfg.alarm_sensitivity);
-		}
 		if(fscanf(fd,"mailbox=%s",threadcfg.mailbox)!=1){
 			printf("read mailbox error\n");
 		}else{
 			fgetc(fd);
 			printf("mailbox==%s\n",threadcfg.mailbox);
+		}
+		if(fscanf(fd,"inet_mode=%d",&(threadcfg.inet_mode))!=1){
+			printf("read inet_mode error\n");
+		}else{
+			fgetc(fd);
+			printf("inet_mode==%d\n",threadcfg.inet_mode);
 		}
 		fclose(fd);
 	}

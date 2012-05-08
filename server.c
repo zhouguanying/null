@@ -1328,7 +1328,7 @@ int start_video_record(struct sess_ctx* sess)
 			exit(-1);
 		}
 		*/
-		if(abs(size-size0)>threadcfg.alarm_sensitivity){
+		if(abs(size-size0)>threadcfg.record_sensitivity){
 			//mail alarm
 			if(threadcfg.email_alarm&&mail_alarm_tid){
 				char *image=malloc(size);
