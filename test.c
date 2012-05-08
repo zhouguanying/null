@@ -338,6 +338,7 @@ int main()
 	int check_wlan0 =0;
 	struct sess_ctx * system_sess=NULL;
 	int count;
+	int tryscan;
 	pthread_t tid;
 	FILE*fd;
 	char ip_buf[512];
@@ -426,7 +427,6 @@ int main()
 			}
 		}
 	}
-	/*
 	system("switch host");
 	sleep(1);
 	system("switch host");
@@ -437,25 +437,28 @@ int main()
 	sleep(1);
 	system("wpa_supplicant -Dwext -iwlan0 -c/data/wpa.conf -B");
 	sleep(5);
+	
 	for(i=0;i<4;i++)
 		argv[i]=malloc(256);
 	printf("###########begin scan###########\n");
 	scanresult = (char *)malloc(2048);
-__again_scan:
-	sprintf(argv[0],"scan");
-	mywpa_cli(1,argv);
-	
-	sleep(1);
-	sprintf(argv[0],"scan_results");
-	mywpa_cli(1,argv);
-	if(result_len ==48){
-		sleep(1);
-		goto __again_scan;
+	tryscan = 5;
+	while(tryscan){
+		sprintf(argv[0],"scan");
+		mywpa_cli(1,argv);
+		sleep(5);
+		sprintf(argv[0],"scan_results");
+		mywpa_cli(1,argv);
+		if(result_len>48)
+			break;
+		tryscan --;
 	}
+	free(scanresult);
+	scanresult = NULL;
 	printf("############end###############\n");
 	for(i= 0; i < 4; i++)
 		free(argv[i]);
-	*/
+	
 	check_wlan0 = 1;
 //	system("ifconfig eth0 192.168.1.121");
 //	system("echo host > /sys/devices/platform/fsl-usb2-otg/status");

@@ -52,6 +52,7 @@
 #include "record_file.h"
 #include "utilities.h"
 #include "sound.h"
+#include "udp_transfer.h"
 //#include "monitor.h"
 
 /* Debug */
@@ -1153,6 +1154,7 @@ static int restart_server(struct sess_ctx *sess, char *arg)
 			audiosess_remove_dstaddr((uint32_t) sess->from.sin_addr.s_addr,htons(AUDIO_SESS_PORT),htons(AUDIO_SESS_PORT+1));
 			videosess_remove_dstaddr((uint32_t) sess->from.sin_addr.s_addr,htons(VIDEO_SESS_PORT),htons(VIDEO_SESS_PORT+1));
 		}else{
+			put_playback_port(p->destaddrs.port[CMD_PB_PORT]);
 			videosess_remove_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_V_RTP_PORT], p->destaddrs.port[CMD_V_RTCP_PORT]);
 			audiosess_remove_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_A_RTP_PORT], p->destaddrs.port[CMD_A_RTCP_PORT]);
 			free(p);
