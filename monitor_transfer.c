@@ -9,6 +9,8 @@
 
 #define CAM_ID   1
 
+extern in_addr_t server_addr;
+
 #define LOCAL_ALIVE_PORT 3000
 #define PACK_HEAD_SIZE     (sizeof(u8)+sizeof(uint16_t))
 #define TIME_OUT			    10
@@ -46,12 +48,8 @@ static int  build_nat_addr(int type,int recvsock)
       	  	 close(sockfd);
        	 return -1;
    	 }
-	 ret=inet_pton(AF_INET,SERVER_IP,&(from.sin_addr.s_addr));
-  	 if(ret<=0){
-		 printf("create server ip error\n");
-	 	 close(sockfd);
-	  	 return -1;
-    	 }
+	
+	  from.sin_addr.s_addr = server_addr;
 	  from.sin_family=AF_INET;
 	  from.sin_port=htons(INTERACTIVE_PORT);
 	   fromlen=sizeof(struct sockaddr_in); 
@@ -161,12 +159,8 @@ int monitor_try_connected_thread()
       	  	 close(sockfd);
        	 return -1;
    	 }
-   	 ret=inet_pton(AF_INET,SERVER_IP,&(from.sin_addr.s_addr));
-  	 if(ret<=0){
-		 printf("create server ip error\n");
-	 	 close(sockfd);
-	  	 return -1;
-    	 }
+	  from.sin_addr.s_addr = server_addr;
+   	 
 	 printf("conver server ip ok\n");
 	//gettimeofday(&oldtime,NULL);
 __retry:

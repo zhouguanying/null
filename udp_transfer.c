@@ -6,7 +6,12 @@
 #include "playback.h"
 #include "utilities.h"
 #include <pthread.h>
+#include <arpa/inet.h>
 #include <assert.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h> 
 
 #define CAM_ID   1
 
@@ -20,6 +25,8 @@
 pthread_mutex_t ready_list_lock;
 struct mapping*ready_list=NULL;
 int ready_count=0;
+
+in_addr_t server_addr;
 
 static  uint16_t local_port[6]={CLI_PORT,VIDEO_SESS_PORT,VIDEO_SESS_PORT+1,AUDIO_SESS_PORT,AUDIO_SESS_PORT+1,5006};
 void add_to_ready_list(struct mapping*p)
@@ -38,9 +45,12 @@ int set_ready_struct_connected(uint32_t ip,uint16_t cliport)
 	int ret=-1;
 	pthread_mutex_lock(&ready_list_lock);
 	p=ready_list;
+	printf("in set_ready_struct connectd cli port ==%d\n",ntohs(cliport));
 	while(p!=NULL){
+		printf("address %p,cliport ==%d\n",p,ntohs(p->destaddrs.port[CMD_CLI_PORT]));
 		if(p->destaddrs.ip==ip&&p->destaddrs.port[CMD_CLI_PORT]==cliport){
 			p->connected=1;
+			printf("ok found ready mapping struct add to session now\n");
 			videosess_add_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_V_RTP_PORT], p->destaddrs.port[CMD_V_RTCP_PORT]);
 			audiosess_add_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_A_RTP_PORT], p->destaddrs.port[CMD_A_RTCP_PORT]);
 			ret=0;
@@ -212,7 +222,6 @@ static int build_nat_addr(int type,int recvsock)
 {
 	int sockfd;
 	int on;
-	int ret;
 	u8 req[BUF_SZ];
 	int req_len;
 	uint16_t size;
@@ -237,12 +246,8 @@ static int build_nat_addr(int type,int recvsock)
       	  	 close(sockfd);
        	 return -1;
    	 }
-	 ret=inet_pton(AF_INET,SERVER_IP,&(from.sin_addr.s_addr));
-  	 if(ret<=0){
-		 printf("create server ip error\n");
-	 	 close(sockfd);
-	  	 return -1;
-    	 }
+	 
+	 from.sin_addr.s_addr = server_addr;
 	  from.sin_family=AF_INET;
 	  from.sin_port=htons(INTERACTIVE_PORT);
 	   fromlen=sizeof(struct sockaddr_in); 
@@ -321,7 +326,6 @@ int transfer_thread()
   	ssize_t req_len;
 //	int rsp_len;
 	int on;
-    	int n;
 	//struct timeval oldtime,newtime;
 //	struct sockaddr_in *saddr;
        struct sockaddr_in from;
@@ -330,6 +334,7 @@ int transfer_thread()
 	struct udp_transfer *pdest=&recvaddr;
 	struct mapping*p;
 	struct timeval timeout;
+	struct hostent *host;
 	/*
 #define set_alive()   \
 	do{ \
@@ -378,15 +383,22 @@ int transfer_thread()
       	  	 close(sockfd);
        	 return -1;
    	 }
-   	 ret=inet_pton(AF_INET,SERVER_IP,&(from.sin_addr.s_addr));
-  	 if(ret<=0){
-		 printf("create server ip error\n");
-	 	 close(sockfd);
-	  	 return -1;
-    	 }
-	 	printf("convert server ip sucess\n");
+	  
+	  pthread_mutex_lock(&threadcfg.threadcfglock);
+	  if( (server_addr=inet_addr(threadcfg.server_addr))==INADDR_NONE)
+    	{
+	        if((host=gethostbyname(threadcfg.server_addr) )==NULL) 
+	        {
+	           perror("server address gethostbyname error");
+	           exit(1);
+	        }
+	        memcpy( &server_addr,host->h_addr,host->h_length);
+    	}
+	 pthread_mutex_unlock(&threadcfg.threadcfglock);
+		from.sin_addr.s_addr = server_addr;
 		from.sin_family=AF_INET;
 		 from.sin_port=htons(CAMERA_WATCH_PORT);
+		 printf("convert server addr sucess ip:%s\n",inet_ntoa(from.sin_addr));
 		 fromlen=sizeof(struct sockaddr_in); 
 		 while(1){ 
 		 	camid=CAM_ID;
@@ -483,7 +495,19 @@ int transfer_thread()
 						printf("after add to ready list\n");
 						printf("ready_count==%d\n",get_ready_count());
 						printf("read_list==%p\n",ready_list);
+
 						struct in_addr inaddr;
+						inaddr.s_addr = p->destaddrs.ip;
+						printf("*********************show copy *******************\n");
+						printf("connected in ip:%s\n",inet_ntoa(inaddr));
+						printf("cli port:%d\n",ntohs(p->destaddrs.port[CMD_CLI_PORT]));
+						printf("videosess rtp port:%d\n",ntohs(p->destaddrs.port[CMD_V_RTP_PORT]));
+						printf("videosess rctp port:%d\n",ntohs(p->destaddrs.port[CMD_V_RTCP_PORT]));
+						printf("audio rtp port:%d\n",ntohs(p->destaddrs.port[CMD_A_RTP_PORT]));
+						printf("audio rctp port:%d\n",ntohs(p->destaddrs.port[CMD_A_RTCP_PORT]));
+						printf("playback port:%d\n",ntohs(p->destaddrs.port[CMD_PB_PORT]));
+						printf("***********************end**************************\n");
+						
 						inaddr.s_addr=pdest->ip;
 						printf("before conver ip==%x\n",pdest->ip);
 						printf("\n##########################CAMERA ###############################\n");

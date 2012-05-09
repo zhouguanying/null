@@ -27,7 +27,8 @@ typedef unsigned short  uint16_t;
 #define CAMERA_WATCH_PORT   4000  //发送camera id端口
 #define CLIENT_WATCH_PORT   4200  //发送monitor id 端口
 #define INTERACTIVE_PORT    4300  //命令交互端口
-#define SERVER_IP        "192.168.1.123"
+
+#define SERVER_IP        "192.168.1.1"
 enum
 {
     /** 

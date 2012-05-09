@@ -123,13 +123,15 @@ struct sess_ctx {
  struct threadconfig
  {
 	pthread_mutex_t threadcfglock;
-	char     	name[32];
+	int 		cam_id;
+	char     	name[64];
 	char    	password[64];
-	char 	monitor_mode[32];
+	char 	server_addr[64];
+	char 	monitor_mode[64];
 	volatile int xfps;				//frame rate
 	volatile long long  xuspf;//u seconds  per frame
-	char compression[10]; 
-	char resolution[10];  //vga qvga
+	char compression[64]; 
+	char resolution[64];  //vga qvga
 	volatile int gop;
 	volatile int rotation_angle;
 	volatile int output_ratio;
@@ -139,13 +141,15 @@ struct sess_ctx {
 	volatile int contrast;
 	volatile int saturation;
 	volatile int gain;
-	char     record_mode[32];
+	char     record_mode[64];
 	volatile int record_sensitivity;
 	volatile int record_slow_speed;
 	volatile int record_fast_speed;
 	volatile int email_alarm;
 	char     mailbox[64];
-	volatile int inet_mode;
+	volatile int sound_duplex;
+	volatile int inet_mode[64];
+	volatile int inet_udhcpc;
 };
 /* Housekeeping globals used termintate program */
 extern struct sess_ctx *global_ctx; // EJA

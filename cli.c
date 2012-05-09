@@ -227,6 +227,7 @@ static int do_cli(struct cli_sess_ctx *sess)
     socklen_t fromlen;
     ssize_t req_len;
 	int rsp_len;
+	int ret;
 	int on;
 
     //dbg("Starting CLI sid(%08X)", (u32) sess);
@@ -243,7 +244,7 @@ static int do_cli(struct cli_sess_ctx *sess)
     if ((sess->saddr = bind_udp_socket(sess->sock, sess->port)) == NULL) {
         printf("****************************Error binding udp socket****************************");
         close(sess->sock);
-		force_reset_v2ipd();
+	 force_reset_v2ipd();
         return -1;
     }
     //dbg("sock %d bound to port %d\n", sess->sock, sess->port);    
@@ -267,10 +268,13 @@ static int do_cli(struct cli_sess_ctx *sess)
 			//dbg("sent rsp");
 				if( rsp_len ){
 					//1  it seems never occur
-					sendto(sess->sock, rsp, rsp_len, 0,(struct sockaddr *) &sess->from, fromlen);
+					printf("enter seen nver happen rsp_len==%d\n",rsp_len);
+					ret =sendto(sess->sock, rsp, rsp_len, 0,(struct sockaddr *) &sess->from, fromlen);
+					printf("sendto return ==%d\n",ret);
 				}
 				else{
-					sendto(sess->sock, rsp, strlen(rsp), 0,(struct sockaddr *) &sess->from, fromlen);
+					ret = sendto(sess->sock, rsp, strlen(rsp), 0,(struct sockaddr *) &sess->from, fromlen);
+					printf("sendto return == %d\n",ret);
 				}
 				free(rsp);
 			}

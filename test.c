@@ -42,7 +42,66 @@ extern int result_len;
 static nand_record_file_header record_header;
 char* test_jpeg_file="/720_480.jpg";
 extern int msqid;
-
+struct configstruct{
+	char name[64];
+	char value[64];
+};
+/*
+static const char *configname[49]={
+		"cam_id",
+		"name",
+		"password",
+		"monitor_mode",
+		"framerate",
+		"compression",
+		"resolution",
+		"gop",
+		"rotation_angle",
+		"output_ratio",
+		"mirror_angle",
+		"bitrate",
+		"brightness",
+		"contrast",
+		"saturation",
+		"gain",
+		"record_mode",
+		"record_sensitivity",
+		"record_slow_speed",
+		"record_fast_speed",
+		"email_alarm",
+		"mailbox",
+		"inet_mode",
+		"inet_udhcpc",
+		"inet_eth_device",
+		"inet_eth_ip",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		
+};
+*/
 int test_file_write()
 {
 	int i,j; 
@@ -326,6 +385,26 @@ static int set_fl(int fd, int flags)
 
 }
 
+static int extract_value(struct configstruct *allconfig,int elements, char *name,int is_string,void *dst)
+{
+	int i;
+	char *strp;
+	int * intp;
+	for(i = 0; i < elements;i++){	
+		if(strncmp(allconfig[i].name,name,strlen(name))==0){
+			if(is_string){
+				strp = (char *)dst;
+				memcpy(strp,allconfig[i].value,64);
+			}else{
+				intp = (int *)dst;
+				*intp = atoi(allconfig[i].value);
+			}
+			return 0;
+		}
+	}
+	return -1;
+}
+
 #define HIDCMD_SCAN_WIFI	0
 #define HIDCMD_SET_NETWORK_MODE 1
 #define HIDCMD_GET_CONFIG	2
@@ -341,7 +420,8 @@ int main()
 	int tryscan;
 	pthread_t tid;
 	FILE*fd;
-	char ip_buf[512];
+	char buf[512];
+	struct configstruct *conf_p;
 	int i;
 	char *argv[4];
 	char *ip=NULL;
@@ -369,7 +449,6 @@ int main()
 	if( ioctl_usbdet_read()){
 		int hid_fd;
 		char hid_cmd[2];
-		char buf[512];
 		int data_len;
 		int ret;
 		int cmd;
@@ -678,7 +757,120 @@ __ok:
 	if(fd==NULL){
 		printf("open config file erro\n");
 	}else{
+		int lines;
 		printf("try to read config file\n");
+		conf_p = (struct configstruct *)calloc(100,sizeof(struct configstruct));
+		if(!conf_p){
+			printf("unable to calloc 100 configstruct \n");
+			fclose(fd);
+			return -1;
+		}
+		memset(conf_p,0,100*sizeof(struct configstruct));
+		lines = 0;
+		memset(buf,0,512);
+		while(fgets(buf,512,fd)!=NULL){
+			char *sp=buf;
+			char *dp=conf_p[lines].name;
+			while(*sp==' '||*sp=='\t')sp++;
+			while(*sp!='='){
+				*dp=*sp;
+				dp++;
+				sp++;
+			}
+			sp++;
+			while(*sp==' '||*sp=='\t')sp++;
+			dp=conf_p[lines].value;
+			while(*sp!='\n'){
+				*dp=*sp;
+				dp++;
+				sp++;
+			}
+			printf("name==%s , value=%s\n",conf_p[lines].name,conf_p[lines].value);
+			lines++;
+			memset(buf,0,512);
+		}
+		threadcfg.cam_id = -1;
+		extract_value(conf_p, lines, "cam_id", 0, &threadcfg.cam_id);
+		if(threadcfg.cam_id ==-1){
+			printf("the config file is error\n");
+			return -1;
+		}
+		printf("cam_id = %d\n",threadcfg.cam_id);
+		
+		extract_value(conf_p, lines, "name", 1, threadcfg.name);
+		printf("name = %s\n",threadcfg.name);
+
+		extract_value(conf_p, lines, "password", 1, threadcfg.password);
+		printf("password = %s\n",threadcfg.password);
+
+		extract_value(conf_p, lines, "server_addr", 1, threadcfg.server_addr);
+		printf("server_addr = %s\n",threadcfg.server_addr);
+
+		extract_value(conf_p, lines, "monitor_mode", 1, threadcfg.monitor_mode);
+		printf("monitor_mode = %s\n",threadcfg.monitor_mode);
+
+		extract_value(conf_p, lines, "framerate", 0, &threadcfg.xfps);
+		printf("framerate = %d\n",threadcfg.xfps);
+
+		extract_value(conf_p, lines, "compression", 1, threadcfg.compression);
+		printf("compression = %s\n",threadcfg.compression);
+
+		extract_value(conf_p, lines, "resolution", 1, threadcfg.resolution);
+		printf("resolution = %s\n",threadcfg.resolution);
+
+		extract_value(conf_p, lines, "gop", 0, &threadcfg.gop);
+		printf("gop = %d\n",threadcfg.gop);
+	
+		extract_value(conf_p, lines, "rotation_angle", 0, &threadcfg.rotation_angle);
+		printf("rotation_angle = %d\n",threadcfg.rotation_angle);
+
+		extract_value(conf_p, lines, "output_ratio", 0, &threadcfg.output_ratio);
+		printf("output_ratio = %d\n",threadcfg.output_ratio);
+
+		extract_value(conf_p, lines, "bitrate", 0, &threadcfg.bitrate);
+		printf("bitrate = %d\n",threadcfg.bitrate);
+
+		extract_value(conf_p, lines, "brightness", 0, &threadcfg.brightness);
+		printf("brightness = %d\n",threadcfg.brightness);
+
+		extract_value(conf_p, lines, "contrast", 0, &threadcfg.contrast);
+		printf("contrast = %d\n",threadcfg.contrast);
+
+		extract_value(conf_p, lines, "saturation", 0, &threadcfg.saturation);
+		printf("saturation = %d\n",threadcfg.saturation);
+
+		extract_value(conf_p, lines, "gain", 0, &threadcfg.gain);
+		printf("gain = %d\n",threadcfg.gain);
+
+		extract_value(conf_p, lines, "record_mode", 1, threadcfg.record_mode);
+		printf("record_mode = %s\n",threadcfg.record_mode);
+
+		extract_value(conf_p, lines, "record_sensitivity", 0, &threadcfg.record_sensitivity);
+		printf("record_sensitivity = %d\n",threadcfg.record_sensitivity);
+
+		extract_value(conf_p, lines, "record_slow_speed", 0, &threadcfg.record_slow_speed);
+		printf("record_slow_speed = %d\n",threadcfg.record_slow_speed);
+
+		extract_value(conf_p, lines, "record_fast_speed", 0, &threadcfg.record_fast_speed);
+		printf("record_fast_speed = %d\n",threadcfg.record_fast_speed);
+
+		extract_value(conf_p, lines, "email_alarm", 0, &threadcfg.email_alarm);
+		printf("email_alarm = %d\n",threadcfg.email_alarm);
+
+		extract_value(conf_p, lines, "mailbox", 1, threadcfg.mailbox);
+		printf("mailbox = %s\n",threadcfg.mailbox);
+
+		extract_value(conf_p, lines, "sound_duplex", 0, &threadcfg.sound_duplex);
+		printf("sound_duplex = %d\n",threadcfg.sound_duplex);
+		
+		extract_value(conf_p, lines, "inet_mode", 1, threadcfg.inet_mode);
+		printf("inet_mode = %s\n",threadcfg.inet_mode);
+
+		extract_value(conf_p, lines, "inet_udhcpc", 0, &threadcfg.inet_udhcpc);
+		printf("inet_udhcpc = %d\n",threadcfg.inet_udhcpc);
+
+		free(conf_p);
+		/*
 		if(fscanf(fd,"name=%s",(threadcfg.name))!=1){
 			printf("read name error\n");
 		}else{
@@ -812,6 +1004,7 @@ __ok:
 			printf("inet_mode==%d\n",threadcfg.inet_mode);
 		}
 		fclose(fd);
+		*/
 	}
 
 	if(threadcfg.xfps<=0)

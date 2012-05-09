@@ -1264,6 +1264,7 @@ int start_video_record(struct sess_ctx* sess)
 	pthread_t mail_alarm_tid=0;
 	struct mail_attach_data*maildatap;
 	int alarm_size;
+	int record_mode;
 
 	dbg("Starting video record\n");
 
@@ -1328,6 +1329,14 @@ int start_video_record(struct sess_ctx* sess)
 			exit(-1);
 		}
 		*/
+		pthread_mutex_lock(&threadcfg.threadcfglock);
+		if(strncmp(threadcfg.record_mode,"no_record",strlen("no_record")) ==0)
+			record_mode = 0;
+		else if(strncmp(threadcfg.record_mode,"normal",strlen("normal")) ==0)
+			record_mode =1;
+		else 
+			record_mode = 2;
+		pthread_mutex_unlock(&threadcfg.threadcfglock);
 		if(abs(size-size0)>threadcfg.record_sensitivity){
 			//mail alarm
 			if(threadcfg.email_alarm&&mail_alarm_tid){
