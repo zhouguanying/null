@@ -395,6 +395,7 @@ int transfer_thread()
 	        memcpy( &server_addr,host->h_addr,host->h_length);
     	}
 	 pthread_mutex_unlock(&threadcfg.threadcfglock);
+	__set_alive:
 		from.sin_addr.s_addr = server_addr;
 		from.sin_family=AF_INET;
 		 from.sin_port=htons(CAMERA_WATCH_PORT);
@@ -420,18 +421,22 @@ int transfer_thread()
 		} 
 	//gettimeofday(&oldtime,NULL);
 	printf("camera set alive ok\n");
-	while(1){
-		/*
+	while(1){/*
 		gettimeofday(&newtime,NULL);
-		if(newtime.tv_sec-oldtime.tv_sec>180){
-			 set_alive();
-			memcpy(&oldtime,&newtime,sizeof(struct timeval));
+		if(abs(newtime.tv_sec-oldtime.tv_sec)>10){
+			 from.sin_addr.s_addr = server_addr;
+			 from.sin_family=AF_INET;
+			 from.sin_port=htons(CAMERA_WATCH_PORT);
+			 fromlen=sizeof(struct sockaddr_in); 
+			 sprintf(req,"alive");
+    			 sendto(sockfd, req, strlen("alive"), 0,(struct sockaddr *) &from, fromlen); 
 		}
 		*/
 		req_len=recvfrom(sockfd, req, BUF_SZ, 0, (struct sockaddr *) &from, &fromlen);
 		if(req_len<=0)
 			continue;
 		memcpy(&nsize,&req[1],sizeof(nsize));
+		//gettimeofday(&oldtime,NULL);
 		size=ntohs(nsize); 
 		if(req_len>0&&req_len==size+PACK_HEAD_SIZE){
 			printf("get command\n");

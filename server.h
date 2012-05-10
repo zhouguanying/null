@@ -144,7 +144,10 @@ struct sess_ctx {
 	char     record_mode[64];
 	volatile int record_sensitivity;
 	volatile int record_slow_speed;
+	char	    record_slow_resolution[64];
 	volatile int record_fast_speed;
+	char     record_fast_resolution[64];
+	volatile int record_fast_duration;
 	volatile int email_alarm;
 	char     mailbox[64];
 	volatile int sound_duplex;

@@ -273,8 +273,11 @@ static int do_cli(struct cli_sess_ctx *sess)
 					printf("sendto return ==%d\n",ret);
 				}
 				else{
-					ret = sendto(sess->sock, rsp, strlen(rsp), 0,(struct sockaddr *) &sess->from, fromlen);
-					printf("sendto return == %d\n",ret);
+					int i;
+					for(i=0;i<5;i++){
+						ret = sendto(sess->sock, rsp, strlen(rsp), 0,(struct sockaddr *) &sess->from, fromlen);
+						printf("sendto return == %d\n",ret);
+					}
 				}
 				free(rsp);
 			}
@@ -558,10 +561,12 @@ done:
 		sess->next=global_ctx_running_list;
 		global_ctx_running_list=sess;
 		currconnections++;
+
 		if((set_ready_struct_connected((uint32_t)sess->from.sin_addr.s_addr, (uint16_t)sess->from.sin_port))<0){
 			audiosess_add_dstaddr((uint32_t)sess->from.sin_addr.s_addr,htons(AUDIO_SESS_PORT),htons(AUDIO_SESS_PORT+1));
 			videosess_add_dstaddr((uint32_t)sess->from.sin_addr.s_addr,htons(VIDEO_SESS_PORT),htons(VIDEO_SESS_PORT+1));
 		}
+
 	}
 	else if (strlen(arg) == 3 && strncmp(arg, "udp", 3) == 0) {
         /* We do this so the CLI can set the destination 

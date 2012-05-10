@@ -269,21 +269,23 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	if (pthread_create(&tid, NULL, (void *) grab_sound_thread, NULL) < 0) {
 		return -1;
 	} 
-	/*
+/*
 	if (pthread_create(&tid, NULL, (void *) check_net_thread, NULL) < 0) {
 		printf("unable to create check net thread\n");
 		return -1;
 	} 
-	*/
+*/
 	playback_init();
 	printf("video monitor and record is running\n");
 
 	sleep(3);
+	
 	if(start_audio_and_video_session()<0){
 		printf("unable to start audio and video session\n");
 		return -1;
 	}
 	sleep(1);
+	
 
 	
 #define MONITOR 0
@@ -307,7 +309,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	msg.msg[0] = VS_MESSAGE_MAIN_PROCESS_ALIVE;
 	msg.msg[1] = 0;
 	while(1) {
-		sleep(DAEMON_REBOOT_TIME_MAX);
+		sleep(DAEMON_REBOOT_TIME_MAX>>1);
 		ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
 		if(ret == -1){
 			dbg("send daemon message error\n");
@@ -506,10 +508,12 @@ int main()
 			}
 		}
 	}
+	/*
 	system("switch host");
 	sleep(1);
 	system("switch host");
 	sleep(1);
+	*/
 	/*
 	system("mkdir /tmp/wpa_supplicant");
 	system("killall wpa_supplicant");
@@ -717,14 +721,6 @@ __ok:
 	pthread_mutex_init(&acceptlock,NULL);
 	pthread_mutex_init(&(threadcfg.threadcfglock),NULL);
 	//read the config data from video.cfg
-	threadcfg.xfps=30;
-	sprintf(threadcfg.compression,"h264");
-	sprintf(threadcfg.resolution,"vga");
-	threadcfg.gop=25;
-	threadcfg.rotation_angle=0;
-	threadcfg.mirror_angle=0;
-	threadcfg.bitrate=2000;
-	sprintf(threadcfg.name,"camera");
 	
 	fd = fopen(RECORD_PAR_FILE, "r");
 	if(fd==NULL){
@@ -735,12 +731,18 @@ __ok:
 			FILE*fdx=fopen(RECORD_PAR_FILE,"w");
 			printf("open reserve config file sucess\n");
 			if(fdx!=NULL){
-				char*buff=malloc(sizeof(char)*50);
-				memset(buff,0,50);
-				while((size=fread(buff,1,40,fd))!=0){
+				char*buff=malloc(sizeof(char)*256);
+				memset(buff,0,256);
+				while((size=fread(buff,1,256,fd))!=0){
 					if(size!=fwrite(buff,1,size,fdx)){
 						printf("write config file error\n");
-						break;
+						fclose(fdx);
+						sleep(1);
+						system("rm -rf /data/video.cfg");
+						sleep(1);
+						fclose(fd);
+						free(buff);
+						return -1;
 					}
 				}
 				free(buff);
@@ -748,10 +750,13 @@ __ok:
 				fclose(fdx);
 			}else{
 				printf("create new config file error\n");
+				fclose(fd);
+				return -1;
 			}
 			fseek(fd,0,0);
 		}else{
 			printf("open reserve config file error\n");
+			return -1;
 		}
 	}
 	if(fd==NULL){
@@ -789,6 +794,10 @@ __ok:
 			lines++;
 			memset(buf,0,512);
 		}
+
+		fclose(fd);
+
+		
 		threadcfg.cam_id = -1;
 		extract_value(conf_p, lines, "cam_id", 0, &threadcfg.cam_id);
 		if(threadcfg.cam_id ==-1){
@@ -800,6 +809,9 @@ __ok:
 		extract_value(conf_p, lines, "name", 1, threadcfg.name);
 		printf("name = %s\n",threadcfg.name);
 
+		if(!(int)threadcfg.name[0])
+			sprintf(threadcfg.name,"ipcam");
+
 		extract_value(conf_p, lines, "password", 1, threadcfg.password);
 		printf("password = %s\n",threadcfg.password);
 
@@ -809,14 +821,27 @@ __ok:
 		extract_value(conf_p, lines, "monitor_mode", 1, threadcfg.monitor_mode);
 		printf("monitor_mode = %s\n",threadcfg.monitor_mode);
 
+		if(!(int)threadcfg.monitor_mode[0])
+			sprintf(threadcfg.monitor_mode,"inteligent");
+
 		extract_value(conf_p, lines, "framerate", 0, &threadcfg.xfps);
 		printf("framerate = %d\n",threadcfg.xfps);
+
+		if(!threadcfg.xfps)
+			threadcfg.xfps = 25;
+		else if(threadcfg.xfps<1)
+			threadcfg.xfps = 1;
+		else if(threadcfg.xfps >25)
+			threadcfg.xfps = 25;
 
 		extract_value(conf_p, lines, "compression", 1, threadcfg.compression);
 		printf("compression = %s\n",threadcfg.compression);
 
 		extract_value(conf_p, lines, "resolution", 1, threadcfg.resolution);
 		printf("resolution = %s\n",threadcfg.resolution);
+
+		if(!(int)threadcfg.resolution[0])
+			sprintf(threadcfg.resolution,"vga");
 
 		extract_value(conf_p, lines, "gop", 0, &threadcfg.gop);
 		printf("gop = %d\n",threadcfg.gop);
@@ -845,27 +870,67 @@ __ok:
 		extract_value(conf_p, lines, "record_mode", 1, threadcfg.record_mode);
 		printf("record_mode = %s\n",threadcfg.record_mode);
 
+		if(!(int)threadcfg.record_mode[0])
+			sprintf(threadcfg.record_mode,"inteligent");
+
 		extract_value(conf_p, lines, "record_sensitivity", 0, &threadcfg.record_sensitivity);
 		printf("record_sensitivity = %d\n",threadcfg.record_sensitivity);
+
+		if(threadcfg.record_sensitivity<1||threadcfg.record_sensitivity>3)
+			threadcfg.record_sensitivity = 1;
 
 		extract_value(conf_p, lines, "record_slow_speed", 0, &threadcfg.record_slow_speed);
 		printf("record_slow_speed = %d\n",threadcfg.record_slow_speed);
 
+		if(threadcfg.record_slow_speed<1||threadcfg.record_slow_speed>25)
+			threadcfg.record_slow_speed = 1;
+
+		extract_value(conf_p, lines, "record_slow_resolution", 1, threadcfg.record_slow_resolution);
+		printf("record_slow_resolution = %s\n",threadcfg.record_slow_resolution);
+
+		if(!(int)threadcfg.record_slow_resolution[0])
+			sprintf(threadcfg.record_slow_resolution,"qvga");
+
 		extract_value(conf_p, lines, "record_fast_speed", 0, &threadcfg.record_fast_speed);
 		printf("record_fast_speed = %d\n",threadcfg.record_fast_speed);
 
+		if(threadcfg.record_fast_speed<1||threadcfg.record_fast_speed>25)
+			threadcfg.record_fast_speed = 25;
+
+		extract_value(conf_p, lines, "record_fast_resolution", 1, threadcfg.record_fast_resolution);
+		printf("record_fast_resolution = %s\n",threadcfg.record_fast_resolution);
+
+		if(!(int)threadcfg.record_fast_resolution[0])
+			sprintf(threadcfg.record_fast_resolution,"vga");
+
+		extract_value(conf_p, lines, "record_fast_duration", 0, &threadcfg.record_fast_duration);
+		printf("record_fast_duration = %d\n",threadcfg.record_fast_duration);
+
+		if(threadcfg.record_fast_duration<1)
+			threadcfg.record_fast_duration = 3;
+
 		extract_value(conf_p, lines, "email_alarm", 0, &threadcfg.email_alarm);
 		printf("email_alarm = %d\n",threadcfg.email_alarm);
+
+		if(threadcfg.email_alarm<0)
+			threadcfg.email_alarm =0;
 
 		extract_value(conf_p, lines, "mailbox", 1, threadcfg.mailbox);
 		printf("mailbox = %s\n",threadcfg.mailbox);
 
 		extract_value(conf_p, lines, "sound_duplex", 0, &threadcfg.sound_duplex);
 		printf("sound_duplex = %d\n",threadcfg.sound_duplex);
+
+		if(threadcfg.sound_duplex<0)
+			threadcfg.sound_duplex = 0;
 		
 		extract_value(conf_p, lines, "inet_mode", 1, threadcfg.inet_mode);
 		printf("inet_mode = %s\n",threadcfg.inet_mode);
 
+		if(!(int)threadcfg.inet_mode[0])
+			sprintf(threadcfg.inet_mode,"inteligent");
+
+		threadcfg.inet_udhcpc = 1;
 		extract_value(conf_p, lines, "inet_udhcpc", 0, &threadcfg.inet_udhcpc);
 		printf("inet_udhcpc = %d\n",threadcfg.inet_udhcpc);
 

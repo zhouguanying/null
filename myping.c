@@ -23,7 +23,7 @@
 #define MAX_NO_PACKETS 3
 
 
-char curr_device[32] = "eth0";
+char curr_device[32] = "wlan0";
 char __gate_way[32];
 
 static int enable_wlan0 =0;

@@ -496,7 +496,7 @@ struct vdIn * init_camera(void) {
 	
 	if (init_videoIn(videoIn, (char *) videodevice, width, height, format, grabmethod) < 0) {
 		printf("init camera device error\n");
-		return 0;
+		return (struct vdIn *) 0;
 	}
 	query_all_ctrl(videoIn->fd);
 	v4l2ResetControl (videoIn, V4L2_CID_BRIGHTNESS);

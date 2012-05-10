@@ -33,6 +33,7 @@
 #include <sys/ipc.h>
 #include <linux/fs.h>
 #include <netdb.h>
+#include <sys/ioctl.h>
 
 #include "includes.h"
 //#include <defines.h>
@@ -949,7 +950,7 @@ struct vdIn * vdin_camera=NULL;
 //we need tow functions to get data beacause we wo only allow one thread get data from kernal buffers that is function get_data
  char * get_video_data(int *size){
 	int i;
-	int canuse;
+	int canuse=0;
 	char *buff;
 	pthread_t self_tid;
 	self_tid=pthread_self();
@@ -1246,12 +1247,10 @@ erro:
 
 
 static nand_record_file_header record_header;
+static const int sensitivity_diff_size[4] = {10000,250,400,500};
 int start_video_record(struct sess_ctx* sess)
 {
-	socklen_t fromlen;
 	int ret;
-	struct sockaddr_in address;
-	int socket;
 	char* buffer;
 	int size;
 	int i;
@@ -1260,16 +1259,31 @@ int start_video_record(struct sess_ctx* sess)
 	struct timeval alive_old_time,alive_curr_time;
 	vs_ctl_message msg;
 	unsigned long long timeuse;
-	int xfps;
+	unsigned long long usec_between_image=0,prev_usec_between_image=0;
 	pthread_t mail_alarm_tid=0;
-	struct mail_attach_data*maildatap;
-	int alarm_size;
-	int record_mode;
+	char swidth[12];
+	char sheight[12];
+	char FrameRateUs[12];
+	int width = 640;
+	int height = 480;
+	int change_resolution =0;
+	int curr_resolution = 1;/*0:qvga; 1:vga; 2:720p*/
+	int email_alarm;
+	int record_slow_speed=0;
+	int record_fast_speed=0;
+	char record_slow_resolution[32];
+	char record_fast_resolution[32];
+	int framerate;
+	int pictures_to_write = 0;
+	int record_fast_duration=0; 
+	char record_resolution[32];
+	int sensitivity_index = threadcfg.record_sensitivity;;
+	int record_mode = 0;
 
 	dbg("Starting video record\n");
 
 	if( !vdin_camera ){
-		if(( vdin_camera = init_camera() ) == NULL ){
+		if(( vdin_camera = (struct vdIn *)init_camera() ) == NULL ){
 			printf("init camera error\n");
 			return -1;
 		}
@@ -1289,8 +1303,27 @@ int start_video_record(struct sess_ctx* sess)
 		sess->soft_reset = 0; /* Clear soft reset condition */
 	}
 
+
 	i = 0;
-	memset(&starttime,0,sizeof(struct timeval));
+
+	
+	if(strncmp(threadcfg.resolution,"qvga",4) ==0){
+		curr_resolution = 0;
+		width = 320;
+		height = 240;
+	}
+	else if(strncmp(threadcfg.resolution,"vga",3) ==0){
+		curr_resolution =1;
+		width = 640;
+		height = 480;
+	}
+	else {
+		curr_resolution =2;
+		width = 1280;
+		height = 720;
+	}
+	change_resolution = curr_resolution;
+
 	
 	if(threadcfg.email_alarm){
 		init_mail_attatch_data_list(threadcfg.mailbox);
@@ -1300,6 +1333,32 @@ int start_video_record(struct sess_ctx* sess)
 		} else
 			printf("mail alarm thread create sucess\n");
 	}
+
+
+	pthread_mutex_lock(&threadcfg.threadcfglock);
+	if(strncmp(threadcfg.record_mode,"no_record",strlen("no_record")) ==0)
+		record_mode = 0;
+	else if(strncmp(threadcfg.record_mode,"normal",strlen("normal")) ==0){
+		record_mode =1;
+		usec_between_image=(unsigned long long )1000000/threadcfg.xfps;
+		memcpy(record_resolution,threadcfg.resolution,32);
+	}
+	else {
+		record_mode = 2;
+		record_fast_duration = threadcfg.record_fast_duration;
+		record_slow_speed = threadcfg.record_slow_speed;
+		record_fast_speed = threadcfg.record_fast_speed;
+		usec_between_image = (unsigned long long )1000000/record_fast_speed;
+		memcpy(record_slow_resolution,threadcfg.record_slow_resolution,32);
+		memcpy(record_fast_resolution,threadcfg.record_fast_resolution,32);
+	}
+	framerate = threadcfg.xfps;
+	email_alarm = threadcfg.email_alarm;
+	sensitivity_index = threadcfg.record_sensitivity;
+	pthread_mutex_unlock(&threadcfg.threadcfglock);
+	
+	
+			
 	msg.msg_type = VS_MESSAGE_ID;
 	msg.msg[0] = VS_MESSAGE_START_RECORDING;
 	msg.msg[1] = 0;
@@ -1312,9 +1371,14 @@ int start_video_record(struct sess_ctx* sess)
 	msg.msg_type = VS_MESSAGE_ID;
 	msg.msg[0] = VS_MESSAGE_RECORD_ALIVE;
 	msg.msg[1] = 0;
+
+
+	gettimeofday(&starttime,NULL);
 	while(1) {
+
+		
 		gettimeofday(&alive_curr_time,NULL);
-		if(alive_curr_time.tv_sec -alive_old_time.tv_sec>=DAEMON_REBOOT_TIME_MAX){
+		if(alive_curr_time.tv_sec -alive_old_time.tv_sec>=(DAEMON_REBOOT_TIME_MAX>>1)){
 			ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
 			if(ret == -1){
 				dbg("send daemon message error\n");
@@ -1322,56 +1386,90 @@ int start_video_record(struct sess_ctx* sess)
 			}
 			memcpy(&alive_old_time,&alive_curr_time,sizeof(struct timeval));
 		}
+
+
+		
 		buffer = get_data(&size);
-		/*
-		if(grab_sound_data()<0){
-			printf("grab sound data error\n");
-			exit(-1);
-		}
-		*/
-		pthread_mutex_lock(&threadcfg.threadcfglock);
-		if(strncmp(threadcfg.record_mode,"no_record",strlen("no_record")) ==0)
-			record_mode = 0;
-		else if(strncmp(threadcfg.record_mode,"normal",strlen("normal")) ==0)
-			record_mode =1;
-		else 
-			record_mode = 2;
-		pthread_mutex_unlock(&threadcfg.threadcfglock);
-		if(abs(size-size0)>threadcfg.record_sensitivity){
-			//mail alarm
-			if(threadcfg.email_alarm&&mail_alarm_tid){
-				char *image=malloc(size);
-				if(image){
-					memcpy(image,buffer,size);
-					add_image_to_mail_attatch_list_no_block( image,  size);
+		if(record_mode == 2&&pictures_to_write>0&&abs(size-size0)>sensitivity_diff_size[sensitivity_index])
+			pictures_to_write = record_fast_speed * record_fast_duration;
+
+		prev_usec_between_image =usec_between_image;
+		switch(record_mode){
+			case 0:/*not record*/
+				pictures_to_write= 0;
+				break;
+			case 1:/*normal*/
+			{
+				if(abs(size-size0)>sensitivity_diff_size[sensitivity_index]){
+					usec_between_image = (unsigned long long )1000000/framerate;
+					gettimeofday(&endtime,NULL);
+					timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - starttime.tv_sec ) + endtime.tv_usec - starttime.tv_usec;
+					if(timeuse >= usec_between_image){
+						pictures_to_write= 1;
+						memcpy(&starttime,&endtime,sizeof(struct timeval));
+					}else
+						pictures_to_write = 0;
+				}else{
+					pictures_to_write= 0;
 				}
+				break;
 			}
-			//printf("size-size0==%d\n",size-size0);
-			size0=size;
-		}else{
+			case 2:/*inteligent*/
+			{
+				if(pictures_to_write<=0){
+					if(abs(size-size0)>sensitivity_diff_size[sensitivity_index]){
+						usec_between_image = (unsigned long long )1000000/record_fast_speed;
+						memcpy(record_resolution,record_fast_resolution,32);
+						pictures_to_write = record_fast_speed * record_fast_duration;
+						memset(&starttime,0,sizeof(struct timeval)); /*write right now!*/
+					}else{
+						usec_between_image = (unsigned long long ) 1000000/record_slow_speed;
+						memcpy(record_resolution,record_fast_resolution,32);
+						pictures_to_write =1;
+					}
+					gettimeofday(&endtime,NULL);
+					timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - starttime.tv_sec ) + endtime.tv_usec - starttime.tv_usec;
+					if(timeuse>=usec_between_image){
+						memcpy(&starttime,&endtime,sizeof(struct timeval));
+					}else{
+						pictures_to_write = 0;
+					}
+				}else{ 
+					gettimeofday(&endtime,NULL);
+					timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - starttime.tv_sec ) + endtime.tv_usec - starttime.tv_usec;
+					if(timeuse>=usec_between_image){
+						memcpy(&starttime,&endtime,sizeof(struct timeval));
+					}else{
+						size0 = size;
+						free(buffer);
+						usleep(1000);
+						continue;
+					}
+				}
+				break;
+			}
+			default:/*something wrong*/
+				exit(0);
+		}
+
+		if(pictures_to_write<=0){
+			size0 = size;
 			free(buffer);
-			size0=size;
-			usleep(10);
+			usleep(1000);
 			continue;
 		}
-		//to control the writting speed
-		pthread_mutex_lock(&(threadcfg.threadcfglock));
-		if(threadcfg.xfps<25){
-			gettimeofday(&endtime,NULL);
-			timeuse=(long long)1000000 *abs ( endtime.tv_sec - starttime.tv_sec ) + endtime.tv_usec - starttime.tv_usec;
-			if(timeuse<threadcfg.xuspf){
-				xfps=threadcfg.xfps;
-				pthread_mutex_unlock(&(threadcfg.threadcfglock));
-				free(buffer);
-				usleep((26-xfps)*4);
-				//printf("time not come continue\n");
-				continue;
-			}else{
-				memcpy(&starttime,&endtime,sizeof(struct timeval));
+		
+		pictures_to_write --;
+
+		
+		if(email_alarm&&mail_alarm_tid){
+			char *image=malloc(size);
+			if(image){
+				memcpy(image,buffer,size);
+				add_image_to_mail_attatch_list_no_block( image,  size);
 			}
 		}
-		pthread_mutex_unlock(&(threadcfg.threadcfglock));
-		//printf("time come ok begin write\n");
+
 		
 retry:
 		ret = nand_write(buffer, size);
@@ -1385,6 +1483,12 @@ retry:
 		}
 		else if( ret == VS_MESSAGE_NEED_START_HEADER ){
 			nand_prepare_record_header(&record_header);
+			sprintf(swidth,"%04d",width);
+			sprintf(sheight,"%04d",height);
+			sprintf(FrameRateUs,"%08llu",prev_usec_between_image);
+			memcpy(&record_header.FrameWidth,&swidth,4);
+			memcpy(&record_header.FrameHeight,&sheight,4);
+			memcpy(&record_header.FrameRateUs,&FrameRateUs,8);
 			nand_write_start_header(&record_header);
 			goto retry;
 		}
@@ -1395,6 +1499,47 @@ retry:
 		}
 		else{
 			printf("write nand error\n");
+		}
+		
+		if(strncmp(record_resolution,"qvga",4) ==0){
+			change_resolution = 0;
+			width = 640;
+			height = 480;
+		}
+		else if(strncmp(record_resolution,"vga",3) ==0){
+			change_resolution =1;
+			width = 320;
+			height = 240;
+		}
+		else {
+			change_resolution =2;
+			width = 1280;
+			height = 720;
+		}
+		if(curr_resolution!=change_resolution){
+			vdin_camera->width = width;
+			vdin_camera->height = height;
+			memset (&vdin_camera->fmt, 0, sizeof (struct v4l2_format));
+			vdin_camera->fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			vdin_camera->fmt.fmt.pix.width = vdin_camera->width;
+			vdin_camera->fmt.fmt.pix.height = vdin_camera->height;
+			vdin_camera->fmt.fmt.pix.pixelformat = vdin_camera->formatIn;
+			vdin_camera->fmt.fmt.pix.field = V4L2_FIELD_ANY;
+			ret = ioctl (vdin_camera->fd, VIDIOC_S_FMT, &vdin_camera->fmt);
+			if (ret < 0) {
+				fprintf (stderr, "Unable to set format: %d.\n", errno);
+				exit(-1);
+			}
+			if ((vdin_camera->fmt.fmt.pix.width != vdin_camera->width) ||
+				(vdin_camera->fmt.fmt.pix.height != vdin_camera->height)) {
+				fprintf (stderr, " format asked unavailable get width %d height %d \n",
+						 vdin_camera->fmt.fmt.pix.width, vdin_camera->fmt.fmt.pix.height);
+				vdin_camera->width = vdin_camera->fmt.fmt.pix.width;
+				vdin_camera->height = vdin_camera->fmt.fmt.pix.height;
+				/* look the format is not part of the deal ??? */
+				//vdin_camera->formatIn = vdin_camera->fmt.fmt.pix.pixelformat;
+			}
+			curr_resolution = change_resolution;
 		}
 		free(buffer);
 	}
