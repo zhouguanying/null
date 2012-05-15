@@ -274,19 +274,16 @@ static int do_cli(struct cli_sess_ctx *sess)
 					printf("sendto return ==%d\n",ret);
 				}
 				else{
-					int i;
-					for(i = 0; i<3;i++){
-						ret = sendto(sess->sock, rsp, strlen(rsp), 0,(struct sockaddr *) &sess->from, fromlen);
-						printf("send to addr ip:%s ; port: %d\n",inet_ntoa(sess->from.sin_addr),ntohs(sess->from.sin_port));
-						printf("sendto return == %d\n",ret);
-						fromlen = sizeof(struct sockaddr_in);
-						 if(getsockname(sess->sock,(struct sockaddr*)&cliaddr,&fromlen) <0){
-						   	printf("cannot get sock name\n");
-							close(sess->sock);
-							return -1;
-						   }
-						 printf("used cli ip:%s , port: %d\n",inet_ntoa(cliaddr.sin_addr),ntohs(cliaddr.sin_port));
+					ret = sendto(sess->sock, rsp, strlen(rsp), 0,(struct sockaddr *) &sess->from, fromlen);
+					printf("send to addr ip:%s ; port: %d\n",inet_ntoa(sess->from.sin_addr),ntohs(sess->from.sin_port));
+					printf("sendto return == %d\n",ret);
+					fromlen = sizeof(struct sockaddr_in);
+					 if(getsockname(sess->sock,(struct sockaddr*)&cliaddr,&fromlen) <0){
+						 printf("cannot get sock name\n");
+						close(sess->sock);
+						return -1;
 					}
+					 printf("used cli ip:%s , port: %d\n",inet_ntoa(cliaddr.sin_addr),ntohs(cliaddr.sin_port));
 				}
 				free(rsp);
 			}
@@ -505,18 +502,13 @@ static int set_transport_type(struct sess_ctx *sess, char *arg)
     }
     if (strlen(arg) == 3 && strncmp(arg, "tcp", 3) == 0) {
             /* Create data socket context */
-		if(!sess->s1){
-			pthread_mutex_lock(&acceptlock);
+		if(sess->s1<0){
       		       if ((sess->s1 = create_tcp_socket()) < 0) {
                    		  printf("Error creating socket");
-				  pthread_mutex_unlock(&acceptlock);
+				  g_cli_ctx->arg=NULL;
+				  free_system_session(sess);
                  	         return -1;
             		}
-		/*
-	    if((socket_set_nonblcok(sess->s1))<0){
-			printf("Error setting socket no block!\n");
-	    }
-		*/
 		
             /* Allow address reuse */
             		on = 1;
@@ -526,13 +518,15 @@ static int set_transport_type(struct sess_ctx *sess, char *arg)
 
           	       if ((sess->myaddr = bind_tcp_socket(sess->s1, SERVER_PORT)) == NULL){
               		  printf("Error binding socket");
-				  pthread_mutex_unlock(&acceptlock);
+				 g_cli_ctx->arg=NULL;
+				  free_system_session(sess);
                 		  return -1;
             		}
 
-            		if (listen(sess->s1, /*MAX_CONNECTIONS*/1) < 0){
+            		if (listen(sess->s1, MAX_CONNECTIONS) < 0){
                		 printf("Error listening for connection");
-		 		 pthread_mutex_unlock(&acceptlock);
+				 g_cli_ctx->arg=NULL;
+				  free_system_session(sess);
                 		return -1;
             		}
 done:
@@ -540,18 +534,17 @@ done:
             		dbg("created tcp socket\n");
 		}else{
 			printf("%s: already binded.\n", __func__);
+			g_cli_ctx->arg=NULL;
+			free_system_session(sess);
+			return -1;
 		}
+		
 		sess->running = 1;
 		sess->ucount=1;
 		
-		pthread_mutex_lock(&strange_thing_lock);
-		
 		if (pthread_create(&sess->tid, NULL, (void *) start_video_monitor, sess) < 0) {
-			pthread_mutex_unlock(&acceptlock);
-			if((struct sess_ctx*)g_cli_ctx->arg==sess)
-				g_cli_ctx->arg=NULL;
+			g_cli_ctx->arg=NULL;
 			free_system_session(sess);
-			pthread_mutex_unlock(&strange_thing_lock);
 			return -1;
 		} 
 		//audiosess_add_dstaddr((uint32_t)sess->from.sin_addr.s_addr,5002);
@@ -1229,18 +1222,13 @@ done:
 			pthread_mutex_unlock(&sess->sesslock);
 		return 0;
 	}
-	pthread_mutex_lock(&sess->sesslock);
-	if(!sess->haveconnected){
-		dbg("have not connected\n");
-		pthread_mutex_unlock(&sess->sesslock);
-		return 0;
-	}
+	
 	printf("enter restar_server now begin\n");
+	pthread_mutex_lock(&sess->sesslock);
 	sess->running=0;
 	playback_exit(sess->from);
 	pthread_mutex_unlock(&sess->sesslock);
 	printf("\nnow wait the monitor stop!\n ");
-	printf("\nsess->tid=%lu\n",sess->tid);
 	//we donnot need to wait thread stop here the lock will do it for us
 	//pthread_join(sess->tid,NULL); if we wait here we will lock global_ctx_lock forever!
 	//printf("ok the thread stop now\n");

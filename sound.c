@@ -884,6 +884,9 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
 	ssize_t n;
 	struct sockaddr_in address;
 	struct sockaddr_in *myaddr;
+	struct timeval selecttv;
+	fd_set acceptfds;
+	int tryaccept = MAX_CONNECTIONS;
 	char *dst;
 	ssize_t dst_size;
 	int i=0;
@@ -910,7 +913,7 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
                 goto __exit;
        }
 
-       if (listen(lsockfd, /*MAX_CONNECTIONS*/1) < 0){
+       if (listen(lsockfd, MAX_CONNECTIONS) < 0){
                printf("Error listening for sound connection");
                goto __exit;
        }
@@ -922,12 +925,38 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
 		}
 		pthread_mutex_unlock(&sess->sesslock);
 		printf("sound thread is running ,ready to connect\n");
-		fromlen=sizeof(struct sockaddr_in);
+		selecttv.tv_sec = 3;
+		selecttv.tv_usec = 0;
+__tryaccept:
+		fromlen = sizeof(struct sockaddr_in);
+		FD_ZERO(&acceptfds);
+		FD_SET(lsockfd, &acceptfds);
+		do{
+			ret = select(lsockfd+ 1, &acceptfds, NULL, NULL, &selecttv);
+		}while(ret == -1);
+		if(ret == 0){
+			tryaccept -- ;
+			if(tryaccept<=0){
+				goto __exit;
+			}
+			goto __tryaccept;
+		}
+			
 		sockfd = accept(lsockfd,(struct sockaddr *) &address,&fromlen);
 		if(sockfd<0){
 			printf("accept sound tcp error\n");
 			goto __exit;
 		}
+		if(sess->from.sin_addr.s_addr!=address.sin_addr.s_addr){
+			tryaccept --;
+			close(sockfd);
+			sockfd = -1;
+			if(tryaccept <=0){
+				goto __exit;
+			}
+			goto __tryaccept;
+		}
+		
 		printf("sound tcp connection in, addr=0x%x, port=0x%d\n",address.sin_addr.s_addr, address.sin_port);
 		close(lsockfd);
 		sess->s3=sockfd;

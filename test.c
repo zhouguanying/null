@@ -669,8 +669,6 @@ __ok:
 	
 	memset(&threadcfg,0,sizeof(threadcfg));
 	pthread_mutex_init(&global_ctx_lock,NULL);
-	pthread_mutex_init(&acceptlock,NULL);
-	pthread_mutex_init(&strange_thing_lock , NULL);
 	pthread_mutex_init(&(threadcfg.threadcfglock),NULL);
 	//read the config data from video.cfg
 	

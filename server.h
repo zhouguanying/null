@@ -118,7 +118,6 @@ struct sess_ctx {
 	struct sess_ctx * next;
 };
 
-
 //save the config of server,read it from video.cfg
  struct threadconfig
  {
@@ -158,10 +157,8 @@ struct sess_ctx {
 extern struct sess_ctx *global_ctx; // EJA
 extern struct sess_ctx *global_ctx_running_list;
 extern int 			 currconnections;
-extern int 			 globalsocket;
+//extern int 			 globalsocket;
 extern pthread_mutex_t  global_ctx_lock;
-extern pthread_mutex_t acceptlock;
-extern pthread_mutex_t strange_thing_lock;
 
 extern struct threadconfig threadcfg;
 
@@ -170,6 +167,11 @@ extern void force_reset_v2ipd(void);
 
 struct sess_ctx *new_system_session(char *name);
 int free_system_session(struct sess_ctx *sess);
+void  add_sess(struct sess_ctx *sess);
+void  del_sess(struct sess_ctx *sess);
+void take_sess_up(struct sess_ctx *sess);
+void take_sess_down(struct sess_ctx *sess);
+
 
 char * get_video_data(int *size);
 int start_video_monitor(struct sess_ctx* sess);

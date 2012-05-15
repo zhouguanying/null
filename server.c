@@ -128,11 +128,7 @@ struct sess_ctx *global_ctx; // EJA
 * together one thread(start_video_monitor) start or exit , the video and the write function will be error
 *
 */
-pthread_mutex_t strange_thing_lock;  
 
-
-
-pthread_mutex_t acceptlock;//if a listen socket is create,we will lock until we accpet
 pthread_mutex_t global_ctx_lock;
 struct sess_ctx *global_ctx_running_list=NULL; //each connection have a sesction
 int 	     		     currconnections=0;
@@ -358,39 +354,59 @@ int free_system_session(struct sess_ctx *sess)
 	printf("free_system_session now\n");
 	if (sess->name != NULL)
 		free(sess->name);
-	if (sess->video.fp != NULL)
+	if (sess->video.fp != NULL){
+		printf("fclose(sess->video.fp)\n");
 		fclose(sess->video.fp);
-	if (sess->audio.fp != NULL)
+	}
+	if (sess->audio.fp != NULL){
 		fclose(sess->audio.fp);
-	if (sess->video.params != NULL)
+		printf("fclose(sess->audio.fp)\n");
+	}
+	if (sess->video.params != NULL){
+		printf("free_video_conf\n");
 		free_video_conf(sess->video.params);
-	if (sess->audio.params != NULL)
+	}
+	if (sess->audio.params != NULL){
+		printf("free_audio_conf\n");
 		free_audio_conf(sess->audio.params);
-	if (sess->audio.cfgfile != NULL)
+	}
+	if (sess->audio.cfgfile != NULL){
+		printf("free(sess->audio.cfgfile)\n");
 		free(sess->audio.cfgfile);
-	if (sess->video.cfgfile != NULL)
+	}
+	if (sess->video.cfgfile != NULL){
+		printf("free(sess->video.cfgfile)\n");
 		free(sess->video.cfgfile);
+	}
 	if (sess->video.sess != NULL)
 		deinit_video(sess);
 	if (sess->audio.sess != NULL)
 		deinit_audio(sess);
 	if (sess->s1 >= 0){
+		printf("close sess->s1 ==%d\n",sess->s1);
 		close(sess->s1);
 	}
-	if (sess->s2 >= 0)
+	if (sess->s2 >= 0){
+		printf("close sess->s2==%d\n",sess->s2);
 		close(sess->s2);
+	}
 	if (sess->to != NULL)
 		free(sess->to);
 	if (sess->myaddr != NULL)
 		free(sess->myaddr);
-	if (sess->pipe_fd >= 0)
+	if (sess->pipe_fd >= 0){
+		printf("close sess->pipe_fd ==%d\n",sess->pipe_fd);
 		close(sess->pipe_fd);
+	}
 	if (sess->pipe_name != NULL) {
+		printf("free sess->pipe_name\n");
 		unlink(sess->pipe_name);
 		free(sess->pipe_name);
 	}
-	if (sess->file_fd >= 0)
+	if (sess->file_fd >= 0){
+		printf("close sess->file_fd ==%d\n",sess->file_fd);
 		close(sess->file_fd);
+	}
 
 #ifdef VIDEO_STATS
 	if (sess->video.tv != NULL)
@@ -402,9 +418,12 @@ int free_system_session(struct sess_ctx *sess)
 #endif /* AUDIO_STATS */
 
 #ifdef USE_CLI
-	if (sess->cli_sess != NULL)
+	if (sess->cli_sess != NULL){
+		printf("close cli_deinit\n");
 		cli_deinit(sess->cli_sess);
+	}
 #endif /* USE_CLI */
+	pthread_mutex_destroy(&sess->sesslock);
 	free(sess);
 
 	//dbg("sid(%08X) removed successfully\n", (u32) sess);
@@ -428,13 +447,20 @@ struct sess_ctx *new_system_session(char *name) {
 	sess = malloc(sizeof(*sess));
 	if (sess == NULL)
 		return NULL;
-	memset(sess, 0, sizeof(*sess));
 
+	
+	memset(sess, 0, sizeof(struct sess_ctx));
+	sess->s1 = -1;
+	sess->s2 = -1;
+	sess->pipe_fd =-1;
+	sess->file_fd =-1;
+
+	
 	/* Add name of session */
 	sess->name = malloc(strlen(name) + 1); /* +1 for string termination */
 	if (sess->name == NULL)
 		goto error1;
-	memset(sess->name, 0, strlen(name));
+	memset(sess->name, 0, strlen(name)+1);
 	memcpy(sess->name, name, strlen(name));
 
 	/* Add timestamp stuff */
@@ -959,7 +985,7 @@ struct vdIn * vdin_camera=NULL;
 //we need tow functions to get data beacause we wo only allow one thread get data from kernal buffers that is function get_data
  char * get_video_data(int *size){
 	int i;
-	int canuse=0;
+	int canuse=-1;
 	char *buff;
 	pthread_t self_tid;
 	self_tid=pthread_self();
@@ -1031,22 +1057,52 @@ retry:
 	return buf;
 }
 #endif
-/*
-int rtp_thread(struct sess_ctx * sess)
+
+ void  add_sess(struct sess_ctx *sess)
 {
-	struct sess_ctx * tmp;
-	int ret;
-	 pthread_mutex_lock(&global_ctx_lock);
-	sess->next=global_ctx_running_list;
-	global_ctx_running_list=sess;
-	currconnections++;
+	pthread_mutex_lock(&global_ctx_lock);
+	sess->next = global_ctx_running_list;
+	global_ctx_running_list = sess;
+	currconnections ++;
 	pthread_mutex_unlock(&global_ctx_lock);
-	ret= rtp_playback_connect(sess->from);
-	if(ret<0){
-	}else{
-	}
 }
-*/
+void  del_sess(struct sess_ctx *sess)
+{
+	struct sess_ctx **p;
+	pthread_mutex_lock(&global_ctx_lock);
+	p = &global_ctx_running_list;
+	while(*p!=NULL){
+		if((*p)==sess){
+			*p=(*p)->next;
+			currconnections--;
+			break;
+		}
+		p=&((*p)->next);
+	}
+	if(g_cli_ctx->arg==sess)
+		g_cli_ctx->arg=NULL;
+	pthread_mutex_unlock(&global_ctx_lock);
+}
+
+ void take_sess_up(struct sess_ctx *sess)
+{
+	pthread_mutex_lock(&sess->sesslock);
+	sess->running = 1;
+	sess->soft_reset = 0; /* Clear soft reset condition */
+	pthread_mutex_unlock(&sess->sesslock);
+}
+
+ void take_sess_down(struct sess_ctx *sess)
+{
+	pthread_mutex_lock(&sess->sesslock);
+	sess->ucount--;
+	sess->running=0;
+	if(sess->ucount<=0){
+		pthread_mutex_unlock(&sess->sesslock);
+		free_system_session(sess);
+	}else
+		pthread_mutex_unlock(&sess->sesslock);
+}
 
 int start_video_monitor(struct sess_ctx* sess)
 {
@@ -1056,72 +1112,88 @@ int start_video_monitor(struct sess_ctx* sess)
 	int socket;
 	char* buffer;
 	int size;
-	int i;
-	struct sess_ctx * tmp;
+	int tryaccpet = MAX_CONNECTIONS;
 	struct timeval timeout;
+	struct timeval selecttv;
+	fd_set acceptfds;
 	//int setframes=0;
+
+	
 	dbg("Starting video monitor server\n");
-
-	
-	pthread_mutex_unlock(&strange_thing_lock);
-       pthread_mutex_lock(&global_ctx_lock);
-	sess->next=global_ctx_running_list;
-	global_ctx_running_list=sess;
-	currconnections++;
-	pthread_mutex_unlock(&global_ctx_lock);
-
-	
-	/* Set up signals */
-	for (i = 1; i <= _NSIG; i++) {
-		if (i == SIGIO || i == SIGINT)
-			sigset(i, sig_handler);
-		else
-			sigignore(i);
-	}
-
-	/* Spin */
-	pthread_mutex_lock(&sess->sesslock);
-	sess->running = 1;
-	sess->soft_reset = 0; /* Clear soft reset condition */
-	pthread_mutex_unlock(&sess->sesslock);
+       add_sess( sess);
+	take_sess_up( sess);
 	
 	while(1) {
+		
 		pthread_mutex_lock(&sess->sesslock);
 		if(!sess->running){
-			pthread_mutex_unlock(&acceptlock);
 			pthread_mutex_unlock(&sess->sesslock);
 			goto exit;
 		}
 		pthread_mutex_unlock(&sess->sesslock);
+
+		
 		if (sess->is_tcp) {
-			fromlen = sizeof(struct sockaddr_in);
+			selecttv.tv_sec = 3;
+			selecttv.tv_usec = 0;
 			printf("ready to connect\n");
-			//printf("my thread id is==%lu\n",pthread_self());
-			//printf("sess->s1=%d\n",sess->s1);
+__tryaccept:
+			fromlen = sizeof(struct sockaddr_in);
+			FD_ZERO(&acceptfds);
+			FD_SET(sess->s1, &acceptfds);
+			do{
+				ret = select(sess->s1 + 1, &acceptfds, NULL, NULL, &selecttv);
+			}while(ret == -1);
+			if(ret == 0){
+				tryaccpet --;
+				if(tryaccpet<=0){
+					close(sess->s1);
+					sess->s1 = -1;
+					goto exit;
+				}
+				goto __tryaccept;
+			}
+			
 			socket = accept(sess->s1,(struct sockaddr *) &address,&fromlen);
 			if(socket<0){
 				printf("accept erro!\n");
 				close(sess->s1);
 				sess->s1=-1;
-				pthread_mutex_unlock(&acceptlock);
 				goto exit;
+			}
+			if(sess->from.sin_addr.s_addr!=address.sin_addr.s_addr){
+				close(socket);
+				tryaccpet --;
+				if(tryaccpet <=0){
+					socket = -1;
+					goto exit;
+				}
+				goto __tryaccept;
 			}
 			if(socket >= 0) {
 				close(sess->s1);
 				sess->s1=-1;
-				pthread_mutex_unlock(&acceptlock);
+
+				/*
 				pthread_mutex_lock(&global_ctx_lock);
 				memcpy(&sess->from,&address,fromlen);
 				pthread_mutex_unlock(&global_ctx_lock);
+				*/
+				
 				printf("connection in, addr=0x%x, port=0x%d\n",address.sin_addr.s_addr, address.sin_port);
+				
+				/*
 				pthread_mutex_lock(&sess->sesslock);
 				sess->haveconnected=1;
 				pthread_mutex_unlock(&sess->sesslock);
+				*/
 				 ret = playback_connect(address, socket);
-				printf("%s: ret = %d\n", __func__, ret);
+
+				 
+				printf("%s: test  playback ret = %d\n", __func__, ret);
 				//conncect for playback firstly. if it fails, connect for monitor.
 				if(ret < 0){
-					timeout.tv_sec  = 5;
+					timeout.tv_sec  = 3;
 					timeout.tv_usec = 0;
 					 if (setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0){
 					            printf("Error enabling socket rcv time out \n");
@@ -1137,7 +1209,6 @@ int start_video_monitor(struct sess_ctx* sess)
 					*/
 					while(1) {
 						buffer = get_video_data(&size);
-						//printf("get data: size=%d\n",size);
 						int i = 0;
 						while(size > 0 ) {
 							if( size >= 1000 ) {
@@ -1149,15 +1220,17 @@ int start_video_monitor(struct sess_ctx* sess)
 								size = 0;
 							}
 						}
-						//printf("send data, ret=%d\n", ret);
 						free(buffer);
-						usleep(1);
+
+						
 						pthread_mutex_lock(&sess->sesslock);
 						if(!sess->running){
 							pthread_mutex_unlock(&sess->sesslock);
 							goto exit;
 						}
 						pthread_mutex_unlock(&sess->sesslock);
+
+						
 						if( ret < 0 ) {
 							printf("sent data error,the connection may currupt!\n");
 							printf("ret==%d\n",ret);
@@ -1178,101 +1251,16 @@ int start_video_monitor(struct sess_ctx* sess)
 	}
 exit:
 	/* Take down session */
-	pthread_mutex_lock(&global_ctx_lock);
-	tmp=global_ctx_running_list;
-	if(tmp==NULL){
-		dbg("running_list erro*****************************************************\n");
-		if(g_cli_ctx->arg==sess)
-				g_cli_ctx->arg=NULL;
-		pthread_mutex_unlock(&global_ctx_lock);
-		pthread_mutex_lock(&sess->sesslock);
-		sess->ucount--;
-		sess->running=0;
-		if(sess->ucount<=0){
-			pthread_mutex_unlock(&sess->sesslock);
-			free_system_session(sess);
-		}else
-			pthread_mutex_unlock(&sess->sesslock);
-		return -1;
-	}
-	if(tmp==sess){
-		global_ctx_running_list=global_ctx_running_list->next;
-		goto done;
-	}
-	while(tmp->next!=NULL){
-		if(tmp->next==sess){
-			tmp->next=sess->next;
-			goto done;
-		}
-		tmp=tmp->next;
-	}
-	dbg("running list erro**************************************************************\n");
-	if(g_cli_ctx->arg==sess)
-			g_cli_ctx->arg=NULL;
-	pthread_mutex_unlock(&global_ctx_lock);
-	pthread_mutex_lock(&sess->sesslock);
-	sess->ucount--;
-	sess->running=0;
-	if(sess->ucount<=0){
-		pthread_mutex_unlock(&sess->sesslock);
-		free_system_session(sess);
-	}else
-		pthread_mutex_unlock(&sess->sesslock);
-	return -1;
-done:
-	currconnections--;
-	if(g_cli_ctx->arg==sess)
-				g_cli_ctx->arg=NULL;
-	pthread_mutex_unlock(&global_ctx_lock);
+	del_sess(sess);
+	take_sess_down( sess);
 	
-	pthread_mutex_lock(&strange_thing_lock);
-	
-	pthread_mutex_lock(&sess->sesslock);
-	sess->ucount--;
-	sess->running=0;
-	if(sess->ucount<=0){
-		pthread_mutex_unlock(&sess->sesslock);
-		free_system_session(sess);
-	}else
-		pthread_mutex_unlock(&sess->sesslock);
 	if(socket>=0){
-		printf("thread exit close set data socket==%d\n",socket);
 		close(socket);
 	}
-	if (sess->soft_reset)
-		/*ret = kill_connection(sess)*/;
-	else
-		/*ret = vpu_ExitSession()*/;
-	//we eixt now kill ourself
-	printf ("\nend/exit returned=%d\n", ret);
-	printf("my thread_id is==%lu\n",pthread_self());
-
 	dbg("\nExitting server\n");
-	pthread_mutex_unlock(&strange_thing_lock);
-	return 0;
-/*	
-erro:
-	free_system_session(sess);
-	return -1;
-	*/
-}
-
-int printf_strange_thing_thread()
-{
-	printf("RUN strange thing thread\n");
 	return 0;
 }
 
-int test_strange_thing_thread(){
-	pthread_t tid;
-	while(1){
-		if (pthread_create(&tid, NULL, (void *) printf_strange_thing_thread, NULL) < 0) {
-			printf("create printf strange thing thread error\n");
-			return -1;
-		} 
-		sleep(1);
-	}
-}
 
 static nand_record_file_header record_header;
 static nand_record_file_internal_header record_internal_header={{0,0,0,1,0xc},};
@@ -1319,12 +1307,6 @@ int start_video_record(struct sess_ctx* sess)
 	int record_mode = 0;
 
 	dbg("Starting video record\n");
-
-	pthread_t tid;
-	if (pthread_create(&tid, NULL, (void *) test_strange_thing_thread, NULL) < 0) {
-		printf("create test_strange_thing_thread error\n");
-		return -1;
-	} 
 
 	if( !vdin_camera ){
 		if(( vdin_camera = (struct vdIn *)init_camera() ) == NULL ){
@@ -1567,7 +1549,6 @@ retry:
 			printf("ok change resolusion width ==%d , height ==%d\n",width,height);
 			printf("big_to_small ==%d\n",big_to_small);
 			
-			pthread_mutex_lock(&strange_thing_lock);
 			pthread_mutex_lock(&vdin_camera->tmpbufflock);
 			usleep(1000);
 			gettimeofday(&stop_time,NULL);
@@ -1582,7 +1563,6 @@ retry:
 			}
 			gettimeofday(&open_time,NULL);
 			pthread_mutex_unlock(&vdin_camera->tmpbufflock);
-			pthread_mutex_unlock(&strange_thing_lock);
 			
 			un_cpture_time =(unsigned long long)1000000 *abs ( open_time.tv_sec - stop_time.tv_sec ) + open_time.tv_usec -stop_time.tv_usec;
 			printf("un_cpture_time == %llu\n",un_cpture_time);
