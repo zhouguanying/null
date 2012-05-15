@@ -42,7 +42,7 @@ int put_playback_port(uint16_t port)
 	if(port<PB_BASE_PORT)
 		return -1;
 	i=(port-PB_BASE_PORT)>>1;
-	printf("in put playback port i==%d\n",i);
+	printf("in put playback port port==%d ,  i==%d\n",port,i);
 	pthread_mutex_lock(&pb_rtp_port_lock);
 	pb_rtp_port[i]=0;
 	pthread_mutex_unlock(&pb_rtp_port_lock);

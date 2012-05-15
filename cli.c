@@ -225,6 +225,7 @@ static int do_cli(struct cli_sess_ctx *sess)
     u8 req[BUF_SZ];
     char *rsp;
     socklen_t fromlen;
+     struct sockaddr_in cliaddr;
     ssize_t req_len;
 	int rsp_len;
 	int ret;
@@ -274,9 +275,17 @@ static int do_cli(struct cli_sess_ctx *sess)
 				}
 				else{
 					int i;
-					for(i=0;i<5;i++){
+					for(i = 0; i<3;i++){
 						ret = sendto(sess->sock, rsp, strlen(rsp), 0,(struct sockaddr *) &sess->from, fromlen);
+						printf("send to addr ip:%s ; port: %d\n",inet_ntoa(sess->from.sin_addr),ntohs(sess->from.sin_port));
 						printf("sendto return == %d\n",ret);
+						fromlen = sizeof(struct sockaddr_in);
+						 if(getsockname(sess->sock,(struct sockaddr*)&cliaddr,&fromlen) <0){
+						   	printf("cannot get sock name\n");
+							close(sess->sock);
+							return -1;
+						   }
+						 printf("used cli ip:%s , port: %d\n",inet_ntoa(cliaddr.sin_addr),ntohs(cliaddr.sin_port));
 					}
 				}
 				free(rsp);
@@ -534,11 +543,15 @@ done:
 		}
 		sess->running = 1;
 		sess->ucount=1;
+		
+		pthread_mutex_lock(&strange_thing_lock);
+		
 		if (pthread_create(&sess->tid, NULL, (void *) start_video_monitor, sess) < 0) {
 			pthread_mutex_unlock(&acceptlock);
 			if((struct sess_ctx*)g_cli_ctx->arg==sess)
 				g_cli_ctx->arg=NULL;
 			free_system_session(sess);
+			pthread_mutex_unlock(&strange_thing_lock);
 			return -1;
 		} 
 		//audiosess_add_dstaddr((uint32_t)sess->from.sin_addr.s_addr,5002);

@@ -128,8 +128,7 @@ struct sess_ctx {
 	char    	password[64];
 	char 	server_addr[64];
 	char 	monitor_mode[64];
-	volatile int xfps;				//frame rate
-	volatile long long  xuspf;//u seconds  per frame
+	volatile int framerate;				//frame rate
 	char compression[64]; 
 	char resolution[64];  //vga qvga
 	volatile int gop;
@@ -143,6 +142,7 @@ struct sess_ctx {
 	volatile int gain;
 	char     record_mode[64];
 	volatile int record_sensitivity;
+	volatile int record_normal_speed;
 	volatile int record_slow_speed;
 	char	    record_slow_resolution[64];
 	volatile int record_fast_speed;
@@ -161,6 +161,7 @@ extern int 			 currconnections;
 extern int 			 globalsocket;
 extern pthread_mutex_t  global_ctx_lock;
 extern pthread_mutex_t acceptlock;
+extern pthread_mutex_t strange_thing_lock;
 
 extern struct threadconfig threadcfg;
 

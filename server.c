@@ -123,6 +123,15 @@ extern char *v2ipd_logfile;
 /* Housekeeping globals used termintate program */
 struct sess_ctx *global_ctx; // EJA
 
+
+/*why we need this lock because i found when i change the video or write file to disck 
+* together one thread(start_video_monitor) start or exit , the video and the write function will be error
+*
+*/
+pthread_mutex_t strange_thing_lock;  
+
+
+
 pthread_mutex_t acceptlock;//if a listen socket is create,we will lock until we accpet
 pthread_mutex_t global_ctx_lock;
 struct sess_ctx *global_ctx_running_list=NULL; //each connection have a sesction
@@ -985,12 +994,24 @@ have_readed:
 }
 static char* get_data(int* size)
 {
+	const char *videodevice = "/dev/video0";
+	int format = V4L2_PIX_FMT_MJPEG;
+	int grabmethod = 1;
 	 char* buf;
-	 
+	 int trygrab = 5;
+	
 	pthread_mutex_lock(&vdin_camera->tmpbufflock);
 retry:
 	if (uvcGrab (vdin_camera) < 0) {
 		printf("Error grabbing\n");
+		trygrab --;
+		if(trygrab<=0){
+			close_v4l2 (vdin_camera);
+			if (init_videoIn(vdin_camera, (char *) videodevice, 640, 480, format, grabmethod) < 0) {
+				printf("init camera device error\n");
+				exit(0);
+			}
+		}
 		usleep(100000);
 		goto retry;
 	}
@@ -1005,6 +1026,7 @@ retry:
 	//pthread_mutex_lock(&vdin_camera->tmpbufflock);
 	memcpy(buf, vdin_camera->tmpbuffer, vdin_camera->buf.bytesused + DHT_SIZE );
 	*size = vdin_camera->buf.bytesused + DHT_SIZE;
+	
 	pthread_mutex_unlock(&vdin_camera->tmpbufflock);
 	return buf;
 }
@@ -1039,30 +1061,16 @@ int start_video_monitor(struct sess_ctx* sess)
 	struct timeval timeout;
 	//int setframes=0;
 	dbg("Starting video monitor server\n");
-	if( !vdin_camera ){
-		if(( vdin_camera = init_camera() ) == NULL ){
-			printf("init camera error\n");
-			pthread_mutex_unlock(&acceptlock);
-			pthread_mutex_lock(&global_ctx_lock);
-			if(g_cli_ctx->arg==sess)
-				g_cli_ctx->arg=NULL;
-			pthread_mutex_unlock(&global_ctx_lock);
-			pthread_mutex_lock(&sess->sesslock);
-			sess->running=0;
-			sess->ucount--;
-			if(sess->ucount<=0){
-				pthread_mutex_unlock(&sess->sesslock);
-				free_system_session(sess);
-			}else
-				pthread_mutex_unlock(&sess->sesslock);
-			return -1;
-		}
-	}
+
+	
+	pthread_mutex_unlock(&strange_thing_lock);
        pthread_mutex_lock(&global_ctx_lock);
 	sess->next=global_ctx_running_list;
 	global_ctx_running_list=sess;
 	currconnections++;
 	pthread_mutex_unlock(&global_ctx_lock);
+
+	
 	/* Set up signals */
 	for (i = 1; i <= _NSIG; i++) {
 		if (i == SIGIO || i == SIGINT)
@@ -1216,6 +1224,9 @@ done:
 	if(g_cli_ctx->arg==sess)
 				g_cli_ctx->arg=NULL;
 	pthread_mutex_unlock(&global_ctx_lock);
+	
+	pthread_mutex_lock(&strange_thing_lock);
+	
 	pthread_mutex_lock(&sess->sesslock);
 	sess->ucount--;
 	sess->running=0;
@@ -1237,6 +1248,7 @@ done:
 	printf("my thread_id is==%lu\n",pthread_self());
 
 	dbg("\nExitting server\n");
+	pthread_mutex_unlock(&strange_thing_lock);
 	return 0;
 /*	
 erro:
@@ -1245,16 +1257,39 @@ erro:
 	*/
 }
 
+int printf_strange_thing_thread()
+{
+	printf("RUN strange thing thread\n");
+	return 0;
+}
+
+int test_strange_thing_thread(){
+	pthread_t tid;
+	while(1){
+		if (pthread_create(&tid, NULL, (void *) printf_strange_thing_thread, NULL) < 0) {
+			printf("create printf strange thing thread error\n");
+			return -1;
+		} 
+		sleep(1);
+	}
+}
 
 static nand_record_file_header record_header;
-static const int sensitivity_diff_size[4] = {10000,250,400,500};
+static nand_record_file_internal_header record_internal_header={{0,0,0,1,0xc},};
+static const int sensitivity_diff_size[4] = {10000,250,350,450};
 int start_video_record(struct sess_ctx* sess)
 {
+	const char *videodevice = "/dev/video0";
+	int format = V4L2_PIX_FMT_MJPEG;
+	int grabmethod = 1;
 	int ret;
 	char* buffer;
 	int size;
 	int i;
 	int size0=0;
+	struct timeval stop_time;
+	struct timeval open_time;
+	unsigned long long un_cpture_time;
 	struct timeval starttime,endtime;
 	struct timeval alive_old_time,alive_curr_time;
 	vs_ctl_message msg;
@@ -1264,16 +1299,19 @@ int start_video_record(struct sess_ctx* sess)
 	char swidth[12];
 	char sheight[12];
 	char FrameRateUs[12];
+	int type;
+	int num_pic_to_ignore = 150;
 	int width = 640;
 	int height = 480;
 	int change_resolution =0;
 	int curr_resolution = 1;/*0:qvga; 1:vga; 2:720p*/
+	int big_to_small = 1;
 	int email_alarm;
 	int record_slow_speed=0;
 	int record_fast_speed=0;
 	char record_slow_resolution[32];
 	char record_fast_resolution[32];
-	int framerate;
+	int record_normal_speed;
 	int pictures_to_write = 0;
 	int record_fast_duration=0; 
 	char record_resolution[32];
@@ -1281,6 +1319,12 @@ int start_video_record(struct sess_ctx* sess)
 	int record_mode = 0;
 
 	dbg("Starting video record\n");
+
+	pthread_t tid;
+	if (pthread_create(&tid, NULL, (void *) test_strange_thing_thread, NULL) < 0) {
+		printf("create test_strange_thing_thread error\n");
+		return -1;
+	} 
 
 	if( !vdin_camera ){
 		if(( vdin_camera = (struct vdIn *)init_camera() ) == NULL ){
@@ -1296,13 +1340,6 @@ int start_video_record(struct sess_ctx* sess)
 		else
 			sigignore(i);
 	}
-
-	/* Spin */
-	if(sess){
-		sess->running = 1;
-		sess->soft_reset = 0; /* Clear soft reset condition */
-	}
-
 
 	i = 0;
 
@@ -1324,6 +1361,8 @@ int start_video_record(struct sess_ctx* sess)
 	}
 	change_resolution = curr_resolution;
 
+	printf("width ==%d , height == %d\n",width , height);
+
 	
 	if(threadcfg.email_alarm){
 		init_mail_attatch_data_list(threadcfg.mailbox);
@@ -1340,10 +1379,11 @@ int start_video_record(struct sess_ctx* sess)
 		record_mode = 0;
 	else if(strncmp(threadcfg.record_mode,"normal",strlen("normal")) ==0){
 		record_mode =1;
-		usec_between_image=(unsigned long long )1000000/threadcfg.xfps;
+		usec_between_image=(unsigned long long )1000000/threadcfg.record_normal_speed;
 		memcpy(record_resolution,threadcfg.resolution,32);
 	}
 	else {
+		printf("record_mode ==inteligent\n");
 		record_mode = 2;
 		record_fast_duration = threadcfg.record_fast_duration;
 		record_slow_speed = threadcfg.record_slow_speed;
@@ -1352,9 +1392,10 @@ int start_video_record(struct sess_ctx* sess)
 		memcpy(record_slow_resolution,threadcfg.record_slow_resolution,32);
 		memcpy(record_fast_resolution,threadcfg.record_fast_resolution,32);
 	}
-	framerate = threadcfg.xfps;
+	record_normal_speed = threadcfg.record_normal_speed;
 	email_alarm = threadcfg.email_alarm;
 	sensitivity_index = threadcfg.record_sensitivity;
+	printf("record_sensitivity == %d\n",sensitivity_diff_size[sensitivity_index]);
 	pthread_mutex_unlock(&threadcfg.threadcfglock);
 	
 	
@@ -1371,7 +1412,6 @@ int start_video_record(struct sess_ctx* sess)
 	msg.msg_type = VS_MESSAGE_ID;
 	msg.msg[0] = VS_MESSAGE_RECORD_ALIVE;
 	msg.msg[1] = 0;
-
 
 	gettimeofday(&starttime,NULL);
 	while(1) {
@@ -1390,6 +1430,10 @@ int start_video_record(struct sess_ctx* sess)
 
 		
 		buffer = get_data(&size);
+		if(big_to_small >0&&num_pic_to_ignore>0){
+			size0 = size;
+			num_pic_to_ignore --;
+		}
 		if(record_mode == 2&&pictures_to_write>0&&abs(size-size0)>sensitivity_diff_size[sensitivity_index])
 			pictures_to_write = record_fast_speed * record_fast_duration;
 
@@ -1401,7 +1445,7 @@ int start_video_record(struct sess_ctx* sess)
 			case 1:/*normal*/
 			{
 				if(abs(size-size0)>sensitivity_diff_size[sensitivity_index]){
-					usec_between_image = (unsigned long long )1000000/framerate;
+					usec_between_image = (unsigned long long )1000000/record_normal_speed;
 					gettimeofday(&endtime,NULL);
 					timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - starttime.tv_sec ) + endtime.tv_usec - starttime.tv_usec;
 					if(timeuse >= usec_between_image){
@@ -1418,13 +1462,14 @@ int start_video_record(struct sess_ctx* sess)
 			{
 				if(pictures_to_write<=0){
 					if(abs(size-size0)>sensitivity_diff_size[sensitivity_index]){
+						printf("inteligent something move\n");
 						usec_between_image = (unsigned long long )1000000/record_fast_speed;
 						memcpy(record_resolution,record_fast_resolution,32);
 						pictures_to_write = record_fast_speed * record_fast_duration;
 						memset(&starttime,0,sizeof(struct timeval)); /*write right now!*/
 					}else{
 						usec_between_image = (unsigned long long ) 1000000/record_slow_speed;
-						memcpy(record_resolution,record_fast_resolution,32);
+						memcpy(record_resolution,record_slow_resolution,32);
 						pictures_to_write =1;
 					}
 					gettimeofday(&endtime,NULL);
@@ -1442,7 +1487,7 @@ int start_video_record(struct sess_ctx* sess)
 					}else{
 						size0 = size;
 						free(buffer);
-						usleep(1000);
+						//printf("inteligent time not come? usec_between_image ==%llu\n",usec_between_image);
 						continue;
 					}
 				}
@@ -1452,8 +1497,8 @@ int start_video_record(struct sess_ctx* sess)
 				exit(0);
 		}
 
+		size0 = size;
 		if(pictures_to_write<=0){
-			size0 = size;
 			free(buffer);
 			usleep(1000);
 			continue;
@@ -1461,7 +1506,7 @@ int start_video_record(struct sess_ctx* sess)
 		
 		pictures_to_write --;
 
-		
+		//printf("pictures to write ==%d\n", pictures_to_write);
 		if(email_alarm&&mail_alarm_tid){
 			char *image=malloc(size);
 			if(image){
@@ -1492,6 +1537,7 @@ retry:
 			nand_write_start_header(&record_header);
 			goto retry;
 		}
+		
 		else if( ret == VS_MESSAGE_NEED_END_HEADER ){
 			nand_prepare_close_record_header(&record_header);
 			nand_write_end_header(&record_header);
@@ -1503,13 +1549,13 @@ retry:
 		
 		if(strncmp(record_resolution,"qvga",4) ==0){
 			change_resolution = 0;
-			width = 640;
-			height = 480;
+			width = 320;
+			height = 240;
 		}
 		else if(strncmp(record_resolution,"vga",3) ==0){
 			change_resolution =1;
-			width = 320;
-			height = 240;
+			width = 640;
+			height = 480;
 		}
 		else {
 			change_resolution =2;
@@ -1517,28 +1563,30 @@ retry:
 			height = 720;
 		}
 		if(curr_resolution!=change_resolution){
-			vdin_camera->width = width;
-			vdin_camera->height = height;
-			memset (&vdin_camera->fmt, 0, sizeof (struct v4l2_format));
-			vdin_camera->fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-			vdin_camera->fmt.fmt.pix.width = vdin_camera->width;
-			vdin_camera->fmt.fmt.pix.height = vdin_camera->height;
-			vdin_camera->fmt.fmt.pix.pixelformat = vdin_camera->formatIn;
-			vdin_camera->fmt.fmt.pix.field = V4L2_FIELD_ANY;
-			ret = ioctl (vdin_camera->fd, VIDIOC_S_FMT, &vdin_camera->fmt);
-			if (ret < 0) {
-				fprintf (stderr, "Unable to set format: %d.\n", errno);
-				exit(-1);
+			big_to_small  = curr_resolution - change_resolution;
+			printf("ok change resolusion width ==%d , height ==%d\n",width,height);
+			printf("big_to_small ==%d\n",big_to_small);
+			
+			pthread_mutex_lock(&strange_thing_lock);
+			pthread_mutex_lock(&vdin_camera->tmpbufflock);
+			usleep(1000);
+			gettimeofday(&stop_time,NULL);
+			close_v4l2 (vdin_camera);
+			if (init_videoIn(vdin_camera, (char *) videodevice, width, height, format, grabmethod) < 0) {
+				printf("init camera device error\n");
+				return (struct vdIn *) 0;
 			}
-			if ((vdin_camera->fmt.fmt.pix.width != vdin_camera->width) ||
-				(vdin_camera->fmt.fmt.pix.height != vdin_camera->height)) {
-				fprintf (stderr, " format asked unavailable get width %d height %d \n",
-						 vdin_camera->fmt.fmt.pix.width, vdin_camera->fmt.fmt.pix.height);
-				vdin_camera->width = vdin_camera->fmt.fmt.pix.width;
-				vdin_camera->height = vdin_camera->fmt.fmt.pix.height;
-				/* look the format is not part of the deal ??? */
-				//vdin_camera->formatIn = vdin_camera->fmt.fmt.pix.pixelformat;
+			while(uvcGrab (vdin_camera) < 0) {
+				printf("Error grabbing\n");
+				usleep(100000);
 			}
+			gettimeofday(&open_time,NULL);
+			pthread_mutex_unlock(&vdin_camera->tmpbufflock);
+			pthread_mutex_unlock(&strange_thing_lock);
+			
+			un_cpture_time =(unsigned long long)1000000 *abs ( open_time.tv_sec - stop_time.tv_sec ) + open_time.tv_usec -stop_time.tv_usec;
+			printf("un_cpture_time == %llu\n",un_cpture_time);
+			num_pic_to_ignore = 125;
 			curr_resolution = change_resolution;
 		}
 		free(buffer);

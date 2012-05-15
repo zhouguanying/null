@@ -46,62 +46,7 @@ struct configstruct{
 	char name[64];
 	char value[64];
 };
-/*
-static const char *configname[49]={
-		"cam_id",
-		"name",
-		"password",
-		"monitor_mode",
-		"framerate",
-		"compression",
-		"resolution",
-		"gop",
-		"rotation_angle",
-		"output_ratio",
-		"mirror_angle",
-		"bitrate",
-		"brightness",
-		"contrast",
-		"saturation",
-		"gain",
-		"record_mode",
-		"record_sensitivity",
-		"record_slow_speed",
-		"record_fast_speed",
-		"email_alarm",
-		"mailbox",
-		"inet_mode",
-		"inet_udhcpc",
-		"inet_eth_device",
-		"inet_eth_ip",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		
-};
-*/
+
 int test_file_write()
 {
 	int i,j; 
@@ -285,6 +230,12 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 		return -1;
 	}
 	sleep(1);
+	/*
+	sleep(1);
+	in_addr_t to;
+	to = inet_addr("192.168.1.121");
+	audiosess_add_dstaddr(to,htons(49150),htons(49151));
+	*/
 	
 
 	
@@ -508,12 +459,12 @@ int main()
 			}
 		}
 	}
-	/*
+	
 	system("switch host");
 	sleep(1);
 	system("switch host");
 	sleep(1);
-	*/
+	
 	/*
 	system("mkdir /tmp/wpa_supplicant");
 	system("killall wpa_supplicant");
@@ -719,6 +670,7 @@ __ok:
 	memset(&threadcfg,0,sizeof(threadcfg));
 	pthread_mutex_init(&global_ctx_lock,NULL);
 	pthread_mutex_init(&acceptlock,NULL);
+	pthread_mutex_init(&strange_thing_lock , NULL);
 	pthread_mutex_init(&(threadcfg.threadcfglock),NULL);
 	//read the config data from video.cfg
 	
@@ -824,15 +776,16 @@ __ok:
 		if(!(int)threadcfg.monitor_mode[0])
 			sprintf(threadcfg.monitor_mode,"inteligent");
 
-		extract_value(conf_p, lines, "framerate", 0, &threadcfg.xfps);
-		printf("framerate = %d\n",threadcfg.xfps);
+		extract_value(conf_p, lines, "framerate", 0, &threadcfg.framerate);
+		printf("framerate= %d\n",threadcfg.framerate);
 
-		if(!threadcfg.xfps)
-			threadcfg.xfps = 25;
-		else if(threadcfg.xfps<1)
-			threadcfg.xfps = 1;
-		else if(threadcfg.xfps >25)
-			threadcfg.xfps = 25;
+		if(!threadcfg.framerate)
+			threadcfg.framerate = 25;
+		else if(threadcfg.framerate<1)
+			threadcfg.framerate = 1;
+		else if(threadcfg.framerate >25)
+			threadcfg.framerate = 25;
+
 
 		extract_value(conf_p, lines, "compression", 1, threadcfg.compression);
 		printf("compression = %s\n",threadcfg.compression);
@@ -872,6 +825,17 @@ __ok:
 
 		if(!(int)threadcfg.record_mode[0])
 			sprintf(threadcfg.record_mode,"inteligent");
+
+		extract_value(conf_p, lines, "record_normal_speed", 0, &threadcfg.record_normal_speed);
+		printf("record_normal_speed= %d\n",threadcfg.record_normal_speed);
+
+		if(!threadcfg.record_normal_speed)
+			threadcfg.record_normal_speed = 25;
+		else if(threadcfg.record_normal_speed<1)
+			threadcfg.record_normal_speed = 1;
+		else if(threadcfg.record_normal_speed >25)
+			threadcfg.record_normal_speed = 25;
+
 
 		extract_value(conf_p, lines, "record_sensitivity", 0, &threadcfg.record_sensitivity);
 		printf("record_sensitivity = %d\n",threadcfg.record_sensitivity);
@@ -935,147 +899,8 @@ __ok:
 		printf("inet_udhcpc = %d\n",threadcfg.inet_udhcpc);
 
 		free(conf_p);
-		/*
-		if(fscanf(fd,"name=%s",(threadcfg.name))!=1){
-			printf("read name error\n");
-		}else{
-			fgetc(fd);
-			printf("name==%s\n",threadcfg.name);
-		}
-		if(fscanf(fd,"password=%s",(threadcfg.password))!=1){
-			printf("read password error\n");
-		}else{
-			fgetc(fd);
-			printf("password==%s\n",threadcfg.password);
-		}
-		if(fscanf(fd,"monitor_mode=%s",(threadcfg.monitor_mode))!=1){
-			printf("read monitor_mode error\n");
-		}else{
-			fgetc(fd);
-			printf("monitor_mode==%s\n",threadcfg.monitor_mode);
-		}
-		if(fscanf(fd,"framerate=%d",&(threadcfg.xfps))!=1){
-			printf("read framerate error\n");
-		}else{
-			fgetc(fd);
-			printf("framerate==%d\n",threadcfg.xfps);
-		}
-		if(fscanf(fd,"compression=%s",threadcfg.compression)!=1){
-			printf("read compression error\n");
-		}else{
-			fgetc(fd);
-			printf("compression==%s\n",threadcfg.compression);
-		}
-		if(fscanf(fd,"resolution=%s",(threadcfg.resolution))!=1){
-			printf("read resolution error\n");
-		}else{
-		       fgetc(fd);
-			printf("resolution==%s\n",threadcfg.resolution);
-		}
-		if(fscanf(fd,"gop=%d",&(threadcfg.gop))!=1){
-			printf("read gop error\n");
-		}else{
-			fgetc(fd);
-			printf("gop==%d\n",threadcfg.gop);
-		}
-		if(fscanf(fd,"rotation_angle=%d",&(threadcfg.rotation_angle))!=1){
-			printf("read rotation_angle error\n");
-		}else{
-			fgetc(fd);
-			printf("rotation_angle==%d\n",threadcfg.rotation_angle);
-		}
-		if(fscanf(fd,"output_ratio=%d",&(threadcfg.output_ratio))!=1){
-			printf("read output_ratio error\n");
-		}else{
-			fgetc(fd);
-			printf("outpurt_ratio==%d\n",threadcfg.output_ratio);
-		}
-		if(fscanf(fd,"mirror_angle=%d",&(threadcfg.mirror_angle))!=1){
-			printf("read mirror_angle error\n");
-		}else{
-			fgetc(fd);
-			printf("mirror_angle==%d\n",threadcfg.mirror_angle);
-		}
-		if(fscanf(fd,"bitrate=%d",&(threadcfg.bitrate))!=1){
-			printf("read bitrate error\n");
-		}else{
-			fgetc(fd);
-			printf("bitrate==%d\n",threadcfg.bitrate);
-		}
-		if(fscanf(fd,"brightness=%d",&(threadcfg.brightness))!=1){
-			printf("read brightness error\n");
-		}else{
-			fgetc(fd);
-			printf("brightness==%d\n",threadcfg.brightness);
-		}
-		if(fscanf(fd,"contrast=%d",&(threadcfg.contrast))!=1){
-			printf("read contrast error\n");
-		}else{
-			fgetc(fd);
-			printf("contrast==%d\n",threadcfg.contrast);
-		}
-		if(fscanf(fd,"saturation=%d",&(threadcfg.saturation))!=1){
-			printf("read saturation error\n");
-		}else{
-			fgetc(fd);
-			printf("saturation==%d\n",threadcfg.saturation);
-		}
-		if(fscanf(fd,"gain=%d",&(threadcfg.gain))!=1){
-			printf("read gain error\n");
-		}else{
-			fgetc(fd);
-			printf("gain==%d\n",threadcfg.gain);
-		}
-		if(fscanf(fd,"record_mode=%s",(threadcfg.record_mode))!=1){
-			printf("read record_mode error\n");
-		}else{
-			fgetc(fd);
-			printf("record_mode==%s\n",threadcfg.record_mode);
-		}
-		if(fscanf(fd,"record_sensitivity=%d",&(threadcfg.record_sensitivity))!=1){
-			printf("read record_sensitivity error\n");
-		}else{
-			fgetc(fd);
-			printf("record_sensitivity==%d\n",threadcfg.record_sensitivity);
-		}
-		if(fscanf(fd,"record_slow_speed=%d",&(threadcfg.record_slow_speed))!=1){
-			printf("read record_slow_speed error\n");
-		}else{
-			fgetc(fd);
-			printf("record_slow_speed==%d\n",threadcfg.record_slow_speed);
-		}
-		if(fscanf(fd,"record_fast_speed=%d",&(threadcfg.record_fast_speed))!=1){
-			printf("read record_fast_speed error\n");
-		}else{
-			fgetc(fd);
-			printf("record_fast_speed==%d\n",threadcfg.record_fast_speed);
-		}
-		if(fscanf(fd,"email_alarm=%d",&(threadcfg.email_alarm))!=1){
-			printf("read email_alarm error\n");
-		}else{
-			fgetc(fd);
-			printf("email_alarm==%d\n",threadcfg.email_alarm);
-		}
-		if(fscanf(fd,"mailbox=%s",threadcfg.mailbox)!=1){
-			printf("read mailbox error\n");
-		}else{
-			fgetc(fd);
-			printf("mailbox==%s\n",threadcfg.mailbox);
-		}
-		if(fscanf(fd,"inet_mode=%d",&(threadcfg.inet_mode))!=1){
-			printf("read inet_mode error\n");
-		}else{
-			fgetc(fd);
-			printf("inet_mode==%d\n",threadcfg.inet_mode);
-		}
-		fclose(fd);
-		*/
 	}
 
-	if(threadcfg.xfps<=0)
-		threadcfg.xfps=1;
-	threadcfg.xuspf=(long long )1000000/threadcfg.xfps;
-	printf("x usecond per frame==%lld\n",threadcfg.xuspf);
 	ret = nand_open("/sdcard");
 	if( ret != 0 ){
 		printf("open disk error\n");

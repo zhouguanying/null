@@ -90,7 +90,7 @@ void delete_timeout_mapping(uint32_t ip,uint16_t cliport)
 		p=(*tmp);
 		if(p->destaddrs.ip==ip&&p->destaddrs.port[CMD_CLI_PORT]==cliport){
 			*tmp=(*tmp)->next;
-			put_playback_port(p->destaddrs.port[CMD_PB_PORT]);
+			put_playback_port(p->local_pb_port);
 			videosess_remove_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_V_RTP_PORT], p->destaddrs.port[CMD_V_RTCP_PORT]);
 			audiosess_remove_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_A_RTP_PORT], p->destaddrs.port[CMD_A_RTCP_PORT]);
 			free(p);
@@ -99,7 +99,7 @@ void delete_timeout_mapping(uint32_t ip,uint16_t cliport)
 		}
 		if(p->connected==0&&(abs(now.tv_sec-p->aged.tv_sec)>READ_STRUCT_TIME_OUT)){
 			*tmp=(*tmp)->next;
-			put_playback_port(p->destaddrs.port[CMD_PB_PORT]);
+			put_playback_port(p->local_pb_port);
 			videosess_remove_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_V_RTP_PORT], p->destaddrs.port[CMD_V_RTCP_PORT]);
 			audiosess_remove_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_A_RTP_PORT], p->destaddrs.port[CMD_A_RTCP_PORT]);
 			free(p);
@@ -134,7 +134,7 @@ int remove_from_ready_list(uint32_t addr,uint16_t cliport)
 	}
 	pthread_mutex_unlock(&ready_list_lock);
 	if(p){
-		put_playback_port(p->destaddrs.port[CMD_PB_PORT]);
+		put_playback_port(p->local_pb_port);
 		videosess_remove_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_V_RTP_PORT], p->destaddrs.port[CMD_V_RTCP_PORT]);
 		audiosess_remove_dstaddr(p->destaddrs.ip, p->destaddrs.port[CMD_A_RTP_PORT], p->destaddrs.port[CMD_A_RTCP_PORT]);
 		free(p);
@@ -162,18 +162,23 @@ void touch_cli_port(uint32_t ip, uint16_t port)
 {
 	int sockfd=g_cli_ctx->sock;
 	socklen_t fromlen;
+	int ret;
 	struct sockaddr_in from;
 	from.sin_family=AF_INET;
 	fromlen=sizeof(struct sockaddr_in);
 	from.sin_addr.s_addr=ip;
 	from.sin_port=port;
-	sendto(sockfd, "touch", strlen("touch"), 0,(struct sockaddr *) &from, fromlen); 
+	ret = sendto(sockfd, "touch", strlen("touch"), 0,(struct sockaddr *) &from, fromlen); 
+	printf("cli sock ==%d\n",sockfd);
+	printf("send touch to ip:%s  ; port:%d ; return %d\n",inet_ntoa(from.sin_addr),ntohs(from.sin_port),ret);
 }
 static inline int touch_port(uint16_t localport,uint32_t ip,uint16_t port)
 {
 	int sockfd;
 	int on;
-	struct sockaddr_in from;
+	int i;
+	int ret;
+	struct sockaddr_in from,localaddr;
 	socklen_t fromlen;
 	if ((sockfd = create_udp_socket()) < 0) {
        	 perror("Error creating socket\n");
@@ -192,7 +197,17 @@ static inline int touch_port(uint16_t localport,uint32_t ip,uint16_t port)
 	  fromlen=sizeof(struct sockaddr_in);
 	  from.sin_addr.s_addr=ip;
 	  from.sin_port=port;
-	  sendto(sockfd, "touch", strlen("touch"), 0,(struct sockaddr *) &from, fromlen);
+	  for(i = 0;i<3;i++){
+		  ret = sendto(sockfd, "touch", strlen("touch"), 0,(struct sockaddr *) &from, fromlen);
+		  printf("send touch to ip:%s  ; port:%d ; return %d\n",inet_ntoa(from.sin_addr),ntohs(from.sin_port),ret);
+		  fromlen=sizeof(struct sockaddr_in);
+		   if(getsockname(sockfd,(struct sockaddr*)&localaddr,&fromlen) <0){
+				printf("cannot get sock name\n");
+				close(sockfd);
+				return -1;
+		  }
+		   printf("used cli ip:%s , port: %d\n",inet_ntoa(localaddr.sin_addr),ntohs(localaddr.sin_port));
+	  }
 	  close(sockfd);
 	  return 0;
 }
@@ -326,7 +341,7 @@ int transfer_thread()
   	ssize_t req_len;
 //	int rsp_len;
 	int on;
-	//struct timeval oldtime,newtime;
+	struct timeval oldtime,newtime;
 //	struct sockaddr_in *saddr;
        struct sockaddr_in from;
 	//cmd_t cmd,replay;
@@ -419,24 +434,24 @@ int transfer_thread()
 		//	printf("camera set alive recv error req_len==%d\n",req_len);
 			usleep(1000);
 		} 
-	//gettimeofday(&oldtime,NULL);
+	gettimeofday(&oldtime,NULL);
 	printf("camera set alive ok\n");
-	while(1){/*
+	while(1){
 		gettimeofday(&newtime,NULL);
 		if(abs(newtime.tv_sec-oldtime.tv_sec)>10){
 			 from.sin_addr.s_addr = server_addr;
 			 from.sin_family=AF_INET;
 			 from.sin_port=htons(CAMERA_WATCH_PORT);
 			 fromlen=sizeof(struct sockaddr_in); 
-			 sprintf(req,"alive");
-    			 sendto(sockfd, req, strlen("alive"), 0,(struct sockaddr *) &from, fromlen); 
+			req[0]=0;
+    			 sendto(sockfd, req, 1, 0,(struct sockaddr *) &from, fromlen); 
+			memcpy(&oldtime,&newtime,sizeof(struct timeval));
 		}
-		*/
 		req_len=recvfrom(sockfd, req, BUF_SZ, 0, (struct sockaddr *) &from, &fromlen);
 		if(req_len<=0)
 			continue;
 		memcpy(&nsize,&req[1],sizeof(nsize));
-		//gettimeofday(&oldtime,NULL);
+		gettimeofday(&oldtime,NULL);
 		size=ntohs(nsize); 
 		if(req_len>0&&req_len==size+PACK_HEAD_SIZE){
 			printf("get command\n");
@@ -488,12 +503,14 @@ int transfer_thread()
 						p->pb_running=0;
 						memcpy(&(p->destaddrs),pdest,sizeof(struct udp_transfer));
 						p->local_pb_port=local_port[CMD_PB_PORT];
+						
 						touch_playback_port(local_port[CMD_PB_PORT], pdest->ip, pdest->port[CMD_PB_PORT]);
 						touch_cli_port(pdest->ip,pdest->port[CMD_CLI_PORT]);
 						touch_v_rtp_port(pdest->ip, pdest->port[CMD_V_RTP_PORT]);
 						touch_v_rtcp_port(pdest->ip,  pdest->port[CMD_V_RTCP_PORT]);
 						touch_a_rtp_port(pdest->ip, pdest->port[CMD_A_RTP_PORT]);
 						touch_a_rtcp_port(pdest->ip, pdest->port[CMD_A_RTCP_PORT]);
+						
 						//videosess_add_dstaddr(pdest->ip, pdest->port[CMD_V_RTP_PORT], pdest->port[CMD_V_RTCP_PORT]);
 						//audiosess_add_dstaddr(pdest->ip, pdest->port[CMD_A_RTP_PORT], pdest->port[CMD_A_RTCP_PORT]);
 						add_to_ready_list( p);
