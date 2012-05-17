@@ -912,6 +912,7 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
              	  printf("Error binding sound listen socket");
                 goto __exit;
        }
+	  free(myaddr);
 
        if (listen(lsockfd, MAX_CONNECTIONS) < 0){
                printf("Error listening for sound connection");

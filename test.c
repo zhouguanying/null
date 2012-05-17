@@ -211,9 +211,11 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 		free_system_session(system_sess);
 		return -1;
 	} 
+	/*
 	if (pthread_create(&tid, NULL, (void *) grab_sound_thread, NULL) < 0) {
 		return -1;
 	} 
+	*/
 /*
 	if (pthread_create(&tid, NULL, (void *) check_net_thread, NULL) < 0) {
 		printf("unable to create check net thread\n");
@@ -222,14 +224,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 */
 	playback_init();
 	printf("video monitor and record is running\n");
-
-	sleep(3);
-	
-	if(start_audio_and_video_session()<0){
-		printf("unable to start audio and video session\n");
-		return -1;
-	}
-	sleep(1);
+	start_udt_lib();
 	/*
 	sleep(1);
 	in_addr_t to;
@@ -260,7 +255,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	msg.msg[0] = VS_MESSAGE_MAIN_PROCESS_ALIVE;
 	msg.msg[1] = 0;
 	while(1) {
-		sleep(DAEMON_REBOOT_TIME_MAX>>1);
+		sleep(2);
 		ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
 		if(ret == -1){
 			dbg("send daemon message error\n");
@@ -912,11 +907,14 @@ if (pthread_create(&tid, NULL, (void *) usb_state_monitor, NULL) < 0) {
 //	test_cli(system_sess);
 //	test_video_monitor(system_sess);
 //	uvc_test_main(1,NULL);
+/*
 	if((init_and_start_sound())<0){
 		printf("start sound error\n");
 		return -1;
 	}
+	
 	test_set_sound_card();
+	*/
 	test_video_record_and_monitor(system_sess);
 
 	printf("exit program\n");

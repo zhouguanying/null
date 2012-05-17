@@ -105,7 +105,7 @@ init_videoIn (struct vdIn *vd, char *device, int width, int height,
 		goto error;;
 	}
 	/* alloc a temp buffer to reconstruct the pict */
-	vd->framesizeIn = (vd->width * vd->height << 1);
+	vd->framesizeIn = (vd->width * vd->height );
 	switch (vd->formatIn) {
 	case V4L2_PIX_FMT_MJPEG:
 		vd->tmpbuffer = (unsigned char *) calloc (1, (size_t) vd->framesizeIn);
@@ -151,7 +151,7 @@ init_v4l2 (struct vdIn *vd)
 				 vd->videodevice);
 		goto fatal;
 	}
-
+	printf("querycap sucess\n");
 	if ((vd->cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) == 0) {
 		fprintf (stderr,
 				 "Error opening device %s: video capture not supported.\n",
@@ -182,6 +182,7 @@ init_v4l2 (struct vdIn *vd)
 		fprintf (stderr, "Unable to set format: %d.\n", errno);
 		goto fatal;
 	}
+	printf("set formate sucess\n");
 	if ((vd->fmt.fmt.pix.width != vd->width) ||
 		(vd->fmt.fmt.pix.height != vd->height)) {
 		fprintf (stderr, " format asked unavailable get width %d height %d \n",
@@ -202,6 +203,7 @@ init_v4l2 (struct vdIn *vd)
 		fprintf (stderr, "Unable to allocate buffers: %d.\n", errno);
 		goto fatal;
 	}
+	printf("reqbufs sucess\n");
 	/* map the buffers */
 	for (i = 0; i < NB_BUFFER; i++) {
 		memset (&vd->buf, 0, sizeof (struct v4l2_buffer));

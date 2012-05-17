@@ -23,7 +23,7 @@
 *******************************************************************************/
 #include "cli.h"
 
-#define NB_BUFFER 16
+#define NB_BUFFER 4
 #define DHT_SIZE 420
 
 #define V4L2_CID_BACKLIGHT_COMPENSATION	(V4L2_CID_PRIVATE_BASE+0)

@@ -1,3 +1,4 @@
+/*
 #include "udp_transfer.h"
 #include "includes.h"
 #include "sockets.h"
@@ -167,13 +168,6 @@ __retry:
 	set_alive();
 	printf("monitor set alive ok\n");
 	while(1){
-		/*
-		gettimeofday(&newtime,NULL);
-		if(newtime.tv_sec-oldtime.tv_sec>180){
-			 set_alive();
-			memcpy(&oldtime,&newtime,sizeof(struct timeval));
-		}
-		*/
 		req_len=recvfrom(sockfd, req, BUF_SZ, 0, (struct sockaddr *) &from, &fromlen);
 		if(req_len<=0)
 			continue;
@@ -188,13 +182,6 @@ __retry:
 		}
 		if(req_len>0&&req_len==size+PACK_HEAD_SIZE){
 			switch(req[0]){
-				/*
-				case server_cmd_get_id:{
-					set_alive();
-					gettimeofday(&oldtime,NULL);
-					break;
-				}
-				*/
 				printf("get command %d\n",req[0]);
 				case NET_CAMERA_SEND_PORTS:{
 					int i;
@@ -240,3 +227,4 @@ __done:
 	printf("monitor connected sucess!\n");
    	return 0;
 }
+*/

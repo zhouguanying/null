@@ -1106,6 +1106,7 @@ void  del_sess(struct sess_ctx *sess)
 
 int start_video_monitor(struct sess_ctx* sess)
 {
+printf("*******************************Starting video monitor server*******************************\n");
 	socklen_t fromlen;
 	int ret;
 	struct sockaddr_in address;
@@ -1119,7 +1120,7 @@ int start_video_monitor(struct sess_ctx* sess)
 	//int setframes=0;
 
 	
-	dbg("Starting video monitor server\n");
+	printf("Starting video monitor server\n");
        add_sess( sess);
 	take_sess_up( sess);
 	
@@ -1356,7 +1357,7 @@ int start_video_record(struct sess_ctx* sess)
 	}
 
 
-	pthread_mutex_lock(&threadcfg.threadcfglock);
+	//pthread_mutex_lock(&threadcfg.threadcfglock);
 	if(strncmp(threadcfg.record_mode,"no_record",strlen("no_record")) ==0)
 		record_mode = 0;
 	else if(strncmp(threadcfg.record_mode,"normal",strlen("normal")) ==0){
@@ -1378,7 +1379,7 @@ int start_video_record(struct sess_ctx* sess)
 	email_alarm = threadcfg.email_alarm;
 	sensitivity_index = threadcfg.record_sensitivity;
 	printf("record_sensitivity == %d\n",sensitivity_diff_size[sensitivity_index]);
-	pthread_mutex_unlock(&threadcfg.threadcfglock);
+	//pthread_mutex_unlock(&threadcfg.threadcfglock);
 	
 	
 			
@@ -1400,7 +1401,7 @@ int start_video_record(struct sess_ctx* sess)
 
 		
 		gettimeofday(&alive_curr_time,NULL);
-		if(alive_curr_time.tv_sec -alive_old_time.tv_sec>=(DAEMON_REBOOT_TIME_MAX>>1)){
+		if(alive_curr_time.tv_sec -alive_old_time.tv_sec>=3){
 			ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
 			if(ret == -1){
 				dbg("send daemon message error\n");

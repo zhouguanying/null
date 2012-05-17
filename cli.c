@@ -52,6 +52,7 @@
 #include "record_file.h"
 #include "utilities.h"
 #include "sound.h"
+#include "cudt.h"
 #include "udp_transfer.h"
 //#include "monitor.h"
 
@@ -168,12 +169,12 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
     if (p->handler != NULL){
 		pthread_mutex_lock(&global_ctx_lock);
 		tmp=(struct sess_ctx*)sess->arg;
-		if(tmp!=NULL&&tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr){
+		if(tmp!=NULL&&tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port){
 			goto done;
 		}
 		tmp=global_ctx_running_list;
 		while(tmp!=NULL){
-			if(tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr){
+			if(tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port){
 				if (strncmp(argv[0], "set_transport_type", 18) == 0){
 					pthread_mutex_unlock(&global_ctx_lock);
 					printf("set_transport_type session already running\n");
@@ -549,29 +550,28 @@ done:
 		} 
 		//audiosess_add_dstaddr((uint32_t)sess->from.sin_addr.s_addr,5002);
 		//printf("port==%d\n",ntohs( sess->from.sin_port));
-		printf("start_video_monitor run now\n");
+		printf("**********************************start_video_monitor run now******************************\n");
+		sleep(1);
 	} 
 	else if(strlen(arg) == 3 && strncmp(arg, "rtp", 3) == 0){
 		printf("********************rtp type*****************\n");
 		sess->running=1;
 		sess->is_rtp=1;
-		sess->ucount=1;
-		/*
-		if (pthread_create(&sess->tid, NULL, (void *) rtp_thread, sess) < 0) {
+		sess->ucount=0;
+		if (pthread_create(&sess->tid, NULL, (void *) udt_sess_thread, sess) < 0) {
 			if((struct sess_ctx*)g_cli_ctx->arg==sess)
 				g_cli_ctx->arg=NULL;
+			printf("**********create udt_sess_thread error****************\n");
 			free_system_session(sess);
 			return -1;
 		} 
-		*/
-		sess->next=global_ctx_running_list;
-		global_ctx_running_list=sess;
-		currconnections++;
-
+		printf("*********************************create udt_sess_thread sucess***********************\n");
+		/*
 		if((set_ready_struct_connected((uint32_t)sess->from.sin_addr.s_addr, (uint16_t)sess->from.sin_port))<0){
 			audiosess_add_dstaddr((uint32_t)sess->from.sin_addr.s_addr,htons(AUDIO_SESS_PORT),htons(AUDIO_SESS_PORT+1));
 			videosess_add_dstaddr((uint32_t)sess->from.sin_addr.s_addr,htons(VIDEO_SESS_PORT),htons(VIDEO_SESS_PORT+1));
 		}
+		*/
 
 	}
 	else if (strlen(arg) == 3 && strncmp(arg, "udp", 3) == 0) {
@@ -1164,63 +1164,7 @@ static int restart_server(struct sess_ctx *sess, char *arg)
 	if(sess==NULL)
 		return 0;
 	if(sess->is_rtp){
-		p=remove_from_ready_list((uint32_t) sess->from.sin_addr.s_addr, (uint16_t) sess->from.sin_port);
-		if(p<0){
-			audiosess_remove_dstaddr((uint32_t) sess->from.sin_addr.s_addr,htons(AUDIO_SESS_PORT),htons(AUDIO_SESS_PORT+1));
-			videosess_remove_dstaddr((uint32_t) sess->from.sin_addr.s_addr,htons(VIDEO_SESS_PORT),htons(VIDEO_SESS_PORT+1));
-		}
-		tmp=global_ctx_running_list;
-		if(tmp==NULL){
-			dbg("running_list erro*****************************************************\n");
-			if(g_cli_ctx->arg==sess)
-				g_cli_ctx->arg=NULL;
-			pthread_mutex_lock(&sess->sesslock);
-			sess->ucount--;
-			sess->running=0;
-			if(sess->ucount<=0){
-				pthread_mutex_unlock(&sess->sesslock);
-				free_system_session(sess);
-			}else
-				pthread_mutex_unlock(&sess->sesslock);
-			return 0;
-		}
-		if(tmp==sess){
-			global_ctx_running_list=global_ctx_running_list->next;
-			goto done;
-		}
-		while(tmp->next!=NULL){
-			if(tmp->next==sess){
-				tmp->next=sess->next;
-				goto done;
-			}
-			tmp=tmp->next;
-		}
-		dbg("running list erro**************************************************************\n");
-		if(g_cli_ctx->arg==sess)
-				g_cli_ctx->arg=NULL;
-		pthread_mutex_lock(&sess->sesslock);
-		sess->ucount--;
-		sess->running=0;
-		if(sess->ucount<=0){
-			pthread_mutex_unlock(&sess->sesslock);
-			free_system_session(sess);
-		}else
-			pthread_mutex_unlock(&sess->sesslock);
-		return 0;
-done:
-		currconnections--;
-		printf("is rtp  currconnections--\n");
-		if(g_cli_ctx->arg==sess)
-				g_cli_ctx->arg=NULL;
-		pthread_mutex_lock(&sess->sesslock);
-		sess->ucount--;
-		sess->running=0;
-		if(sess->ucount<=0){
-			pthread_mutex_unlock(&sess->sesslock);
-			free_system_session(sess);
-		}else
-			pthread_mutex_unlock(&sess->sesslock);
-		return 0;
+		
 	}
 	
 	printf("enter restar_server now begin\n");

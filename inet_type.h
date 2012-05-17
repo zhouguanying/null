@@ -2,6 +2,15 @@
 #define __INET_TYPE_H__
 #include<sys/time.h>
 #include<time.h>
+#include <pthread.h>
+
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+
 #ifndef uint32_t
 typedef unsigned int  uint32_t;
 #endif
@@ -13,16 +22,6 @@ typedef int  int32_t;
 #ifndef uint16_t
 typedef unsigned short  uint16_t;
 #endif
-#define server_cmd_get_public_port           1
-#define server_cmd_reply_public_port        2
-#define server_cmd_are_you_alive 		3
-#define server_cmd_iam_alive         		4
-#define server_cmd_get_id               		5
-#define server_cmd_id_ok                 		6
-#define server_cmd_create_port   			7
-#define server_cmd_call_me    			8
-#define server_cmd_monitor_port_recved  9
-#define server_cmd_cam_port_recved        10
 
 #define CAMERA_WATCH_PORT   4000  //发送camera id端口
 #define CLIENT_WATCH_PORT   4200  //发送monitor id 端口
@@ -68,34 +67,28 @@ enum
     NET_CAMERA_PEER_PORTS,
 } ;
 
-/*
-*uint16_t port[6];
-*0 for CLI  port
-*1 for video rtp port
-*2 for video rtcp port
-*3 for audio rtp port
-*4 for audio rtcp port
-*5 prepare for playback
-*/
-#define CMD_CLI_PORT  0
-#define CMD_V_RTP_PORT 1
-#define CMD_V_RTCP_PORT 2
-#define CMD_A_RTP_PORT  3
-#define CMD_A_RTCP_PORT 4
-#define CMD_PB_PORT     5
+#define PORT_COUNT		 3
+#define NAT_CLI_PORT	 0
+#define NAT_V_PORT		 1
+#define NAT_A_PORT		 2
 struct udp_transfer{
 	uint32_t ip;
-	uint16_t port[6];
+	uint16_t port[PORT_COUNT];
 }__attribute__((packed));
 
 /*use as local management*/
 struct mapping{
 	struct timeval aged;
-	uint32_t connected;
-	uint32_t pb_running;
-	uint16_t local_pb_port;
-	struct udp_transfer destaddrs;
-	struct mapping*next;
+	pthread_mutex_t mapping_lock;
+	int ucount;
+	int connected;
+	int udpsock[PORT_COUNT];
+	int udtsock[PORT_COUNT];
+	int local_port[PORT_COUNT];
+	uint32_t ip;
+	uint16_t dst_port[PORT_COUNT];
+	struct sess_ctx *sess;
+	struct mapping *next;
 };
 /*use to get our public addr*/
 struct public_port{
@@ -129,6 +122,10 @@ struct pb_port_connet_management{
 	uint16_t monitor_pb_port;
 	struct pb_port_connet_management *next;
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

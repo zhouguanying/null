@@ -479,15 +479,17 @@ struct vdIn * init_camera(void) {
 	memset(videoIn->hrb_tid,0,sizeof(videoIn->hrb_tid));
 	
 	if(strncmp(threadcfg.resolution,"vga",3)==0){
-		printf("vga mode\n");
+		printf("vga \n");
 		width=640;
 		height=480;
 	}else if(strncmp(threadcfg.resolution,"qvga",4)==0){
 		width=320;
 		height=240;
-		printf("qvga mode\n");
+		printf("qvga \n");
 	}else{
-		printf("frame mode error,use default mode vga\n");
+		width = 1280;
+		height = 720;
+		printf("720p\n");
 	}
 	brightness = threadcfg.brightness;
 	contrast    = threadcfg.contrast;
