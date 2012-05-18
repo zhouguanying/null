@@ -829,6 +829,15 @@ __ok:
 		else if(threadcfg.record_normal_speed >25)
 			threadcfg.record_normal_speed = 25;
 
+		extract_value(conf_p, lines, "record_normal_duration", 0, &threadcfg.record_normal_duration);
+		printf("record_normal_duration= %d\n",threadcfg.record_normal_duration);
+
+		if(threadcfg.record_normal_duration<=0)
+			threadcfg.record_normal_duration =1;
+		else if(threadcfg.record_normal_duration>25)
+			threadcfg.record_normal_duration = 25;
+
+
 
 		extract_value(conf_p, lines, "record_sensitivity", 0, &threadcfg.record_sensitivity);
 		printf("record_sensitivity = %d\n",threadcfg.record_sensitivity);

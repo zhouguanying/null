@@ -1018,7 +1018,7 @@ have_readed:
 	usleep(20000);
 	goto try_again;
 }
-static char* get_data(int* size)
+static char* get_data(int* size,int *width,int *height)
 {
 	const char *videodevice = "/dev/video0";
 	int format = V4L2_PIX_FMT_MJPEG;
@@ -1052,7 +1052,8 @@ retry:
 	//pthread_mutex_lock(&vdin_camera->tmpbufflock);
 	memcpy(buf, vdin_camera->tmpbuffer, vdin_camera->buf.bytesused + DHT_SIZE );
 	*size = vdin_camera->buf.bytesused + DHT_SIZE;
-	
+	*width = vdin_camera->width;
+	*height = vdin_camera->height;
 	pthread_mutex_unlock(&vdin_camera->tmpbufflock);
 	return buf;
 }
@@ -1110,7 +1111,7 @@ printf("*******************************Starting video monitor server************
 	socklen_t fromlen;
 	int ret;
 	struct sockaddr_in address;
-	int socket;
+	int socket = -1;
 	char* buffer;
 	int size;
 	int tryaccpet = MAX_CONNECTIONS;
@@ -1262,50 +1263,59 @@ exit:
 	return 0;
 }
 
-
+#define RECORD_STATE_STOP 	 	0
+#define RECORD_STATE_SLOW	 	1
+#define RECORD_STATE_FAST		2
 static nand_record_file_header record_header;
 static nand_record_file_internal_header record_internal_header={{0,0,0,1,0xc},};
 static const int sensitivity_diff_size[4] = {10000,250,350,450};
 int start_video_record(struct sess_ctx* sess)
 {
-	const char *videodevice = "/dev/video0";
-	int format = V4L2_PIX_FMT_MJPEG;
-	int grabmethod = 1;
+	//const char *videodevice = "/dev/video0";
+	//int format = V4L2_PIX_FMT_MJPEG;
+	//int grabmethod = 1;
 	int ret;
 	char* buffer;
 	int size;
 	int i;
 	int size0=0;
-	struct timeval stop_time;
-	struct timeval open_time;
-	unsigned long long un_cpture_time;
+	//struct timeval stop_time;
+	//struct timeval open_time;
+	//unsigned long long un_cpture_time;
 	struct timeval starttime,endtime;
 	struct timeval alive_old_time,alive_curr_time;
 	vs_ctl_message msg;
 	unsigned long long timeuse;
 	unsigned long long usec_between_image=0,prev_usec_between_image=0;
+	int frameratechange=0;
 	pthread_t mail_alarm_tid=0;
 	char swidth[12];
 	char sheight[12];
 	char FrameRateUs[12];
 	int type;
-	int num_pic_to_ignore = 150;
-	int width = 640;
-	int height = 480;
-	int change_resolution =0;
-	int curr_resolution = 1;/*0:qvga; 1:vga; 2:720p*/
-	int big_to_small = 1;
+	//int num_pic_to_ignore = 150;
+	int prev_width;
+	int prev_height;
+	int width ;
+	int height;
+	//int change_resolution =0;
+	//int curr_resolution = 1;/*0:qvga; 1:vga; 2:720p*/
+	//int big_to_small = 1;
 	int email_alarm;
 	int record_slow_speed=0;
 	int record_fast_speed=0;
-	char record_slow_resolution[32];
-	char record_fast_resolution[32];
+	//char record_slow_resolution[32];
+	//char record_fast_resolution[32];
 	int record_normal_speed;
+	int record_normal_duration=3;
+	int record_last_state = 0;
+	int timestamp_change=0;
 	int pictures_to_write = 0;
 	int record_fast_duration=0; 
-	char record_resolution[32];
+	//char record_resolution[32];
 	int sensitivity_index = threadcfg.record_sensitivity;;
 	int record_mode = 0;
+	int write_internal_head=0;
 
 	dbg("Starting video record\n");
 
@@ -1315,7 +1325,6 @@ int start_video_record(struct sess_ctx* sess)
 			return -1;
 		}
 	}
-
 	/* Set up signals */
 	for (i = 1; i <= _NSIG; i++) {
 		if (i == SIGIO || i == SIGINT)
@@ -1326,7 +1335,7 @@ int start_video_record(struct sess_ctx* sess)
 
 	i = 0;
 
-	
+	/*
 	if(strncmp(threadcfg.resolution,"qvga",4) ==0){
 		curr_resolution = 0;
 		width = 320;
@@ -1343,7 +1352,10 @@ int start_video_record(struct sess_ctx* sess)
 		height = 720;
 	}
 	change_resolution = curr_resolution;
-
+	*/
+	
+	prev_height =height = vdin_camera->height;
+	prev_width = width =vdin_camera->width;
 	printf("width ==%d , height == %d\n",width , height);
 
 	
@@ -1361,20 +1373,25 @@ int start_video_record(struct sess_ctx* sess)
 	if(strncmp(threadcfg.record_mode,"no_record",strlen("no_record")) ==0)
 		record_mode = 0;
 	else if(strncmp(threadcfg.record_mode,"normal",strlen("normal")) ==0){
+		printf("record_mode==normal\n");
 		record_mode =1;
+		record_normal_duration = threadcfg.record_normal_duration;
+		record_last_state =RECORD_STATE_STOP;
 		usec_between_image=(unsigned long long )1000000/threadcfg.record_normal_speed;
-		memcpy(record_resolution,threadcfg.resolution,32);
+		//memcpy(record_resolution,threadcfg.resolution,32);
 	}
 	else {
 		printf("record_mode ==inteligent\n");
 		record_mode = 2;
+		record_last_state = RECORD_STATE_SLOW;
 		record_fast_duration = threadcfg.record_fast_duration;
 		record_slow_speed = threadcfg.record_slow_speed;
 		record_fast_speed = threadcfg.record_fast_speed;
 		usec_between_image = (unsigned long long )1000000/record_fast_speed;
-		memcpy(record_slow_resolution,threadcfg.record_slow_resolution,32);
-		memcpy(record_fast_resolution,threadcfg.record_fast_resolution,32);
+		//memcpy(record_slow_resolution,threadcfg.record_slow_resolution,32);
+		//memcpy(record_fast_resolution,threadcfg.record_fast_resolution,32);
 	}
+	prev_usec_between_image = usec_between_image;
 	record_normal_speed = threadcfg.record_normal_speed;
 	email_alarm = threadcfg.email_alarm;
 	sensitivity_index = threadcfg.record_sensitivity;
@@ -1412,13 +1429,21 @@ int start_video_record(struct sess_ctx* sess)
 
 
 		
-		buffer = get_data(&size);
+		buffer = get_data(&size,&width,&height);
+		/*
 		if(big_to_small >0&&num_pic_to_ignore>0){
 			size0 = size;
 			num_pic_to_ignore --;
 		}
-		if(record_mode == 2&&pictures_to_write>0&&abs(size-size0)>sensitivity_diff_size[sensitivity_index])
-			pictures_to_write = record_fast_speed * record_fast_duration;
+		*/
+
+		
+		if(pictures_to_write>0&&abs(size-size0)>sensitivity_diff_size[sensitivity_index]){
+			if(record_mode == 2)
+				pictures_to_write = record_fast_speed * record_fast_duration;
+			else if(record_mode ==1)
+				pictures_to_write = record_normal_speed*record_normal_duration;
+		}
 
 		prev_usec_between_image =usec_between_image;
 		switch(record_mode){
@@ -1427,18 +1452,36 @@ int start_video_record(struct sess_ctx* sess)
 				break;
 			case 1:/*normal*/
 			{
-				if(abs(size-size0)>sensitivity_diff_size[sensitivity_index]){
-					usec_between_image = (unsigned long long )1000000/record_normal_speed;
+				//printf("in normal before enter record_last_state==%d\n",record_last_state);
+				//printf("in normal before enter  picture_to_write==%d\n",pictures_to_write);
+				//printf("abs(size-size0)==%d\n",abs(size-size0));
+				if(pictures_to_write<=0){
+					if(abs(size-size0)>sensitivity_diff_size[sensitivity_index]){
+						usec_between_image = (unsigned long long )1000000/record_normal_speed;
+						pictures_to_write = record_normal_speed * record_normal_duration;
+						if(record_last_state ==RECORD_STATE_STOP){
+							record_last_state = RECORD_STATE_FAST;
+							timestamp_change = 1;
+						}
+						gettimeofday(&starttime,NULL);
+					}else{
+						pictures_to_write= 0;
+						record_last_state = RECORD_STATE_STOP;
+					}
+				}else{
 					gettimeofday(&endtime,NULL);
 					timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - starttime.tv_sec ) + endtime.tv_usec - starttime.tv_usec;
-					if(timeuse >= usec_between_image){
-						pictures_to_write= 1;
+					if(timeuse>=usec_between_image){
 						memcpy(&starttime,&endtime,sizeof(struct timeval));
-					}else
-						pictures_to_write = 0;
-				}else{
-					pictures_to_write= 0;
+					}else{
+						size0 = size;
+						free(buffer);
+						//printf("inteligent time not come? usec_between_image ==%llu\n",usec_between_image);
+						continue;
+					}
 				}
+				//printf("in normal after out record_last_state==%d\n",record_last_state);
+				//printf("in normal after out picture_to_write==%d\n",pictures_to_write);
 				break;
 			}
 			case 2:/*inteligent*/
@@ -1447,12 +1490,20 @@ int start_video_record(struct sess_ctx* sess)
 					if(abs(size-size0)>sensitivity_diff_size[sensitivity_index]){
 						printf("inteligent something move\n");
 						usec_between_image = (unsigned long long )1000000/record_fast_speed;
-						memcpy(record_resolution,record_fast_resolution,32);
+						//memcpy(record_resolution,record_fast_resolution,32);
 						pictures_to_write = record_fast_speed * record_fast_duration;
+						if(record_last_state==RECORD_STATE_SLOW){
+							record_last_state = RECORD_STATE_FAST;
+							frameratechange = 1;
+						}
 						memset(&starttime,0,sizeof(struct timeval)); /*write right now!*/
 					}else{
+						if(record_last_state==RECORD_STATE_FAST){
+							record_last_state = RECORD_STATE_SLOW;
+							frameratechange = 1;
+						}
 						usec_between_image = (unsigned long long ) 1000000/record_slow_speed;
-						memcpy(record_resolution,record_slow_resolution,32);
+						//memcpy(record_resolution,record_slow_resolution,32);
 						pictures_to_write =1;
 					}
 					gettimeofday(&endtime,NULL);
@@ -1500,6 +1551,23 @@ int start_video_record(struct sess_ctx* sess)
 
 		
 retry:
+		if(frameratechange){
+			printf("frmeratechange\n");
+			frameratechange = 0;
+		}
+		if(timestamp_change){
+			printf("timestamp_change\n");
+			timestamp_change = 0;
+		}
+		if(prev_width!=width){
+			printf("picture width change\n");
+			prev_width = width;
+		}
+		if(prev_height!=height){
+			printf("picture height change\n");
+			prev_height = height;
+		}
+		printf("write video picture\n");
 		ret = nand_write(buffer, size);
 		if( ret == 0 ){
 			i++;
@@ -1529,7 +1597,9 @@ retry:
 		else{
 			printf("write nand error\n");
 		}
-		
+		free(buffer);
+
+		/*
 		if(strncmp(record_resolution,"qvga",4) ==0){
 			change_resolution = 0;
 			width = 320;
@@ -1570,7 +1640,7 @@ retry:
 			num_pic_to_ignore = 125;
 			curr_resolution = change_resolution;
 		}
-		free(buffer);
+		*/
 	}
 
 	dbg("Exitting record server");

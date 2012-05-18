@@ -38,6 +38,7 @@
 #define V4L2_CID_PANTILT_RESET		(V4L2_CID_PRIVATE_BASE+8)
 
 struct vdIn {
+  pthread_mutex_t vd_data_lock;
   int fd;
   char *videodevice;
   char *status;

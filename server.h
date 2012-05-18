@@ -130,6 +130,8 @@ struct sess_ctx {
 	volatile int framerate;				//frame rate
 	char compression[64]; 
 	char resolution[64];  //vga qvga
+	//volatile int width;
+	//volatile int height;
 	volatile int gop;
 	volatile int rotation_angle;
 	volatile int output_ratio;
@@ -142,6 +144,7 @@ struct sess_ctx {
 	char     record_mode[64];
 	volatile int record_sensitivity;
 	volatile int record_normal_speed;
+	volatile int record_normal_duration;
 	volatile int record_slow_speed;
 	char	    record_slow_resolution[64];
 	volatile int record_fast_speed;

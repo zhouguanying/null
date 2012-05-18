@@ -476,6 +476,7 @@ struct vdIn * init_camera(void) {
 	videoIn = (struct vdIn *) calloc (1, sizeof (struct vdIn));
 	
 	pthread_mutex_init(&videoIn->tmpbufflock,NULL);
+	pthread_mutex_init(&videoIn->vd_data_lock,NULL);
 	memset(videoIn->hrb_tid,0,sizeof(videoIn->hrb_tid));
 	
 	if(strncmp(threadcfg.resolution,"vga",3)==0){
