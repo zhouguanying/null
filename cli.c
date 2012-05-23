@@ -105,7 +105,7 @@ static int free_session(struct cli_sess_ctx *sess)
 extern char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int* rsp_len);
 
 static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
-                                 ssize_t req_len, u8 *unused, int* rsp_len)
+                                 ssize_t req_len, u8 *unused, int* rsp_len,struct sockaddr_in from)
 {
 	#define N_ARGS 2    
     struct cli_handler *p;
@@ -118,6 +118,7 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
     char * rsp;
 
 	if( strncmp((char*)req, "UpdateSystem", 12) == 0 ){
+		//sess->from = from;
 		return do_cli_cmd_bin(NULL, (char*)req, req_len, (int)NULL, rsp_len);
 	}
 
@@ -168,13 +169,14 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
    printf("argv[1]==%s\n",argv[1]);
     if (p->handler != NULL){
 		pthread_mutex_lock(&global_ctx_lock);
+		sess->from = from;
 		tmp=(struct sess_ctx*)sess->arg;
-		if(tmp!=NULL&&tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port){
+		if(tmp!=NULL&&tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr/*&&tmp->from.sin_port ==sess->from.sin_port*/){
 			goto done;
 		}
 		tmp=global_ctx_running_list;
 		while(tmp!=NULL){
-			if(tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port){
+			if(tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr/*&&tmp->from.sin_port ==sess->from.sin_port*/){
 				if (strncmp(argv[0], "set_transport_type", 18) == 0){
 					pthread_mutex_unlock(&global_ctx_lock);
 					printf("set_transport_type session already running\n");
@@ -226,6 +228,7 @@ static int do_cli(struct cli_sess_ctx *sess)
     u8 req[BUF_SZ];
     char *rsp;
     socklen_t fromlen;
+    struct sockaddr_in from;
      struct sockaddr_in cliaddr;
     ssize_t req_len;
 	int rsp_len;
@@ -258,13 +261,13 @@ static int do_cli(struct cli_sess_ctx *sess)
     while (sess->running) {
 		dbg("try to get cli cmd\n");
 		memset(req,0,BUF_SZ);
-        req_len = recvfrom(sess->sock, req, sizeof(req), 0, (struct sockaddr *) &sess->from, &fromlen);
+        req_len = recvfrom(sess->sock, req, sizeof(req), 0, (struct sockaddr *) &from, &fromlen);
 		dbg("get cli cmd: %s\n",req);
         if (req_len <= 0) 
             dbg("socket error\n");
 		else {
 			rsp_len = 0;
-			rsp = handle_cli_request(sess, req, req_len, NULL, &rsp_len);
+			rsp = handle_cli_request(sess, req, req_len, NULL, &rsp_len,from);
 			dbg("rsp=%s\n",rsp);
 			if (rsp != NULL) { /* command ok so send response */
 			//dbg("sent rsp");
@@ -530,7 +533,6 @@ static int set_transport_type(struct sess_ctx *sess, char *arg)
 				  free_system_session(sess);
                 		return -1;
             		}
-done:
             		sess->is_tcp = 1;
             		dbg("created tcp socket\n");
 		}else{
@@ -548,16 +550,15 @@ done:
 			free_system_session(sess);
 			return -1;
 		} 
-		//audiosess_add_dstaddr((uint32_t)sess->from.sin_addr.s_addr,5002);
-		//printf("port==%d\n",ntohs( sess->from.sin_port));
 		printf("**********************************start_video_monitor run now******************************\n");
-		sleep(1);
 	} 
 	else if(strlen(arg) == 3 && strncmp(arg, "rtp", 3) == 0){
 		printf("********************rtp type*****************\n");
 		sess->running=1;
 		sess->is_rtp=1;
 		sess->ucount=0;
+		printf("cli ip ==%s\n",inet_ntoa(sess->from.sin_addr));
+		printf("cli port==%d\n",ntohs(sess->from.sin_port));
 		if (pthread_create(&sess->tid, NULL, (void *) udt_sess_thread, sess) < 0) {
 			if((struct sess_ctx*)g_cli_ctx->arg==sess)
 				g_cli_ctx->arg=NULL;
@@ -566,24 +567,24 @@ done:
 			return -1;
 		} 
 		printf("*********************************create udt_sess_thread sucess***********************\n");
-		/*
-		if((set_ready_struct_connected((uint32_t)sess->from.sin_addr.s_addr, (uint16_t)sess->from.sin_port))<0){
-			audiosess_add_dstaddr((uint32_t)sess->from.sin_addr.s_addr,htons(AUDIO_SESS_PORT),htons(AUDIO_SESS_PORT+1));
-			videosess_add_dstaddr((uint32_t)sess->from.sin_addr.s_addr,htons(VIDEO_SESS_PORT),htons(VIDEO_SESS_PORT+1));
-		}
-		*/
-
+	}else{
+		if((struct sess_ctx*)g_cli_ctx->arg==sess)
+				g_cli_ctx->arg=NULL;
+		free_system_session(sess);
+		printf("******************************** set_transport_type , unknow parameter***********************\n");
+		return -1;
 	}
+	/*
 	else if (strlen(arg) == 3 && strncmp(arg, "udp", 3) == 0) {
-        /* We do this so the CLI can set the destination 
-         * ip and port */
+         //We do this so the CLI can set the destination 
+        //  ip and port 
         if ((sess->s1 = create_udp_socket()) < 0) {
                 perror("Error creating socket");
                 return -1;
         }
 
-        /* Create base inet address - used later for 
-         * setting destination */
+        //Create base inet address - used later for 
+         // setting destination 
         if ((sess->to = create_inet_addr(0)) == NULL) {
                 perror("Error creating socket addr");
                 close(sess->s1);
@@ -594,14 +595,14 @@ done:
         //dbg("created udp socket\n");
 	} 
 	else if (strncmp(arg, "fifo", 4) == 0) { 
-        /* Create a named pipe - Note named pipes are 
-         * always pre-pended with fifo */
+        // Create a named pipe - Note named pipes are 
+         // always pre-pended with fifo 
         if (mkfifo(arg, 0666) == -1) {
                 perror("error creating named pipe");
                 return -1;
         }
 
-        /* Open the pipe for writing */
+       // Open the pipe for writing 
         if ((sess->pipe_fd = open(arg, O_WRONLY)) < 0) {
                 dbg("error");
                 perror("error opening named pipe - unlinking");
@@ -613,7 +614,7 @@ done:
         sess->is_pipe = 1;
         //dbg("created named pipe at %s\n", sess->pipe_name);
 	} 
-	else { /* Default to file storage */
+	else { //Default to file storage 
         if ((sess->file_fd = open(arg, O_CREAT | O_RDWR | O_TRUNC,
                                         0666)) < 0) {
                 dbg("error");
@@ -625,7 +626,7 @@ done:
         sess->is_file = 1;
         //dbg("opened file %s", sess->file_name);
     }
-
+     */
     //dbg("ok\n");
     return 0;
 }
@@ -1168,9 +1169,9 @@ static int restart_server(struct sess_ctx *sess, char *arg)
 	}
 	
 	printf("enter restar_server now begin\n");
+	playback_exit(sess->from);
 	pthread_mutex_lock(&sess->sesslock);
 	sess->running=0;
-	playback_exit(sess->from);
 	pthread_mutex_unlock(&sess->sesslock);
 	printf("\nnow wait the monitor stop!\n ");
 	//we donnot need to wait thread stop here the lock will do it for us
@@ -1872,9 +1873,9 @@ static void ReplayRecord(struct sess_ctx *sess,char* arg)
 	v2ipd_share_mem->replay_file_seek_percent = hex_string_to_int(&arg[8], 8);
 	v2ipd_share_mem->v2ipd_to_v2ipd_msg = VS_MESSAGE_START_REPLAY;
 	*/
-	printf("%s: address=0x%x, port=0x%d, seek=%d\n",
+	printf("%s: address=0x%x, port=%d, seek=%d\n",
 			__func__, g_cli_ctx->from.sin_addr.s_addr,
-			g_cli_ctx->from.sin_port, seek);
+			ntohs(g_cli_ctx->from.sin_port), seek);
 	playback_new(g_cli_ctx->from, file_id, seek);
 	return;
 }

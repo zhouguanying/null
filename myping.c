@@ -22,11 +22,15 @@
 #define MAX_WAIT_TIME 5
 #define MAX_NO_PACKETS 3
 
-
+char inet_eth_device[64];
+char inet_wlan_device[64];
+char inet_eth_gateway[64];
+char inet_wlan_gateway[64];
 char curr_device[32] = "eth0";
 char __gate_way[32];
 
 static int enable_wlan0 =0;
+static int enable_eth0 = 0;
 static char device[32] = "eth0";
 static char sendpacket[PACKET_SIZE];
 static char recvpacket[PACKET_SIZE];
@@ -472,7 +476,7 @@ __done:
 	return 0;
 }
 
-int built_net(int check_wlan0)
+int built_net(int check_wlan0,int check_eth0)
 {
 	char ping_addr[32];
 	char trydevice[32];
@@ -484,18 +488,19 @@ int built_net(int check_wlan0)
 	eth0_wan = -1;
 	wlan0_lan = -1;
 	wlan0_wan = -1;
+	 enable_wlan0 = check_wlan0;
+	enable_eth0 = check_eth0;
 
 	/*check eth0 wan*/
-
-	       enable_wlan0 = check_wlan0;
-	
-		memset(ping_addr,0,32);
-		memset(trydevice,0,32);
-		sprintf(ping_addr,"www.baidu.com");
-		sprintf(trydevice,"eth0");
-		eth0_wan = check_net( ping_addr, trydevice);
-		if(eth0_wan == 0)
-			goto __check_ok;
+		if(check_eth0){
+			memset(ping_addr,0,32);
+			memset(trydevice,0,32);
+			sprintf(ping_addr,"www.baidu.com");
+			sprintf(trydevice,"eth0");
+			eth0_wan = check_net( ping_addr, trydevice);
+			if(eth0_wan == 0)
+				goto __check_ok;
+		}
 
 		/*check wlan0 wan*/
 		if(check_wlan0){
@@ -508,13 +513,15 @@ int built_net(int check_wlan0)
 				goto __check_ok;
 		}
 		//check eth0 lan
-		memset(ping_addr,0,32);
-		memset(trydevice,0,32);
-		sprintf(trydevice,"eth0");
-		memcpy(ping_addr,__gate_way,32);
-		eth0_lan = check_net( ping_addr, trydevice);
-		if(eth0_lan == 0)
-			goto __check_ok;
+		if(check_eth0){
+			memset(ping_addr,0,32);
+			memset(trydevice,0,32);
+			sprintf(trydevice,"eth0");
+			memcpy(ping_addr,__gate_way,32);
+			eth0_lan = check_net( ping_addr, trydevice);
+			if(eth0_lan == 0)
+				goto __check_ok;
+		}
 
 		//check wlan0 lan
 		if(check_wlan0){

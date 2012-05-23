@@ -113,8 +113,8 @@ __retry:
 	gettimeofday(&now,NULL);
 	while((*tmp)!=NULL){
 		p=(*tmp);
+		/*
 		if(p->ip==ip&&p->dst_port[NAT_CLI_PORT]==cliport){
-			*tmp=(*tmp)->next;
 			if(p->sess!=NULL){
 				pthread_mutex_lock(&p->sess->sesslock);
 				p->sess->running = 0;
@@ -122,16 +122,23 @@ __retry:
 				pthread_mutex_unlock(&ready_list_lock);
 				pthread_join(p->sess->tid,NULL);
 				goto __retry;
+			}else{
+				*tmp=(*tmp)->next;
+				for(i=1;i<PORT_COUNT;i++)
+					close(p->udpsock[i]);
+				put_local_port(p->local_port[NAT_V_PORT]);
+				free(p);
+				ready_count--;
+				continue;
 			}
-			//put_local_port(p->local_port[NAT_V_PORT]);
-			//free(p);
-			//ready_count--;
 		}
+		*/
 		if(p->connected==0&&(abs(now.tv_sec-p->aged.tv_sec)>READY_STRUCT_TIME_OUT)){
 			*tmp=(*tmp)->next;
 			for(i=1;i<PORT_COUNT;i++)
 				close(p->udpsock[i]);
 			put_local_port(p->local_port[NAT_V_PORT]);
+			pthread_mutex_destroy(&p->mapping_lock);
 			free(p);
 			ready_count--;
 		}else
@@ -338,7 +345,7 @@ int transfer_thread()
 		 printf("convert server addr sucess ip:%s\n",inet_ntoa(from.sin_addr));
 		 fromlen=sizeof(struct sockaddr_in); 
 		 while(1){ 
-		 	camid=CAM_ID;
+		 	camid=threadcfg.cam_id;
 		 	size=sizeof(camid);
 			req[0]=NET_CAMERA_ID;
 			nsize=htons(size);
@@ -395,7 +402,7 @@ int transfer_thread()
 					printf("after delete_timeout_mapping\n");
 					printf("ready_count==%d\n",get_ready_count());
 					printf("read_list==%p\n",ready_list);
-					if(ret>=MAX_CONNECTIONS)
+					if(ret>=(MAX_CONNECTIONS<<2))
 						break;
 					p=(struct mapping *)malloc(sizeof(struct mapping));
 					if(!p){

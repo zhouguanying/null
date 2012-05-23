@@ -56,7 +56,7 @@ typedef struct nand_record_file_header
 #define FLAG0_FH_CHANGED_BIT   3
 typedef struct __nand_record_file_internal_header
 {
-	char head[5]; /*{0,0,0,1,0xc}*/
+	const char head[5]; /*{0,0,0,1,0xc}*/
 	char flag[4];
 	char StartTimeStamp[14];
 	char FrameRateUs[8];

@@ -109,6 +109,7 @@ struct   threadparams{
 };
 
 
+struct __syn_sound_buf syn_buf;
 static struct threadparams audiothreadparams;
 const unsigned char amr_f_head[8]={0x04,0x0c,0x14,0x1c,0x24,0x2c,0x34,0x3c};
 const unsigned char amr_f_size[]={13,14,16,18,20,21,27,32,6, 1, 1, 1, 1, 1, 1, 1};
@@ -1123,7 +1124,22 @@ int init_and_start_sound(){
           	goto __error;
    	 }	
    	 */
-	 
+   	 /*
+   	 *malloc buff that can store 2 sec data
+   	 *the video record will get it at every one second
+   	 */
+	 syn_buf.buffsize =((int)((32*50*2+STEP-1)/STEP))*STEP;
+	syn_buf.buffsize+=STEP;/*the video record thread may delay one more second to get the data , for safe we malloc one more unit*/
+	pthread_mutex_init(&syn_buf.syn_buf_lock,NULL);
+	syn_buf.start = 0;
+	syn_buf.end = 0;
+	syn_buf.buf = (char *)malloc(syn_buf.buffsize);
+	if(!syn_buf.buf){
+		printf("***************unable to malloc syn_buf\n*************************");
+		goto __error;
+	}
+	printf("############ok malloc syn_buf  buf size=%d###################\n",syn_buf.buffsize);
+	memset(syn_buf.buf,0,syn_buf.buffsize);
 	audiothreadparams.ucount=2;
 #if TEST
 	printf("TEST!\n");
@@ -1251,15 +1267,22 @@ int grab_sound_data()
 		printf("grab sound data error\n");
 		return -1;
 	}
+	pthread_mutex_lock(&syn_buf.syn_buf_lock);
 	pthread_mutex_lock(&audiothreadparams.cop_data_lock);
 	r=amrcoder(audiothreadparams.rdthread.audiobuf, audiothreadparams.params->chunk_bytes, audiothreadparams.cop_data_buf, & audiothreadparams.cop_data_length,AMR_MODE,2);
+	memcpy(syn_buf.buf+syn_buf.end,audiothreadparams.cop_data_buf,STEP);
 	memset(audiothreadparams.readed_t,0,sizeof(audiothreadparams.readed_t));
 	pthread_mutex_unlock(&audiothreadparams.cop_data_lock);
+	syn_buf.end=(syn_buf.end+STEP)%syn_buf.buffsize;
+	if(syn_buf.end==syn_buf.start){
+		syn_buf.start=(syn_buf.start+STEP)%syn_buf.buffsize;
+		printf("the video get the sound data too slow\n");
+	}
+	pthread_mutex_unlock(&syn_buf.syn_buf_lock);
 	if(r<0)
 		return -1;
 	return 0;
 }
-
 int grab_sound_thread()
 {
 	while(1){
@@ -1271,3 +1294,4 @@ int grab_sound_thread()
 	}
 	return 0;
 }
+

@@ -7,23 +7,26 @@
 #include "cli.h"
 
 static LIST_HEAD(playback_list);
-static pthread_mutex_t list_lock;
-pthread_mutex_t pb_rtp_port_lock;
-char  pb_rtp_port[MAX_CONNECTIONS];
-#define PB_BASE_PORT 	5006
+pthread_mutex_t list_lock;
+//pthread_mutex_t pb_rtp_port_lock;
+//char  pb_rtp_port[MAX_CONNECTIONS];
+//#define PB_BASE_PORT 	5006
 
 void* playback_thread(void * arg);
 
 int playback_init()
 {
+	/*
 	int i;
 	for(i=0;i<MAX_CONNECTIONS;i++){
 		pb_rtp_port[i]=0;
 	}
 	pthread_mutex_init(&pb_rtp_port_lock,NULL);
+	*/
 	pthread_mutex_init(&list_lock, NULL);
 	return 0;
 }
+/*
 uint16_t get_playback_port()
 {
 	int i;
@@ -48,6 +51,7 @@ int put_playback_port(uint16_t port)
 	pthread_mutex_unlock(&pb_rtp_port_lock);
 	return 0;
 }
+*/
 /*
 int add_to_keep_alive_list(struct pb_port_connet_management *new_kalive)
 {
@@ -141,7 +145,7 @@ int keep_playback_port_alive_thread()
 	return 0;
 }
 */
-static playback_t* playback_find(struct sockaddr_in address)
+ playback_t* playback_find(struct sockaddr_in address)
 {
 	struct list_head* p;
 	playback_t* pb;
@@ -151,9 +155,10 @@ static playback_t* playback_find(struct sockaddr_in address)
 	list_for_each(p, &playback_list){
 		pb = list_entry(p, playback_t, list);
 		if(pb->address.sin_addr.s_addr ==
-				address.sin_addr.s_addr){
+				address.sin_addr.s_addr/*&&pb->address.sin_port==address.sin_port*/){
 			printf("%s: pb address=0x%x, address to find=0x%x\n",
 				__func__, pb->address.sin_addr.s_addr, address.sin_addr.s_addr);
+			printf("pb port=%d , address port=%d\n",ntohs(pb->address.sin_port),ntohs(address.sin_port));
 			return pb;
 		}
 	}
@@ -174,7 +179,7 @@ static int playback_is_dead(playback_t* pb)
 	return ret;
 }
 
-static void playback_set_dead(playback_t* pb)
+ void playback_set_dead(playback_t* pb)
 {
 	pthread_mutex_lock(&pb->lock);
 	pb->dead = 1;
@@ -183,14 +188,16 @@ static void playback_set_dead(playback_t* pb)
 
 static int playback_destroy(playback_t* pb)
 {
-	int i;
-	i=(int)(pb->rtpport-PB_BASE_PORT)>>1;
+	//int i;
+	//i=(int)(pb->rtpport-PB_BASE_PORT)>>1;
 	list_del(&pb->list);
 	if(pb->socket>=0)
 		close(pb->socket);
+	/*
 	pthread_mutex_lock(&pb_rtp_port_lock);
 	pb_rtp_port[i]=0;
 	pthread_mutex_unlock(&pb_rtp_port_lock);
+	*/
 	free(pb);
 }
 
@@ -231,7 +238,8 @@ int playback_new(struct sockaddr_in address, int file, int seek_percent)
 		if(playback_get_status(pb) != PLAYBACK_STATUS_OFFLINE){
 			if(!playback_is_dead(pb)){
 				playback_set_status(pb, PLAYBACK_STATUS_EXIT);
-				pthread_join(pb->thread_id, NULL);
+				if(pb->thread_id)
+					pthread_join(pb->thread_id, NULL);
 			}
 		}
 
@@ -250,6 +258,7 @@ int playback_new(struct sockaddr_in address, int file, int seek_percent)
 		pthread_mutex_init(&pb->lock, NULL);
 		list_add_tail(&pb->list, &playback_list);
 		pthread_mutex_unlock(&list_lock);
+		/*
 		pthread_mutex_lock(&pb_rtp_port_lock);
 		for(i=0;i<MAX_CONNECTIONS;i++){
 			if(pb_rtp_port[i]==0)
@@ -258,10 +267,10 @@ int playback_new(struct sockaddr_in address, int file, int seek_percent)
 		pb_rtp_port[i]=1;
 		pthread_mutex_unlock(&pb_rtp_port_lock);
 		pb->rtpport=(uint16_t)(PB_BASE_PORT+(i<<1));
-		/*set default addr*/
 		pb->destaddr=(uint32_t)ntohl(address.sin_addr.s_addr);
 		pb->destrtpport=(uint16_t)VIDEO_SESS_PORT;
 		pb->destrtcpport=(uint16_t)(VIDEO_SESS_PORT+1);
+		*/
 		
 	}else{
 		ret = -1;
@@ -374,10 +383,9 @@ int playback_exit(struct sockaddr_in address)
 	
 	pb = playback_find(address);
 	if(pb){
-		if(pb->thread_id){
-			playback_set_status(pb, PLAYBACK_STATUS_EXIT);
+		playback_set_status(pb, PLAYBACK_STATUS_EXIT);
+		if(pb->thread_id)
 			pthread_join(pb->thread_id, &status);
-		}
 		playback_destroy(pb);
 		printf("playback exit!\n");
 	}else{

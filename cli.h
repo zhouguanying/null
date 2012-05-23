@@ -39,6 +39,7 @@ struct cli_handler {
 
 //#define RECORD_PAR_FILE  "/etc/v2ipd/video.cfg"
 //#define MONITOR_PAR_FILE "/etc/v2ipd/video2.cfg"
+//#define RECORD_PAR_BAR_FILE  "/data/video_bar"
 #define RECORD_PAR_FILE  "/data/video.cfg"
 #define MONITOR_PAR_FILE "/video.cfg"
 

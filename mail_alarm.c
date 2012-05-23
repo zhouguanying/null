@@ -24,7 +24,7 @@
 
 // the next code for email alarm so boring code it seen my heartbeat stop when I typing it 
 
-#define MAX_DATA_IN_LIST  		 10
+#define MAX_DATA_IN_LIST  		 1
 #define MAILSERVER 				 "smtp.163.com"
 #define RECEIVER 	 			 "linrizeng@sina.com"
 #define SENDER   	 				 "iped2010@163.com"
@@ -496,15 +496,12 @@ __end:
 		close(sockfd);
 	return -1;
 }
- #define MAX_SLEEP_USECCONDS 1000000
  int mail_alarm_thread(){
  	while(1){
-		int x;
 		pthread_mutex_lock(&attach_data_list_head.mail_data_lock);
-		if(!attach_data_list_head.attach_data_list||attach_data_list_head.count<(MAX_DATA_IN_LIST>>1)){
-			x=MAX_DATA_IN_LIST-attach_data_list_head.count;
+		if(!attach_data_list_head.attach_data_list||attach_data_list_head.count<=0){
 			pthread_mutex_unlock(&attach_data_list_head.mail_data_lock);
-			usleep(50*x);
+			usleep(500000);
 			continue;
 		}
 		private_list_head.count=attach_data_list_head.count;

@@ -153,7 +153,7 @@ struct sess_ctx {
 	volatile int email_alarm;
 	char     mailbox[64];
 	volatile int sound_duplex;
-	volatile int inet_mode[64];
+	char     inet_mode[64];
 	volatile int inet_udhcpc;
 };
 /* Housekeeping globals used termintate program */
