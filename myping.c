@@ -177,7 +177,7 @@ int unpack(char *buf,int len)
     else return -1;
 	return 0;
 }
-int check_net(char *ping_addr,char __device[32])
+int check_net(char *ping_addr,char * __device)
 {
     struct hostent *host;
     unsigned long inaddr=0l;
@@ -194,9 +194,9 @@ int check_net(char *ping_addr,char __device[32])
     if( (sockfd=socket(AF_INET,SOCK_RAW,IPPROTO_ICMP) )<0)
     {
         perror("socket error");
-        exit(1);
+        return -1;
     }
-    timeout.tv_sec = 5;
+    timeout.tv_sec = 3;
     timeout.tv_usec  = 0;
     /* 回收root权限,设置当前用户权限*/
    // setuid(getuid());
@@ -207,7 +207,7 @@ int check_net(char *ping_addr,char __device[32])
    if (setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, (char *)&ifr, sizeof(ifr)) == -1){
    	printf("unable to bind device %s\n",device);
 	close(sockfd);
-	exit(0);
+	return -1;
    }
    addr_len = sizeof(struct sockaddr);
    if(getsockname(sockfd,(struct sockaddr*)&addr,&addr_len) <0){
@@ -229,7 +229,8 @@ int check_net(char *ping_addr,char __device[32])
         if((host=gethostbyname(argv[1]) )==NULL) /*是主机名*/
         {
            perror("gethostbyname error");
-           exit(1);
+	    close(sockfd);
+           return -1;
         }
         memcpy( (char *)&dest_addr.sin_addr,host->h_addr,host->h_length);
     }
@@ -240,7 +241,7 @@ int check_net(char *ping_addr,char __device[32])
     printf("PING %s(%s): %d bytes data in ICMP packets.\n",argv[1],
     inet_ntoa(dest_addr.sin_addr),datalen);
    // signal(SIGINT,statistics);
-   for(n =0;n<5;n++){
+   for(n =0;n<3;n++){
    	send_packet();
 	if(recv_packet() ==0){
 		close(sockfd);
@@ -381,7 +382,8 @@ int check_net_thread()
 		memset(ping_addr,0,32);
 		memset(trydevice,0,32);
 		sprintf(ping_addr,"www.baidu.com");
-		sprintf(trydevice,"eth0");
+		//sprintf(trydevice,"eth0");
+		memcpy(trydevice , inet_eth_device,32);
 		eth0_wan = check_net( ping_addr, trydevice);
 		if(eth0_wan == 0)
 			goto __check_ok;
@@ -391,7 +393,8 @@ int check_net_thread()
 			memset(ping_addr,0,32);
 			memset(trydevice,0,32);
 			sprintf(ping_addr,"www.baidu.com");
-			sprintf(trydevice,"wlan0");
+			//sprintf(trydevice,"wlan0");
+			memcpy(trydevice , inet_wlan_device , 32);
 			wlan0_wan = check_net( ping_addr, trydevice);
 			if(wlan0_wan == 0)
 				goto __check_ok;
@@ -399,7 +402,9 @@ int check_net_thread()
 		//check eth0 lan
 		memset(ping_addr,0,32);
 		memset(trydevice,0,32);
-		sprintf(trydevice,"eth0");
+		//sprintf(trydevice,"eth0");
+		memcpy(trydevice , inet_eth_device,32);
+		memcpy(__gate_way , inet_eth_gateway , 32);
 		memcpy(ping_addr,__gate_way,32);
 		eth0_lan = check_net( ping_addr, trydevice);
 		if(eth0_lan == 0)
@@ -409,7 +414,9 @@ int check_net_thread()
 		if(enable_wlan0){
 			memset(ping_addr,0,32);
 			memset(trydevice,0,32);
-			sprintf(trydevice,"wlan0");
+			//sprintf(trydevice,"wlan0");
+			memcpy(trydevice , inet_wlan_device , 32);
+			memcpy(__gate_way , inet_wlan_gateway , 32);
 			memcpy(ping_addr,__gate_way,32);
 			wlan0_lan = check_net( ping_addr, trydevice);
 		}
@@ -468,8 +475,8 @@ __check_ok:
 				goto __done;
 		}
 		/*all cannot connected ......*/
-		printf("all disconnected  now reboot\n");
-		system("reboot");
+		//printf("all disconnected  now reboot\n");
+		//system("reboot");
 __done:
 	sleep(10);
 	}
@@ -490,14 +497,22 @@ int built_net(int check_wlan0,int check_eth0)
 	wlan0_wan = -1;
 	 enable_wlan0 = check_wlan0;
 	enable_eth0 = check_eth0;
-
+	if(!check_eth0){
+		memcpy(curr_device , inet_wlan_device , 32);
+		return 0;
+	}
+	if(!check_wlan0){
+		memcpy(curr_device,inet_eth_device,32);
+		return 0;
+	}
 	/*check eth0 wan*/
 		if(check_eth0){
 			memset(ping_addr,0,32);
 			memset(trydevice,0,32);
 			sprintf(ping_addr,"www.baidu.com");
-			sprintf(trydevice,"eth0");
-			eth0_wan = check_net( ping_addr, trydevice);
+			//sprintf(trydevice,"eth0");
+			//memcpy(trydevice , inet_eth_device,32);
+			eth0_wan = check_net( ping_addr, inet_eth_device);
 			if(eth0_wan == 0)
 				goto __check_ok;
 		}
@@ -507,8 +522,9 @@ int built_net(int check_wlan0,int check_eth0)
 			memset(ping_addr,0,32);
 			memset(trydevice,0,32);
 			sprintf(ping_addr,"www.baidu.com");
-			sprintf(trydevice,"wlan0");
-			wlan0_wan = check_net( ping_addr, trydevice);
+			//sprintf(trydevice,"wlan0");
+			//memcpy(trydevice , inet_wlan_device,32);
+			wlan0_wan = check_net( ping_addr,  inet_wlan_device);
 			if(wlan0_wan == 0)
 				goto __check_ok;
 		}
@@ -516,9 +532,11 @@ int built_net(int check_wlan0,int check_eth0)
 		if(check_eth0){
 			memset(ping_addr,0,32);
 			memset(trydevice,0,32);
-			sprintf(trydevice,"eth0");
+			//sprintf(trydevice,"eth0");
+			memcpy(trydevice , inet_eth_device,32);
+			memcpy(__gate_way,inet_eth_gateway,32);
 			memcpy(ping_addr,__gate_way,32);
-			eth0_lan = check_net( ping_addr, trydevice);
+			eth0_lan = check_net( inet_eth_gateway,  inet_eth_device);
 			if(eth0_lan == 0)
 				goto __check_ok;
 		}
@@ -527,30 +545,32 @@ int built_net(int check_wlan0,int check_eth0)
 		if(check_wlan0){
 			memset(ping_addr,0,32);
 			memset(trydevice,0,32);
-			sprintf(trydevice,"wlan0");
+			//sprintf(trydevice,"wlan0");
+			memcpy(trydevice,inet_wlan_device,32);
+			memcpy(__gate_way , inet_wlan_gateway,32);
 			memcpy(ping_addr,__gate_way,32);
 			wlan0_lan = check_net( ping_addr, trydevice);
 		}
 __check_ok:
 		memset(curr_device,0,32);
 		if(eth0_wan ==0 ){
-			sprintf(curr_device,"eth0");
+			memcpy(curr_device,inet_eth_device,32);
 			printf("####################use eth0##############\n");
 			goto __done;
 		}
 		if(wlan0_wan ==0){
 			printf("####################use wlan0##############\n");
-			sprintf(curr_device,"wlan0");
+			memcpy(curr_device , inet_wlan_device , 32);
 			goto __done;
 		}
 		if(eth0_lan ==0){
 			printf("####################use eth0##############\n");
-			sprintf(curr_device,"eth0");
+			memcpy(curr_device,inet_eth_device,32);
 			goto __done;
 		}
 		if(wlan0_lan == 0){
 			printf("####################use wlan0##############\n");
-			sprintf(curr_device,"wlan0");
+			memcpy(curr_device , inet_wlan_device , 32);
 			goto __done;
 		}
 		printf("######################all net can't use#################\n");

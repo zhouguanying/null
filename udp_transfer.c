@@ -334,7 +334,7 @@ int transfer_thread()
 	        if((host=gethostbyname(threadcfg.server_addr) )==NULL) 
 	        {
 	           perror("server address gethostbyname error");
-	           exit(1);
+	           return -1;
 	        }
 	        memcpy( &server_addr,host->h_addr,host->h_length);
     	}

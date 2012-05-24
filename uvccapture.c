@@ -501,7 +501,7 @@ struct vdIn * init_camera(void) {
 		printf("init camera device error\n");
 		return (struct vdIn *) 0;
 	}
-	query_all_ctrl(videoIn->fd);
+	//query_all_ctrl(videoIn->fd);
 	v4l2ResetControl (videoIn, V4L2_CID_BRIGHTNESS);
 	v4l2ResetControl (videoIn, V4L2_CID_CONTRAST);
 	v4l2ResetControl (videoIn, V4L2_CID_SATURATION);

@@ -30,7 +30,7 @@
 #include "vpu_server.h"
 extern int check_net_thread();
 extern int mywpa_cli(int argc, char *argv[]);
-extern int built_net(int check_wlan0);
+int built_net(int check_wlan0,int check_eth0);
 extern char __gate_way[32];
 extern char *scanresult;
 extern int result_len;
@@ -229,12 +229,12 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 		free_system_session(system_sess);
 		return -1;
 	} 
-/*
-	if (pthread_create(&tid, NULL, (void *) check_net_thread, NULL) < 0) {
-		printf("unable to create check net thread\n");
-		return -1;
-	} 
-*/
+	if(strncmp(threadcfg.inet_mode,"inteligent",strlen("inteligent"))==0){
+		if (pthread_create(&tid, NULL, (void *) check_net_thread, NULL) < 0) {
+			printf("unable to create check net thread\n");
+			return -1;
+		} 
+	}
 	playback_init();
 	printf("video monitor and record is running\n");
 	start_udt_lib();
@@ -467,7 +467,7 @@ int get_ip(char * device , char *ip , char *mask)
 	return -1;
 }
 
-void config_wifi(struct configstruct *conf_p, int lines)
+int config_wifi(struct configstruct *conf_p, int lines)
 {
 	int i;
 	char buf[256];
@@ -485,6 +485,7 @@ void config_wifi(struct configstruct *conf_p, int lines)
 		printf("malloc buff for scanresult error\n");
 		goto error;
 	}
+	system("cp /etc/wpa.conf  /data/wpa.conf");
 	system("mkdir /tmp/wpa_supplicant");
 	system("killall wpa_supplicant");
 	sleep(1);
@@ -506,6 +507,9 @@ void config_wifi(struct configstruct *conf_p, int lines)
 	
 	sprintf(argv[0],"add_network");
 	mywpa_cli(1,argv);
+	if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+		goto error;
+	}
 
 	memset(buf,0,256);
 	extract_value(conf_p, lines, "inet_wlan_ssid", 1, buf);
@@ -520,6 +524,9 @@ void config_wifi(struct configstruct *conf_p, int lines)
 	sprintf(argv[3],"\"%s\"",buf);
 	printf("try ssid\n");
 	mywpa_cli(4,  argv );
+	if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+		goto error;
+	}
 
 	memset(buf,0,256);
 	extract_value(conf_p, lines, "inet_wlan_mode", 1, buf);
@@ -531,6 +538,9 @@ void config_wifi(struct configstruct *conf_p, int lines)
 		sprintf(argv[3],"%s",buf);
 		printf("try mode\n");
 		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
 	}
 
 	memset(buf,0,256);
@@ -543,6 +553,9 @@ void config_wifi(struct configstruct *conf_p, int lines)
 		sprintf(argv[3],"%s",buf);
 		printf("try proto\n");
 		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
 	}
 
 	memset(buf,0,256);
@@ -555,6 +568,9 @@ void config_wifi(struct configstruct *conf_p, int lines)
 		sprintf(argv[3],"%s",buf);
 		printf("try key_mgmt\n");
 		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
 	}else{
 		printf("error key_mgmt \n");
 		goto error;
@@ -570,6 +586,9 @@ void config_wifi(struct configstruct *conf_p, int lines)
 		sprintf(argv[3],"%s",buf);
 		printf("try wep_key0\n");
 		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
 	}
 
 	memset(buf,0,256);
@@ -582,6 +601,9 @@ void config_wifi(struct configstruct *conf_p, int lines)
 		sprintf(argv[3],"%s",buf);
 		printf("try wep_key1\n");
 		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
 	}
 
 	memset(buf,0,256);
@@ -594,6 +616,9 @@ void config_wifi(struct configstruct *conf_p, int lines)
 		sprintf(argv[3],"%s",buf);
 		printf("try wep_key2\n");
 		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
 	}
 
 	memset(buf,0,256);
@@ -606,6 +631,9 @@ void config_wifi(struct configstruct *conf_p, int lines)
 		sprintf(argv[3],"%s",buf);
 		printf("try wep_tx_keyidx\n");
 		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
 	}
 
 	memset(buf,0,256);
@@ -618,6 +646,9 @@ void config_wifi(struct configstruct *conf_p, int lines)
 		sprintf(argv[3],"%s",buf);
 		printf("try auth_alg\n");
 		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
 	}
 	
 	memset(buf,0,256);
@@ -630,6 +661,9 @@ void config_wifi(struct configstruct *conf_p, int lines)
 		sprintf(argv[3],"%s",buf);
 		printf("try pairwise\n");
 		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
 	}
 
 	memset(buf,0,256);
@@ -642,6 +676,9 @@ void config_wifi(struct configstruct *conf_p, int lines)
 		sprintf(argv[3],"%s",buf);
 		printf("try group\n");
 		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
 	}
 
 	memset(buf,0,256);
@@ -654,11 +691,17 @@ void config_wifi(struct configstruct *conf_p, int lines)
 		sprintf(argv[3],"%s",buf);
 		printf("try psk\n");
 		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
 	}
 	sprintf(argv[0],"select_network");
 	sprintf(argv[1],"0");
 	printf("try select_network\n");
 	mywpa_cli(2,argv);
+	if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+		goto error;
+	}
 	free(scanresult);
 	for(i=0;i<4;i++)
 		  free(argv[i]);
@@ -682,20 +725,15 @@ int main()
 	int ret;
 	int check_wlan0 =0;
 	int check_eth0 = 0;
-	struct sess_ctx * system_sess=NULL;
 	int count;
-	int tryscan;
+	//int tryscan;
 	pthread_t tid;
 	FILE*fd;
 	char buf[512];
 	struct configstruct *conf_p;
 	int i;
-	char *argv[4];
 	char *ip=NULL;
 	char *mask=NULL;
-	char *gateway=NULL;
-	char *ssid=NULL;
-	char *psk=NULL;
 	FILE *netconfig_fd;
 	
 	sleep(1);
@@ -807,174 +845,9 @@ int main()
 	for(i= 0; i < 4; i++)
 		free(argv[i]);
 	*/
-	check_wlan0 = 1;
 //	system("ifconfig eth0 192.168.1.121");
 //	system("echo host > /sys/devices/platform/fsl-usb2-otg/status");
 	//sleep(3);
-	/*
-	netconfig_fd=fopen("/data/net.config","r");
-	if(netconfig_fd){
-		ip=malloc(256);
-		mask=malloc(256);
-		gateway=malloc(256);
-		ssid=malloc(256);
-		psk=malloc(256);
-		
-		memset(ip,0,256);
-		memset(mask,0,256);
-		memset(gateway,0,256);
-		
-		if(fscanf(netconfig_fd,"%s",ip)!=1){
-			printf("cannot read ip\n");
-			return 0;
-		}else{
-			fgetc(netconfig_fd);
-			printf("ip=%s\n",ip);
-		}
-		if(fscanf(netconfig_fd,"%s",mask)!=1){
-			printf("cannot read mask\n");
-			return 0;
-		}else{
-			fgetc(netconfig_fd);
-			printf("mask=%s\n",mask);
-		}
-		if(fscanf(netconfig_fd,"%s",gateway)!=1){
-			printf("cannot read gateway\n");
-			return 0;
-		}else{
-			fgetc(netconfig_fd);
-			printf("gateway=%s\n",gateway);
-		}
-		if(fscanf(netconfig_fd,"%s",ssid)!=1){
-			printf("cannot ssid\n");
-			free(ssid);
-			free(psk);
-			ssid=NULL;
-			psk=NULL;
-			goto __ok;
-		}else{
-			fgetc(netconfig_fd);
-			printf("ssid=%s\n",ssid);
-		}
-		if(fscanf(netconfig_fd,"%s",psk)!=1){
-			printf("cannot read psk\n");
-			free(ssid);
-			free(psk);
-			ssid=NULL;
-			psk=NULL;
-			goto __ok;
-		}else{
-			fgetc(netconfig_fd);
-			printf("psk=%s\n",psk);
-		}
-__ok:
-		memset(__gate_way,0,32);
-		memcpy(__gate_way,gateway,32);
-		if(ssid&&psk){
-			check_wlan0 =1;
-			system("mkdir /tmp/wpa_supplicant");
-			system("killall wpa_supplicant");
-			sleep(1);
-			system("wpa_supplicant -Dwext -iwlan0 -c/data/wpa.conf -B");
-			sleep(5);
-			for(i=0;i<4;i++)
-				argv[i]=malloc(256);
-			sprintf(argv[0],"scan");
-			mywpa_cli(1,argv);
-	
-			sprintf(argv[0],"scan_results");
-			mywpa_cli(1,argv);
-			
-			sprintf(argv[0],"remove_network");
-			sprintf(argv[1],"0");
-			mywpa_cli(2,  argv);
-			
-			sprintf(argv[0],"ap_scan");
-			sprintf(argv[1],"1");
-			mywpa_cli(2,  argv);
-			
-			sprintf(argv[0],"add_network");
-			mywpa_cli(1,argv);
-		
-			sprintf(argv[0],"set_network");
-			sprintf(argv[1],"0");
-			sprintf(argv[2],"ssid");
-			sprintf(argv[3],"\"%s\"",ssid);
-			printf("try ssid\n");
-			mywpa_cli(4,  argv );
-
-			
-			sprintf(argv[0],"set_network");
-			sprintf(argv[1],"0");
-			sprintf(argv[2],"key_mgmt");
-			sprintf(argv[3],"NONE");
-			printf("try key_mgmt\n");
-			mywpa_cli(4,  argv );
-			
-			sprintf(argv[0],"set_network");
-			sprintf(argv[1],"0");
-			sprintf(argv[2],"wep_key0");
-			sprintf(argv[3],"%s",psk);
-			printf("try wep_key0\n");
-			mywpa_cli(4,  argv );
-			
-			sprintf(argv[0],"set_network");
-			sprintf(argv[1],"0");
-			sprintf(argv[2],"wep_tx_keyidx");
-			sprintf(argv[3],"0");
-			printf("try wep_tx_keyidx\n");
-			mywpa_cli(4,  argv );
-			
-			sprintf(argv[0],"set_network");
-			sprintf(argv[1],"0");
-			sprintf(argv[2],"auth_alg");
-			sprintf(argv[3],"SHARED");
-			printf("try auth_alg\n");
-			mywpa_cli(4,  argv );
-			sprintf(argv[0],"select_network");
-			sprintf(argv[1],"0");
-			mywpa_cli(2,argv);
-			for(i=0;i<4;i++)
-				  free(argv[i]);
-			
-			sleep(1);
-			sprintf(ip_buf,"ifconfig wlan0 %s netmask %s",ip, mask);
-			system(ip_buf);
-			sleep(3);
-			sprintf(ip_buf,"route add default   gw  %s",gateway);
-			system(ip_buf);
-			sleep(3);
-		
-			free(ip);
-			free(mask);
-			free(gateway);
-			free(ssid);
-			free(psk);
-			system("udhcpc -i wlan0");
-			sleep(3);
-		}
-		else{
-		
-			sprintf(ip_buf,"ifconfig eth0 %s netmask %s",ip, mask);
-			system(ip_buf);
-			sleep(3);
-			sprintf(ip_buf,"route add default   gw  %s",gateway);
-			sleep(3);
-		
-			free(ip);
-			free(mask);
-			free(gateway);
-		}
-		system("udhcpc -i eth0");
-		sleep(3);
-		fclose(netconfig_fd);
-	}
-	else{
-		//system("ifconfig wlan0 down");
-		//system("udhcpc -i eth0");
-	}
-	//system_sess = new_system_session("ipcam");
-	*/
 	/*
 	system("route | grep default > /tmp/route");
 	FILE*routefd = fopen("/tmp/route","r");
@@ -988,7 +861,7 @@ __ok:
 		while(p==' ' || p=='\t')p++;
 	}
 	*/
-	sprintf(__gate_way,"192.168.1.1");
+	//sprintf(__gate_way,"192.168.1.1");
 /*
 	if(built_net(check_wlan0)<0)
 		system("reboot");
@@ -1246,9 +1119,9 @@ __ok:
 			printf("------------configure eth----------------\n");
 			if(threadcfg.inet_udhcpc){
 				memset(buf,0,512);
-				sprintf(buf,"udhcpc -i %s",inet_eth_device);
+				sprintf(buf,"udhcpc -i %s &",inet_eth_device);
 				system(buf);
-				sleep(1);
+				sleep(10);
 				memset(inet_eth_gateway,0,sizeof(inet_eth_gateway));
 				get_gateway(inet_eth_device, inet_eth_gateway);
 				set_value(conf_p, lines, "inet_eth_gateway", 1, inet_eth_gateway);
@@ -1276,7 +1149,7 @@ __ok:
 				extract_value(conf_p, lines, "inet_eth_gateway", 1, inet_eth_gateway);
 				printf("inet_eth_gateway = %s\n",inet_eth_gateway);
 				
-				sprintf(buf,"route add default   gw  %s",inet_eth_gateway);
+				sprintf(buf,"route add default   gw  %s  %s",inet_eth_gateway,inet_eth_device);
 				printf("before set gateway buf==%s\n",buf);
 				system(buf);
 				sleep(1);
@@ -1284,53 +1157,58 @@ __ok:
 		}
 		if(strncmp(threadcfg.inet_mode,"wlan_only",strlen("wlan_only"))==0
 			||strncmp(threadcfg.inet_mode,"inteligent",strlen("inteligent"))==0){
+			printf("------------configure wlan----------------\n");
 			check_wlan0 = 1;
-			config_wifi( conf_p, lines);
-			if(threadcfg.inet_udhcpc){
-				memset(buf,0,512);
-				sprintf(buf,"udhcpc -i %s",inet_wlan_device);
-				system(buf);
-				sleep(1);
-				memset(inet_wlan_gateway,0,sizeof(inet_wlan_gateway));
-				get_gateway(inet_wlan_device, inet_wlan_gateway);
-				set_value(conf_p, lines, "inet_wlan_gateway", 1, inet_wlan_gateway);
-				memset(buf,0,512);
-				ip = buf;
-				mask = buf+256;
-				get_ip(inet_wlan_device,ip,mask);
-				set_value(conf_p, lines, "inet_wlan_ip", 1, ip);
-				set_value(conf_p, lines, "inet_wlan_mask", 1, mask);
+			if(config_wifi( conf_p, lines)<0){
+				printf("configure wifi error check your data\n");
 			}else{
-			/*
-				extract_value(conf_p, lines, "inet_wlan_gateway", 1, inet_wlan_gateway);
-				printf("inet_wlan_gateway = %s\n",inet_wlan_gateway);
-				memset(buf,0,512);
-				ip=buf+256;
-				mask = buf + 256+32;
-				extract_value(conf_p, lines, "inet_eth_ip", 1, ip);
-				printf("inet_eth_ip = %s\n",ip);
-				extract_value(conf_p, lines, "inet_eth_mask", 1, mask);
-				printf("inet_eth_mask = %s\n",mask);
-				sprintf(buf,"ifconfig %s %s netmask %s",inet_eth_device,ip, mask);
-				printf("before set ip and mask buf==%s\n",buf);
-				system(buf);
-				sleep(3);
-				
-				memset(buf,0,512);
-				memset(inet_eth_gateway,0,sizeof(inet_eth_gateway));
-				extract_value(conf_p, lines, "inet_eth_gateway", 1, inet_eth_gateway);
-				printf("inet_eth_gateway = %s\n",inet_eth_gateway);
-				
-				sprintf(buf,"route add default   gw  %s",inet_eth_gateway);
-				printf("before set gateway buf==%s\n",buf);
-				system(buf);
-				sleep(1);
-				*/
+				if(threadcfg.inet_udhcpc){
+					memset(buf,0,512);
+					sprintf(buf,"udhcpc -i %s &",inet_wlan_device);
+					system(buf);
+					sleep(20);
+					memset(inet_wlan_gateway,0,sizeof(inet_wlan_gateway));
+					get_gateway(inet_wlan_device, inet_wlan_gateway);
+					set_value(conf_p, lines, "inet_wlan_gateway", 1, inet_wlan_gateway);
+					memset(buf,0,512);
+					ip = buf;
+					mask = buf+256;
+					get_ip(inet_wlan_device,ip,mask);
+					set_value(conf_p, lines, "inet_wlan_ip", 1, ip);
+					set_value(conf_p, lines, "inet_wlan_mask", 1, mask);
+				}else{
+					memset(buf,0,512);
+					ip=buf+256;
+					mask = buf + 256+32;
+					extract_value(conf_p, lines, "inet_wlan_ip", 1, ip);
+					printf("inet_wlan_ip = %s\n",ip);
+					extract_value(conf_p, lines, "inet_wlan_mask", 1, mask);
+					printf("inet_wlan_mask = %s\n",mask);
+					sprintf(buf,"ifconfig %s %s netmask %s",inet_wlan_device,ip, mask);
+					printf("before set ip and mask buf==%s\n",buf);
+					system(buf);
+					sleep(3);
+					
+					memset(buf,0,512);
+					memset(inet_wlan_gateway,0,sizeof(inet_wlan_gateway));
+					extract_value(conf_p, lines, "inet_wlan_gateway", 1, inet_wlan_gateway);
+					printf("inet_wlan_gateway = %s\n",inet_wlan_gateway);
+					
+					sprintf(buf,"route add default   gw  %s  %s",inet_wlan_gateway,inet_wlan_device);
+					printf("before set gateway buf==%s\n",buf);
+					system(buf);
+					sleep(1);
+					
+				}
 			}
 		}
 		write_config_value(conf_p, lines);
 		memset(buf,0,512);
 		free(conf_p);
+	}
+
+	if(built_net(check_wlan0,  check_eth0)<0){
+		printf("the network is error , check your network \n");
 	}
 
 	ret = nand_open("/sdcard");
@@ -1354,7 +1232,7 @@ if (pthread_create(&tid, NULL, (void *) usb_state_monitor, NULL) < 0) {
 	
 	test_set_sound_card();
 
-	test_video_record_and_monitor(system_sess);
+	test_video_record_and_monitor(NULL);
 
 	printf("exit program\n");
 	return 0;
