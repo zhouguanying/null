@@ -471,7 +471,7 @@ int get_ip(char * device , char *ip , char *mask)
 	return -1;
 }
 
-int get_dns(int *dns1 , int *dns2)
+int get_dns(char  *dns1 , char *dns2)
 {
 	FILE *dnsfp;
 	char buf[512];
@@ -491,10 +491,10 @@ int get_dns(int *dns1 , int *dns2)
 	i = 0;
 	while(fgets(buf,512,dnsfp)!=NULL&&i<2){
 		p= buf;
-		while(p==' ' || p=='\t')p++;
+		while(*p==' ' || *p=='\t')p++;
 		if(strncmp(p,"nameserver",strlen("nameserver"))==0){
 			p+=strlen("nameserver");
-			while(p==' ' || p=='\t')p++;
+			while(*p==' ' || *p=='\t')p++;
 			while(*p!=' '&&*p!='\t'&&*p!='\n'&&*p!=0){
 				*dns[i]=*p;
 				dns[i]++;
@@ -507,7 +507,7 @@ int get_dns(int *dns1 , int *dns2)
 	fclose(dnsfp);
 	return 0;
 }
-int set_dns(int *dns1 , int *dns2)
+int set_dns(char  *dns1 , char *dns2)
 {
 	FILE *dnsfp;
 	char buf[512];
@@ -846,6 +846,7 @@ int get_netlink_status(const char *if_name)
 	system("ps -efww |grep wpa_supplicant | grep -v grep > /tmp/twpa");
 	stat("/tmp/twpa", &st);
 	if(st.st_size <=0){
+		printf("start wpa_supplicant\n");
 		system("mkdir /tmp/wpa_supplicant");
 		system("wpa_supplicant -Dwext -iwlan0 -c/data/wpa.conf -B");
 		sleep(1);
@@ -900,6 +901,7 @@ char * get_parse_scan_result( int *numssid)
 	char *p;
 	char *d;
 	int i = 0;
+	int j;
 	*numssid = 0;
 	rawbuf = scan_wifi(&len);
 	if(!rawbuf){
@@ -958,11 +960,64 @@ char * get_parse_scan_result( int *numssid)
 		p++;
 		i++;
 		(*numssid)++;
+		memset(proto , 0, sizeof(proto));
+		memset(key_mgmt , 0 , sizeof(key_mgmt));
+		memset(pairwise , 0 ,sizeof(pairwise));
+		memset(group , 0 ,sizeof(group));
 		if(!*flags){
-			//proto = NULL;
+		}else{
+			if(*flags=='[')flags++;
+			if(*flags==']'){
+			}else{
+				if(strncmp(flags,"WEP",strlen("WEP"))==0){
+					flags+=strlen("WEP");
+					sprintf(key_mgmt,"NONE");
+				}
+				if(strncmp(flags,"WPA-PSK",strlen("WPA-PSK"))==0){
+					flags+=strlen("WPA-PSK");
+					sprintf(key_mgmt,"WPA-PSK");
+					if(*flags=='-'){
+						flags++;
+						for(j=0;*flags!=']';j++){
+							if(*flags=='+'){
+								group[j]=' ';
+								flags++;
+							}else if(*flags=='-'){
+								while(*flags!=']'&&*flags!='+')flags++;
+								j--;
+							}else{
+								group[j]=*flags;
+								flags++;
+							}
+						}
+					}
+				}
+				if(strncmp(flags,"WPA2-PSK",strlen("WPA2-PSK"))==0){
+					flags+=strlen("WPA2-PSK");
+					sprintf(key_mgmt,"WPA-PSK");
+					if(*flags=='-'){
+						flags++;
+						for(j=0;*flags!=']';j++){
+							if(*flags=='+'){
+								group[j]=' ';
+								flags++;
+							}else if(*flags=='-'){
+								while(*flags!=']'&&*flags!='+')flags++;
+								j--;
+							}else{
+								group[j]=*flags;
+								flags++;
+							}
+						}
+					}
+				}
+			}
 		}
-		//sprintf(d,"ssid=%s\tsignal_level=%s\tproto=%s\tkey_mgmt=%s\tpairwise=%s\tgroup=%s\n",ssid,signal_leval,);
+		sprintf(d,"ssid=%s\tsignal_level=%s\tproto=%s\tkey_mgmt=%s\tpairwise=%s\tgroup=%s\n",ssid,signal_leval,proto,key_mgmt,pairwise,group);
+		//printf("%s",d);
+		d+=strlen(d);
 	}
+	free(rawbuf);
 	return buf;
  }
 
@@ -1070,6 +1125,15 @@ int main()
 	sleep(1);
 	system("switch host");
 	sleep(1);
+	
+	int numssid;
+	char *scan_buf = get_parse_scan_result(&numssid);
+	printf("numssid == %d\n",numssid);
+	printf("###########################################\n");
+	printf("%s",scan_buf);
+	printf("#############################################\n");
+	free(scan_buf);
+	//return 0;
 	
 	/*
 	system("mkdir /tmp/wpa_supplicant");

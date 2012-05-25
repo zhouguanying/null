@@ -1281,6 +1281,8 @@ int play_cop_sound_data(char *buffer,ssize_t length)
 {
 	ssize_t r;
 	ssize_t pcm_frames;
+	if(buffer[0]!=amr_f_head[AMR_MODE])
+		return 0;
 	pthread_mutex_lock(&audiothreadparams.audiothreadlock);
 	if(amrdecoder(buffer, length, audiothreadparams.wrthread.audiobuf, &pcm_frames, 2)<0){
 		printf("amrdecoder error\n");
