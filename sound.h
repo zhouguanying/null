@@ -9,6 +9,7 @@ extern "C"
 *this struct is used to synchronize 
 *the video and audio record
 */
+#define  UNIT_SIZE_OF_AMR_TO_WRITE 128
 #define STEP  128  /*the unit size write to buf each time*/
 struct __syn_sound_buf{
 	pthread_mutex_t syn_buf_lock;

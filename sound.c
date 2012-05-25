@@ -1281,15 +1281,31 @@ int play_cop_sound_data(char *buffer,ssize_t length)
 {
 	ssize_t r;
 	ssize_t pcm_frames;
+	int p;
 	if(buffer[0]!=amr_f_head[AMR_MODE])
 		return 0;
 	pthread_mutex_lock(&audiothreadparams.audiothreadlock);
-	if(amrdecoder(buffer, length, audiothreadparams.wrthread.audiobuf, &pcm_frames, 2)<0){
-		printf("amrdecoder error\n");
-		pthread_mutex_unlock(&audiothreadparams.audiothreadlock);
-		return -1;
+	p=0;
+	while(length>0){
+		if(length>UNIT_SIZE_OF_AMR_TO_WRITE){
+			if(amrdecoder(buffer+p, UNIT_SIZE_OF_AMR_TO_WRITE, audiothreadparams.wrthread.audiobuf, &pcm_frames, 2)<0){
+				printf("amrdecoder error\n");
+				pthread_mutex_unlock(&audiothreadparams.audiothreadlock);
+				return -1;
+			}
+			r=pcm_write(audiothreadparams.wrthread.audiobuf, pcm_frames);
+			length-=UNIT_SIZE_OF_AMR_TO_WRITE;
+			p+=UNIT_SIZE_OF_AMR_TO_WRITE;
+		}else{
+			if(amrdecoder(buffer+p, length, audiothreadparams.wrthread.audiobuf, &pcm_frames, 2)<0){
+				printf("amrdecoder error\n");
+				pthread_mutex_unlock(&audiothreadparams.audiothreadlock);
+				return -1;
+			}
+			r=pcm_write(audiothreadparams.wrthread.audiobuf, pcm_frames);
+			length = 0;
+		}
 	}
-	r=pcm_write(audiothreadparams.wrthread.audiobuf, pcm_frames);
 	pthread_mutex_unlock(&audiothreadparams.audiothreadlock);
 	if(r<0){
 		printf("pcm write error\n");

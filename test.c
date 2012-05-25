@@ -894,10 +894,10 @@ char * get_parse_scan_result( int *numssid)
 	char *signal_leval;
 	char *flags;
 	char *ssid;
-	char proto[256];
-	char key_mgmt[256];
-	char pairwise[256];
-	char group[256];
+	char proto[64];
+	char key_mgmt[64];
+	char pairwise[64];
+	char group[64];
 	char *p;
 	char *d;
 	int i = 0;
