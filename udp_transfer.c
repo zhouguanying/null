@@ -113,16 +113,19 @@ __retry:
 	gettimeofday(&now,NULL);
 	while((*tmp)!=NULL){
 		p=(*tmp);
-		/*
 		if(p->ip==ip&&p->dst_port[NAT_CLI_PORT]==cliport){
+			printf("**********************in delte_timeout_mapping found addr collision*********************\n");
 			if(p->sess!=NULL){
 				pthread_mutex_lock(&p->sess->sesslock);
 				p->sess->running = 0;
 				pthread_mutex_unlock(&p->sess->sesslock);
 				pthread_mutex_unlock(&ready_list_lock);
+				printf("########################wait the old thread close##############\n");
 				pthread_join(p->sess->tid,NULL);
+				printf("############################ok the old thread close now###############\n");
 				goto __retry;
 			}else{
+				printf("!!!!!!!!!!!!!!!!!!!!!the thread not running but the ip and port is the same!!!!!!!!!!!!!!\n");
 				*tmp=(*tmp)->next;
 				for(i=1;i<PORT_COUNT;i++)
 					close(p->udpsock[i]);
@@ -132,7 +135,6 @@ __retry:
 				continue;
 			}
 		}
-		*/
 		if(p->connected==0&&(abs(now.tv_sec-p->aged.tv_sec)>READY_STRUCT_TIME_OUT)){
 			*tmp=(*tmp)->next;
 			for(i=1;i<PORT_COUNT;i++)

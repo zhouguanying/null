@@ -134,7 +134,7 @@ static int _wpa_ctrl_command(struct wpa_ctrl *ctrl, char *cmd, int print)
 		printf("'%s' command failed.\n", cmd);
 		return -1;
 	}
-	scanresult[len] = '\0';
+	scanresult[len] = 0;
 	result_len = len;
 	if (print) {
 		printf("%s", scanresult);

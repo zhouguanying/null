@@ -1201,7 +1201,7 @@ __tryaccept:
 					 if (setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0){
 					            printf("Error enabling socket rcv time out \n");
 					  }
-					/*
+					
 					if (pthread_create(&sess->srtid, NULL, (void *) test_sound_tcp_transport, sess) < 0) {
 						printf("create sound thread error\n");
 						goto exit;
@@ -1209,7 +1209,7 @@ __tryaccept:
 					pthread_mutex_lock(&sess->sesslock);
 					sess->ucount++;
 					pthread_mutex_unlock(&sess->sesslock);
-					*/
+					
 					while(1) {
 						buffer = get_video_data(&size);
 						int i = 0;

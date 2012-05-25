@@ -171,19 +171,20 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 		pthread_mutex_lock(&global_ctx_lock);
 		sess->from = from;
 		tmp=(struct sess_ctx*)sess->arg;
-		if(tmp!=NULL&&tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr/*&&tmp->from.sin_port ==sess->from.sin_port*/){
+		if(tmp!=NULL&&tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port){
+			printf("#######################found session in cache#########################\n");
 			goto done;
 		}
 		tmp=global_ctx_running_list;
 		while(tmp!=NULL){
-			if(tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr/*&&tmp->from.sin_port ==sess->from.sin_port*/){
+			if(tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port){
 				if (strncmp(argv[0], "set_transport_type", 18) == 0){
 					pthread_mutex_unlock(&global_ctx_lock);
-					printf("set_transport_type session already running\n");
+					printf("**********************set_transport_type session already running***************************\n");
 					return 0;
 				}
 				sess->arg=tmp;
-				printf("ok find runnig sess,now go to do cmd\n");
+				printf("###############ok find runnig sess,now go to do cmd#########################\n");
 				goto done;
 			}
 			tmp=tmp->next;
@@ -196,7 +197,7 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 		 	tmp= new_system_session("ipcam");
 			//tmp->debugsocket=-1;
 			memcpy(&tmp->from,&sess->from,sizeof(struct sockaddr_in));
-			printf("new_system_session\n");
+			printf("#########################new_system_session###############################\n");
 			sess->arg=tmp;
 			goto done;
 		 }

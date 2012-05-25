@@ -483,7 +483,7 @@ __done:
 	return 0;
 }
 
-int built_net(int check_wlan0,int check_eth0)
+int built_net(int check_wlan0,int check_eth0 , int ping_wlan0 , int ping_eth0)
 {
 	char ping_addr[32];
 	char trydevice[32];
@@ -506,7 +506,7 @@ int built_net(int check_wlan0,int check_eth0)
 		return 0;
 	}
 	/*check eth0 wan*/
-		if(check_eth0){
+		if(check_eth0&&ping_eth0){
 			memset(ping_addr,0,32);
 			memset(trydevice,0,32);
 			sprintf(ping_addr,"www.baidu.com");
@@ -518,7 +518,7 @@ int built_net(int check_wlan0,int check_eth0)
 		}
 
 		/*check wlan0 wan*/
-		if(check_wlan0){
+		if(check_wlan0&&ping_wlan0){
 			memset(ping_addr,0,32);
 			memset(trydevice,0,32);
 			sprintf(ping_addr,"www.baidu.com");
@@ -529,7 +529,7 @@ int built_net(int check_wlan0,int check_eth0)
 				goto __check_ok;
 		}
 		//check eth0 lan
-		if(check_eth0){
+		if(check_eth0&&ping_eth0){
 			memset(ping_addr,0,32);
 			memset(trydevice,0,32);
 			//sprintf(trydevice,"eth0");
@@ -542,7 +542,7 @@ int built_net(int check_wlan0,int check_eth0)
 		}
 
 		//check wlan0 lan
-		if(check_wlan0){
+		if(check_wlan0&&ping_wlan0){
 			memset(ping_addr,0,32);
 			memset(trydevice,0,32);
 			//sprintf(trydevice,"wlan0");
