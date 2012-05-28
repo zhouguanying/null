@@ -135,6 +135,14 @@ int 	     		     currconnections=0;
 
 struct threadconfig threadcfg;  //we use this variable to control the the speed of record thread
 int msqid= -1;
+
+/*
+*each sess have a id , we use this id to manage the buffer of audio and video
+*i think we will use it for more in future
+*/
+
+pthread_mutex_t g_sess_id_mask_lock;
+char g_sess_id_mask[MAX_NUM_IDS];
 /*
 int 			     globalsocket=-1; 
 we have wanted to  use this socket to listen,
@@ -146,6 +154,37 @@ int daemon_msg_queue;
 int v2ipd_shm_id;
 vs_share_mem* v2ipd_share_mem;
 
+
+void init_g_sess_id_mask()
+{
+	pthread_mutex_init(&g_sess_id_mask_lock,NULL);
+	memset(g_sess_id_mask,0,sizeof(g_sess_id_mask));
+	g_sess_id_mask[MAX_NUM_IDS-1] = 1; /*this is be used by record thread*/
+}
+
+int get_sess_id()
+{
+	int i;
+	int ret;
+	ret = -1;
+	pthread_mutex_lock(&g_sess_id_mask_lock);
+	for(i=0;i<MAX_NUM_IDS;i++){
+		if(g_sess_id_mask[i]==0){
+			g_sess_id_mask[i] = 1;
+			ret  = i;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&g_sess_id_mask_lock);
+	return ret;
+}
+
+void put_sess_id(int index)
+{
+	pthread_mutex_lock(&g_sess_id_mask_lock);
+	g_sess_id_mask[index] = 0;
+	pthread_mutex_unlock(&g_sess_id_mask_lock);
+}
 
 void v2ipd_restart_all()
 {
@@ -423,6 +462,8 @@ int free_system_session(struct sess_ctx *sess)
 		cli_deinit(sess->cli_sess);
 	}
 #endif /* USE_CLI */
+	if(sess->id>=0)
+		put_sess_id(sess->id);
 	pthread_mutex_destroy(&sess->sesslock);
 	free(sess);
 
@@ -442,13 +483,17 @@ struct sess_ctx *new_system_session(char *name) {
 		perror("Error creating new session");
 		return NULL;
 	}
-
-	/* Create session context */
+	/* create session context */
 	sess = malloc(sizeof(*sess));
 	if (sess == NULL)
 		return NULL;
 
-	
+	sess->id = get_sess_id();
+	if(sess->id<0){
+		printf("****************can't get session id*******************\n");
+		free(sess);
+		return NULL;
+	}
 	memset(sess, 0, sizeof(struct sess_ctx));
 	sess->s1 = -1;
 	sess->s2 = -1;
@@ -1294,6 +1339,7 @@ static inline char * gettimestamp()
 }
 static inline void write_syn_sound(int need_video_internal_header)
 {
+/*
 	int ret;
 	//printf("write audio_internal_header\n");
 	audio_internal_header.flag[0] = 0;
@@ -1307,12 +1353,15 @@ static inline void write_syn_sound(int need_video_internal_header)
 	pthread_mutex_unlock(&syn_buf.syn_buf_lock);
 	if(need_video_internal_header);
 		//printf("write video_internal_header\n");
+		*/
 }
 static inline void reset_syn_buf()
 {
+/*
 	pthread_mutex_lock(&syn_buf.syn_buf_lock);
 	syn_buf.start = syn_buf.end = 0;
 	pthread_mutex_unlock(&syn_buf.syn_buf_lock);
+	*/
 }
 int start_video_record(struct sess_ctx* sess)
 {

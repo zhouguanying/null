@@ -207,7 +207,7 @@ static inline int touch_port(int sockfd,uint32_t ip,uint16_t port)
 	  from.sin_addr.s_addr=ip;
 	  from.sin_port=port;
 	  for(i = 0;i<3;i++){
-		  ret = sendto(sockfd, "touch", strlen("touch"), 0,(struct sockaddr *) &from, fromlen);
+		  ret = sendto(sockfd, "   ", strlen("   "), 0,(struct sockaddr *) &from, fromlen);
 		  printf("send touch to ip:%s  ; port:%d ; return %d\n",inet_ntoa(from.sin_addr),ntohs(from.sin_port),ret);
 		  fromlen=sizeof(struct sockaddr_in);
 		   if(getsockname(sockfd,(struct sockaddr*)&localaddr,&fromlen) <0){

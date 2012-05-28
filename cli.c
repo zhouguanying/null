@@ -194,8 +194,12 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 				pthread_mutex_unlock(&global_ctx_lock);
 				return  strdup("connected max ");//should return a string report max connections
 			}
+		//	printf("before new_system_session\n");
 		 	tmp= new_system_session("ipcam");
-			//tmp->debugsocket=-1;
+			if(!tmp){
+				printf("********************can't create session******************\n");
+				return NULL;
+			}
 			memcpy(&tmp->from,&sess->from,sizeof(struct sockaddr_in));
 			printf("#########################new_system_session###############################\n");
 			sess->arg=tmp;
@@ -1389,13 +1393,84 @@ static int Rs485Cmd(char* arg)
 	UartWrite(buffer, length);
 	return 0;
 }
-
-static char* GetConfig(char* arg)
+char * get_parse_scan_result( int *numssid);
+int snd_soft_restart();
+static char* GetConfig(char* arg , int *rsp_len)
 {
 	char ConfigType = (int)*arg;
 	FILE* fd;
 	int length = 0;
 	char* ret = 0;
+	char *p;
+	int numssid;
+	char *scanbuf;
+	int nums;
+	char snums[5];
+	char slength[5];
+	ret = malloc(4096);
+	if(!ret) return NULL;
+	memset(ret , 0 ,4096);
+	*rsp_len = 8;
+	p = ret+8;
+	printf("#############enter GetConfig####################\n");
+	if( ConfigType == '1' ){
+		fd = fopen(RECORD_PAR_FILE, "r");
+		if( fd == 0 ){
+			length = 0;
+			nums = 1;
+			sprintf(ret,"%4d",nums);
+			sprintf(ret +4,"%4d",length);
+		}
+		else{
+			fseek(fd, 0, SEEK_END);
+			length = ftell(fd);
+			fseek(fd, 0, SEEK_SET);
+			fread(p,1,length,fd);
+			fclose(fd);
+			//printf("*****************GET CONFIG***************************\n");
+			//printf("%s",p);
+
+			printf("strlen(p)==%d length==%d\n",strlen(p),length);
+			//printf("***************************end*************************\n");
+			p+=(length-1);
+			if(*p=='\n'){
+				printf("enter *p==\\n\n");
+				*p = 0;
+				*rsp_len = (*rsp_len)+length-1;
+			}
+			else{
+				p++;
+				*rsp_len = (*rsp_len)+length;
+			}
+			//scanbuf = get_parse_scan_result(& numssid);
+			scanbuf = NULL;
+			if(!scanbuf){
+				sprintf(p,"%4d\n",0);
+				*rsp_len += strlen(p);
+			}
+			else{
+				sprintf(p,"%4d\n",numssid);
+				(*rsp_len)+=strlen(p);
+				p+=strlen(p);
+				memcpy(p,scanbuf,strlen(scanbuf));
+				(*rsp_len)+=strlen(scanbuf);
+				printf("strlen(scanbuf)==%d\n",strlen(scanbuf));
+				free(scanbuf);
+			}
+			length= (*rsp_len-8);
+			nums =(int) ((*rsp_len+1023)/1024);
+			sprintf(snums,"%4d",nums);
+			sprintf(slength,"%4d",length);
+			memcpy(ret,snums,4);
+			memcpy(ret+4,slength,4);
+		}
+	}else{
+		free(ret);
+		printf("#####################GetConfig invalid parmeter#########\n");
+		printf("ConfigType==%c\n",ConfigType);
+		return NULL;
+	}
+	/*
 	if( ConfigType == '1' ){
 		fd = fopen(RECORD_PAR_FILE, "r");
 		if( fd == 0 ){
@@ -1434,7 +1509,37 @@ static char* GetConfig(char* arg)
 			fclose(fd);
 		}
 	}
+	*/
+	//printf("#########################RET#####################\n");
+	//printf("%s",ret);
+	//printf("#########################END#####################\n");
 	return ret;	
+}
+
+int test_printf_getConfig()
+{
+	int id ='1';
+	int rsp_len;
+	char *buf;
+	char p[5];
+	p[4]=0;
+	buf=GetConfig(&id, &rsp_len);
+	if(!buf){
+		printf("**************get Config error*******************\n");
+		return 0;
+	}
+	printf("######################CONFIG RESULTS#########################\n");
+	printf("rsp_len==%d\n",rsp_len);
+	printf("strlen(buf)==%d\n",strlen(buf));
+	memcpy(p,buf,4);
+	printf("nums==%d\n",atoi(p));
+	memcpy(p,buf+4,4);
+	printf("data_len==%d\n",atoi(p));
+	printf("\n");
+	printf("%s",buf+8);
+	free(buf);
+	printf("######################END#############################\n");
+	return 0;
 }
 
 static int SetConfig(char* arg)
@@ -1450,11 +1555,12 @@ static int SetConfig(char* arg)
 
 	dbg("save the config file\n");
 	if( ConfigType != '1' && ConfigType != '3' ){
+		dbg("invalid agument\n");
 		return -1;
 	}
 
-	v2ipd_share_mem->v2ipd_to_client0_msg = VS_MESSAGE_STOP_MONITOR;
-	usleep(500);
+	//v2ipd_share_mem->v2ipd_to_client0_msg = VS_MESSAGE_STOP_MONITOR;
+	//usleep(500);
 
 	if( ConfigType == '1' ){
 		fp = fopen(RECORD_PAR_FILE, "wb");
@@ -1469,7 +1575,13 @@ static int SetConfig(char* arg)
 			fclose(fp);
 			dbg("write:%d\n",size);
 		}
+	}else{
+		dbg("invalid argument\n");
+		return -1;
 	}
+	dbg("send soft restart\n");
+	snd_soft_restart();
+	/*
 	if( ConfigType == '3' ){
 		fp = fopen(MONITOR_PAR_FILE, "wb");
 		if( fp == 0 ){
@@ -1541,6 +1653,7 @@ static int SetConfig(char* arg)
 	system("sync");
 
 	v2ipd_restart_all();
+	*/
 	return 0;	
 }
 
@@ -2076,7 +2189,7 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
         else if (strncmp(cmd, "Rs485Cmd", 8) == 0)
                 Rs485Cmd(param);
         else if (strncmp(cmd, "GetConfig", 9) == 0)
-                resp = GetConfig(param);
+                resp = GetConfig(param ,rsp_len);
         else if (strncmp(cmd, "SetConfig", 9) == 0)
                 SetConfig(param);
         else if (strncmp(cmd, "SetTime", 7) == 0)

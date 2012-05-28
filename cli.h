@@ -37,6 +37,8 @@ struct cli_handler {
 #define MAX_CONNECTIONS 5
 #define RESP_BUF_SZ     80
 
+
+#define MAX_NUM_IDS  (MAX_CONNECTIONS<<1)
 //#define RECORD_PAR_FILE  "/etc/v2ipd/video.cfg"
 //#define MONITOR_PAR_FILE "/etc/v2ipd/video2.cfg"
 //#define RECORD_PAR_BAR_FILE  "/data/video_bar"

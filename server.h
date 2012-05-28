@@ -68,6 +68,7 @@ extern "C"
  */
 struct sess_ctx {
 	u8 *                    name;	
+	 int 			    id;
         int                     s1;  //listen socket of video tcp,closed after accept
         int                     s2;
 	 int 			     s3;//transport tcp socket for test sound transport
@@ -179,6 +180,9 @@ void take_sess_down(struct sess_ctx *sess);
 char * get_video_data(int *size);
 int start_video_monitor(struct sess_ctx* sess);
 int start_video_record(struct sess_ctx* sess);
+void init_g_sess_id_mask();
+int get_sess_id();
+void put_sess_id(int index);
 #ifdef __cplusplus
 }
 #endif

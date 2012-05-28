@@ -101,10 +101,12 @@ struct   threadparams{
 	int 				  ucount;
 	u16 				  port;
 	int 				  running;
+	pthread_rwlock_t 	 buf_stat_lock;
+	int 				 start;
+	int 				 end;
+	sound_buf_t		c_soud_buf[NUM_BUFFERS];
 	pthread_mutex_t     cop_data_lock;
 	char 			  *cop_data_buf;
-	int 				   cop_data_start;
-	int 				   cop_data_end;
 	int 				   cop_buf_size;
 	ssize_t 			   cop_data_length;
 	pthread_t			  readed_t[MAX_CONNECTIONS];
@@ -1120,8 +1122,6 @@ int init_and_start_sound(){
 	}
 	audiothreadparams.cop_buf_size = ((audiothreadparams.params->chunk_size+L_PCM_USE-1)/L_PCM_USE*amr_f_size[AMR_MODE]);
 	audiothreadparams.cop_data_buf=malloc(audiothreadparams.cop_buf_size);
-	audiothreadparams.cop_data_start = 0;
-	audiothreadparams.cop_data_end = 0;
 	if(!audiothreadparams.cop_data_buf){
 		printf("unable to malloc cop_data_buf\n");
 		goto __error;
@@ -1132,12 +1132,30 @@ int init_and_start_sound(){
           	goto __error;
    	 }	
    	 */
+   	 
+   	 syn_buf.buffsize = NUM_BUFFERS * SIZE_OF_AMR_PER_PERIOD;
+	syn_buf.absolute_start_addr = (char *)malloc(syn_buf.buffsize);
+	if(!syn_buf.absolute_start_addr){
+		printf("error malloc syn_sound_buffer\n");
+		goto __error;
+	}
+	syn_buf.cache = (char *)malloc(SIZE_OF_AMR_PER_PERIOD);
+	if(!syn_buf.cache){
+		printf("malloc syn_buf cache error\n");
+		free(syn_buf.absolute_start_addr);
+		goto __error;
+	}
+	for(i=0;i<NUM_BUFFERS;i++){
+		syn_buf.c_sound_array[i].buf = syn_buf.absolute_start_addr+i*SIZE_OF_AMR_PER_PERIOD;
+		memset(syn_buf.c_sound_array[i].sess_clean_mask,1,sizeof(syn_buf.c_sound_array[i].sess_clean_mask));
+	}
+	syn_buf.start = 0;
+	syn_buf.end = 0;
+	pthread_rwlock_init(&syn_buf.syn_buf_lock , NULL);
+	
    	 /*
-   	 *malloc buff that can store 2 sec data
-   	 *the video record will get it at every one second
-   	 */
 	 syn_buf.buffsize =((int)((32*50*2+STEP-1)/STEP))*STEP;
-	syn_buf.buffsize+=STEP;/*the video record thread may delay one more second to get the data , for safe we malloc one more unit*/
+	syn_buf.buffsize+=STEP;
 	pthread_mutex_init(&syn_buf.syn_buf_lock,NULL);
 	syn_buf.start = 0;
 	syn_buf.end = 0;
@@ -1148,6 +1166,7 @@ int init_and_start_sound(){
 	}
 	printf("############ok malloc syn_buf  buf size=%d###################\n",syn_buf.buffsize);
 	memset(syn_buf.buf,0,syn_buf.buffsize);
+	*/
 	audiothreadparams.ucount=2;
 #if TEST
 	printf("TEST!\n");
@@ -1282,20 +1301,28 @@ int play_cop_sound_data(char *buffer,ssize_t length)
 	ssize_t r;
 	ssize_t pcm_frames;
 	int p;
-	if(buffer[0]!=amr_f_head[AMR_MODE])
+	if(buffer[0]!=amr_f_head[AMR_MODE]){
+		printf("error recv sound data ,data head not match the head of amr frame\n");
+		printf("we want the head is %02x , but we recv %02x\n",amr_f_head[AMR_MODE] , buffer[0]);
 		return 0;
+	}
+	if(length%SIZE_OF_AMR_PER_PERIOD){
+		printf("error recv sound data length not round to SIZE_OF_AMR_PER_PERIOD==%d\n",SIZE_OF_AMR_PER_PERIOD);
+		printf("the length of sound data is %d\n",length);
+		return 0;
+	}
 	pthread_mutex_lock(&audiothreadparams.audiothreadlock);
 	p=0;
 	while(length>0){
-		if(length>UNIT_SIZE_OF_AMR_TO_WRITE){
-			if(amrdecoder(buffer+p, UNIT_SIZE_OF_AMR_TO_WRITE, audiothreadparams.wrthread.audiobuf, &pcm_frames, 2)<0){
+		if(length>SIZE_OF_AMR_PER_PERIOD){
+			if(amrdecoder(buffer+p, SIZE_OF_AMR_PER_PERIOD, audiothreadparams.wrthread.audiobuf, &pcm_frames, 2)<0){
 				printf("amrdecoder error\n");
 				pthread_mutex_unlock(&audiothreadparams.audiothreadlock);
 				return -1;
 			}
 			r=pcm_write(audiothreadparams.wrthread.audiobuf, pcm_frames);
-			length-=UNIT_SIZE_OF_AMR_TO_WRITE;
-			p+=UNIT_SIZE_OF_AMR_TO_WRITE;
+			length-=SIZE_OF_AMR_PER_PERIOD;
+			p+=SIZE_OF_AMR_PER_PERIOD;
 		}else{
 			if(amrdecoder(buffer+p, length, audiothreadparams.wrthread.audiobuf, &pcm_frames, 2)<0){
 				printf("amrdecoder error\n");
@@ -1321,20 +1348,93 @@ int grab_sound_data()
 		printf("grab sound data error\n");
 		return -1;
 	}
-	pthread_mutex_lock(&syn_buf.syn_buf_lock);
+	//pthread_mutex_lock(&syn_buf.syn_buf_lock);
 	pthread_mutex_lock(&audiothreadparams.cop_data_lock);
 	r=amrcoder(audiothreadparams.rdthread.audiobuf, audiothreadparams.params->chunk_bytes, audiothreadparams.cop_data_buf, & audiothreadparams.cop_data_length,AMR_MODE,2);
-	memcpy(syn_buf.buf+syn_buf.end,audiothreadparams.cop_data_buf,STEP);
+	//memcpy(syn_buf.buf+syn_buf.end,audiothreadparams.cop_data_buf,STEP);
 	memset(audiothreadparams.readed_t,0,sizeof(audiothreadparams.readed_t));
 	pthread_mutex_unlock(&audiothreadparams.cop_data_lock);
+	/*
 	syn_buf.end=(syn_buf.end+STEP)%syn_buf.buffsize;
 	if(syn_buf.end==syn_buf.start){
 		syn_buf.start=(syn_buf.start+STEP)%syn_buf.buffsize;
 		printf("the video get the sound data too slow\n");
 	}
-	pthread_mutex_unlock(&syn_buf.syn_buf_lock);
+	*/
+	//pthread_mutex_unlock(&syn_buf.syn_buf_lock);
 	if(r<0)
 		return -1;
+	return 0;
+}
+char *new_get_sound_data(int sess_id , int *size)
+{
+	int us_pos;
+	int num_bufs;
+	char *buf;
+	pthread_rwlock_rdlock(&syn_buf.syn_buf_lock);
+	us_pos = syn_buf.start;
+	while(us_pos!=syn_buf.end){
+		if(!syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id]){
+			break;
+		}
+		us_pos= (us_pos+1)%NUM_BUFFERS;
+	}
+	if(us_pos == syn_buf.end){
+		pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
+		return NULL;
+	}
+	if(syn_buf.end>us_pos){
+		*size = syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.c_sound_array[us_pos].buf;
+		buf = (char *)malloc(*size);
+		if(!buf){
+			printf("malloc sound buffer fail\n");
+			pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
+			return NULL;
+		}
+		memcpy(buf,syn_buf.c_sound_array[us_pos].buf,*size);
+	}else{
+		*size = syn_buf.buffsize -(syn_buf.c_sound_array[us_pos].buf - syn_buf.absolute_start_addr);
+		buf = (char *)malloc(*size +(syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr));
+		if(!buf){
+			printf("malloc sound buffer fail\n");
+			pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
+			return NULL;
+		}
+		memcpy(buf , syn_buf.c_sound_array[us_pos].buf,*size);
+		memcpy(buf +*size,syn_buf.absolute_start_addr,syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr);
+		(*size)+=(syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr);
+	}
+	while(us_pos!=syn_buf.end){
+		if(syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id]){
+			printf("*************BUG we have read the newer one?************************\n");
+		}
+		syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id] =1;
+		us_pos = (us_pos +1)%NUM_BUFFERS;
+	}
+	pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
+	return buf;
+}
+static inline int new_grab_sound_data()
+{
+	int r;
+	int size;
+	r=pcm_read((u_char*)audiothreadparams.rdthread.audiobuf,audiothreadparams.params->chunk_size);
+	if(r<0){
+		printf("grab sound data error\n");
+		return -1;
+	}
+	r=amrcoder(audiothreadparams.rdthread.audiobuf, audiothreadparams.params->chunk_bytes, syn_buf.cache, &size,AMR_MODE,2);
+	if(size!=SIZE_OF_AMR_PER_PERIOD){
+		printf("BUG the compression size of amr data != SIZE_OF_AMR_PER_PERIOD\n");
+		return -1;
+	}
+	pthread_rwlock_wrlock(&syn_buf.syn_buf_lock);
+	memcpy(syn_buf.c_sound_array[syn_buf.end].buf , syn_buf.cache , SIZE_OF_AMR_PER_PERIOD);
+	memset(syn_buf.c_sound_array[syn_buf.end].sess_clean_mask, 0 ,sizeof(syn_buf.c_sound_array[syn_buf.end].sess_clean_mask));
+	syn_buf.end = (syn_buf.end+1)%NUM_BUFFERS;
+	if(syn_buf.end == syn_buf.start)
+		syn_buf.start = (syn_buf.start +1)%NUM_BUFFERS;
+	pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
 	return 0;
 }
 int grab_sound_thread()

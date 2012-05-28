@@ -1026,7 +1026,7 @@ char * get_parse_scan_result( int *numssid)
 #define HIDCMD_GET_CONFIG	2
 #define HIDCMD_SET_NETWORK_ADDRESS	3
 #define HIDCMD_GET_NETWORK_ADDRESS	4
-
+int test_printf_getConfig();
 int main()
 {
 	int ret;
@@ -1125,7 +1125,8 @@ int main()
 	sleep(1);
 	system("switch host");
 	sleep(1);
-	
+	//test_printf_getConfig();
+	/*
 	int numssid;
 	char *scan_buf = get_parse_scan_result(&numssid);
 	printf("numssid == %d\n",numssid);
@@ -1133,6 +1134,7 @@ int main()
 	printf("%s",scan_buf);
 	printf("#############################################\n");
 	free(scan_buf);
+	*/
 	//return 0;
 	
 	/*
@@ -1188,6 +1190,7 @@ int main()
 	memset(&threadcfg,0,sizeof(threadcfg));
 	pthread_mutex_init(&global_ctx_lock,NULL);
 	pthread_mutex_init(&(threadcfg.threadcfglock),NULL);
+	init_g_sess_id_mask();
 	//read the config data from video.cfg
 	
 	fd = fopen(RECORD_PAR_FILE, "r");
