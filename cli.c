@@ -214,6 +214,10 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
                	goto done;
 	 	 else if (strncmp(argv[0], "ReplayRecord", 12) == 0)
                	goto done;
+		 else if (strncmp(argv[0], "GetConfig", 9) == 0)
+		 	goto done;
+		 else if (strncmp(argv[0], "SetConfig", 9) == 0)
+		 	goto done;
 		 pthread_mutex_unlock(&global_ctx_lock);
 		 return NULL;
 done:
@@ -280,7 +284,7 @@ static int do_cli(struct cli_sess_ctx *sess)
 					//1  it seems never occur
 					printf("enter seen nver happen rsp_len==%d\n",rsp_len);
 					ret =sendto(sess->sock, rsp, rsp_len, 0,(struct sockaddr *) &sess->from, fromlen);
-					printf("sendto return ==%d\n",ret);
+					printf("sendto return ==%ddst ip==%s , port ==%d\n",ret , inet_ntoa(sess->from.sin_addr), ntohs(sess->from.sin_port));
 				}
 				else{
 					ret = sendto(sess->sock, rsp, strlen(rsp), 0,(struct sockaddr *) &sess->from, fromlen);
@@ -1410,16 +1414,16 @@ static char* GetConfig(char* arg , int *rsp_len)
 	ret = malloc(4096);
 	if(!ret) return NULL;
 	memset(ret , 0 ,4096);
-	*rsp_len = 8;
-	p = ret+8;
+	*rsp_len = 4;
+	p = ret+4;
 	printf("#############enter GetConfig####################\n");
 	if( ConfigType == '1' ){
 		fd = fopen(RECORD_PAR_FILE, "r");
 		if( fd == 0 ){
 			length = 0;
-			nums = 1;
-			sprintf(ret,"%4d",nums);
-			sprintf(ret +4,"%4d",length);
+			//nums = 1;
+			//sprintf(ret,"%4d",nums);
+			sprintf(ret ,"%4d",length);
 		}
 		else{
 			fseek(fd, 0, SEEK_END);
@@ -1432,6 +1436,7 @@ static char* GetConfig(char* arg , int *rsp_len)
 
 			printf("strlen(p)==%d length==%d\n",strlen(p),length);
 			//printf("***************************end*************************\n");
+			/*
 			p+=(length-1);
 			if(*p=='\n'){
 				printf("enter *p==\\n\n");
@@ -1457,12 +1462,14 @@ static char* GetConfig(char* arg , int *rsp_len)
 				printf("strlen(scanbuf)==%d\n",strlen(scanbuf));
 				free(scanbuf);
 			}
-			length= (*rsp_len-8);
-			nums =(int) ((*rsp_len+1023)/1024);
-			sprintf(snums,"%4d",nums);
+			*/
+			(*rsp_len) +=length;
+			length= (*rsp_len-4);
+			//nums =(int) ((*rsp_len+1023)/1024);
+			//sprintf(snums,"%4d",nums);
 			sprintf(slength,"%4d",length);
-			memcpy(ret,snums,4);
-			memcpy(ret+4,slength,4);
+			//memcpy(ret,snums,4);
+			memcpy(ret,slength,4);
 		}
 	}else{
 		free(ret);
@@ -2105,6 +2112,12 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
                 ReplayRecord(sess, param);/*again this function don't need the first parameter*/
 		  return resp;
 	 }
+	  else if (strncmp(cmd, "GetConfig", 9) == 0)
+               return  resp = GetConfig(param ,rsp_len);
+        else if (strncmp(cmd, "SetConfig", 9) == 0){
+                SetConfig(param);
+		  return resp;
+        }
 	 /*the second class*/
         if (sess == NULL || cmd == NULL) return NULL;
 		dbg("%s\n",cmd);
@@ -2188,10 +2201,6 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
                 SetRs485BautRate(param);
         else if (strncmp(cmd, "Rs485Cmd", 8) == 0)
                 Rs485Cmd(param);
-        else if (strncmp(cmd, "GetConfig", 9) == 0)
-                resp = GetConfig(param ,rsp_len);
-        else if (strncmp(cmd, "SetConfig", 9) == 0)
-                SetConfig(param);
         else if (strncmp(cmd, "SetTime", 7) == 0)
                 SetTime(param);
         else if (strncmp(cmd, "GetTime", 7) == 0)

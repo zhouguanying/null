@@ -1256,7 +1256,7 @@ int main()
 			sp++;
 			while(*sp==' '||*sp=='\t')sp++;
 			dp=conf_p[lines].value;
-			while(*sp!='\n'){
+			while(*sp&&*sp!='\n'){
 				*dp=*sp;
 				dp++;
 				sp++;

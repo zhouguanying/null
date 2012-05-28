@@ -1369,7 +1369,6 @@ int grab_sound_data()
 char *new_get_sound_data(int sess_id , int *size)
 {
 	int us_pos;
-	int num_bufs;
 	char *buf;
 	pthread_rwlock_rdlock(&syn_buf.syn_buf_lock);
 	us_pos = syn_buf.start;
