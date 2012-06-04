@@ -123,7 +123,7 @@ struct sess_ctx {
  struct threadconfig
  {
 	pthread_mutex_t threadcfglock;
-	int 		cam_id;
+	unsigned int 		cam_id;
 	char     	name[64];
 	char    	password[64];
 	char 	server_addr[64];
@@ -143,13 +143,14 @@ struct sess_ctx {
 	volatile int saturation;
 	volatile int gain;
 	char     record_mode[64];
+	char     record_resolution[64];
 	volatile int record_sensitivity;
 	volatile int record_normal_speed;
 	volatile int record_normal_duration;
 	volatile int record_slow_speed;
-	char	    record_slow_resolution[64];
+	//char	    record_slow_resolution[64];
 	volatile int record_fast_speed;
-	char     record_fast_resolution[64];
+	//char     record_fast_resolution[64];
 	volatile int record_fast_duration;
 	volatile int email_alarm;
 	char     mailbox[64];
@@ -183,6 +184,10 @@ int start_video_record(struct sess_ctx* sess);
 void init_g_sess_id_mask();
 int get_sess_id();
 void put_sess_id(int index);
+
+void init_sleep_time();
+void increase_video_thread_sleep_time();
+void handle_video_thread();
 #ifdef __cplusplus
 }
 #endif

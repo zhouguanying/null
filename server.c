@@ -128,6 +128,39 @@ struct sess_ctx *global_ctx; // EJA
 * together one thread(start_video_monitor) start or exit , the video and the write function will be error
 *
 */
+static pthread_mutex_t     v_thread_sleep_t_lock;
+static int v_thread_sleep_time ;
+
+
+void init_sleep_time()
+{
+	pthread_mutex_init(&v_thread_sleep_t_lock , NULL);
+	v_thread_sleep_time = (1000000/threadcfg.framerate)>>1;
+}
+void increase_video_thread_sleep_time()
+{
+	/*
+	pthread_mutex_lock(&v_thread_sleep_t_lock);
+	if((v_thread_sleep_time +100000)<=501000)
+		v_thread_sleep_time +=100000;
+	printf("####################increase sleep time %d###############\n",v_thread_sleep_time);
+	pthread_mutex_unlock(&v_thread_sleep_t_lock);
+	*/
+}
+void handle_video_thread()
+{
+/*
+	int time;
+	pthread_mutex_lock(&v_thread_sleep_t_lock);
+	time = v_thread_sleep_time;
+	if((v_thread_sleep_time-100)>=1000)
+		v_thread_sleep_time -=100;
+	pthread_mutex_unlock(&v_thread_sleep_t_lock);
+	//printf("sleep the time is %d\n",time);
+	usleep(time);
+	*/
+	usleep(v_thread_sleep_time);
+}
 
 pthread_mutex_t global_ctx_lock;
 struct sess_ctx *global_ctx_running_list=NULL; //each connection have a sesction
@@ -1246,15 +1279,15 @@ __tryaccept:
 					 if (setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0){
 					            printf("Error enabling socket rcv time out \n");
 					  }
-					
-					if (pthread_create(&sess->srtid, NULL, (void *) test_sound_tcp_transport, sess) < 0) {
-						printf("create sound thread error\n");
-						goto exit;
-					} 
-					pthread_mutex_lock(&sess->sesslock);
-					sess->ucount++;
-					pthread_mutex_unlock(&sess->sesslock);
-					
+					if(threadcfg.sound_duplex){
+						if (pthread_create(&sess->srtid, NULL, (void *) test_sound_tcp_transport, sess) < 0) {
+							printf("create sound thread error\n");
+							goto exit;
+						} 
+						pthread_mutex_lock(&sess->sesslock);
+						sess->ucount++;
+						pthread_mutex_unlock(&sess->sesslock);
+					}
 					while(1) {
 						buffer = get_video_data(&size);
 						int i = 0;
@@ -1285,6 +1318,7 @@ __tryaccept:
 							printf("something wrong kill myself now\n");
 							goto exit;
 						}
+						handle_video_thread();
 					}				
 				}else{
 					socket=-1;
@@ -1323,6 +1357,7 @@ static nand_record_file_internal_header audio_internal_header={
 			{0,2,0,0},
 };
 static const int sensitivity_diff_size[4] = {10000,250,350,450};
+
 static inline char * gettimestamp()
 {
 	static char timestamp[15];
@@ -1337,31 +1372,31 @@ static inline char * gettimestamp()
                 curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
 	 return timestamp;
 }
-static inline void write_syn_sound(int need_video_internal_header)
+
+static inline void write_syn_sound(int *need_video_internal_head)
 {
-/*
+	static unsigned int i = 0;
+	char *buf;
 	int ret;
-	//printf("write audio_internal_header\n");
-	audio_internal_header.flag[0] = 0;
-	pthread_mutex_lock(&syn_buf.syn_buf_lock);
-	if(syn_buf.end==syn_buf.start)
-		printf("the sound data is not prepare\n");
-	else{
-		//printf("write syn_buffer start==%d , end==%d\n",syn_buf.start ,syn_buf.end);
-		syn_buf.start=syn_buf.end = 0;
-	}
-	pthread_mutex_unlock(&syn_buf.syn_buf_lock);
-	if(need_video_internal_header);
-		//printf("write video_internal_header\n");
+	int size;
+	buf = new_get_sound_data(MAX_NUM_IDS-1, & size);
+	if(buf){
+		i++;
+		if(!(i%60))
+			dbg("get sound data size == %d\n",size);
+		/*
+		*need_video_internal_head=0;
+		ret = nand_write(&audio_internal_header, sizeof(audio_internal_header));
+		if( ret == 0 ){
+			nand_write(buf,size);
+			*need_video_internal_head=1;
+		}
+		audio_internal_header.flag[0]=0;
 		*/
-}
-static inline void reset_syn_buf()
-{
-/*
-	pthread_mutex_lock(&syn_buf.syn_buf_lock);
-	syn_buf.start = syn_buf.end = 0;
-	pthread_mutex_unlock(&syn_buf.syn_buf_lock);
-	*/
+		free(buf);
+	}else{
+		dbg("sound data not prepare\n");
+	}
 }
 int start_video_record(struct sess_ctx* sess)
 {
@@ -1388,7 +1423,7 @@ int start_video_record(struct sess_ctx* sess)
 	char swidth[12];
 	char sheight[12];
 	char FrameRateUs[12];
-	int type;
+	//int type;
 	//int num_pic_to_ignore = 150;
 	int prev_width;
 	int prev_height;
@@ -1412,7 +1447,7 @@ int start_video_record(struct sess_ctx* sess)
 	int sensitivity_index = threadcfg.record_sensitivity;;
 	int record_mode = 0;
 	int need_write_internal_head=0;
-	int write_internal_head=0;
+	//int write_internal_head=0;
 
 	dbg("Starting video record\n");
 	
@@ -1579,7 +1614,7 @@ int start_video_record(struct sess_ctx* sess)
 						pictures_to_write = record_normal_speed * record_normal_duration;
 						gettimeofday(&starttime,NULL);
 						if(record_last_state ==RECORD_STATE_STOP){
-							reset_syn_buf();
+							set_syn_sound_data_clean(MAX_NUM_IDS-1);
 							memcpy(&prev_write_sound_time,&starttime,sizeof(struct timeval));
 							record_last_state = RECORD_STATE_FAST;
 							timestamp_change = 1;
@@ -1587,7 +1622,7 @@ int start_video_record(struct sess_ctx* sess)
 					}else{
 						pictures_to_write= 0;
 						if(record_last_state == RECORD_STATE_FAST){
-							write_syn_sound(0);
+							write_syn_sound(&need_write_internal_head);
 							record_last_state = RECORD_STATE_STOP;
 						}
 					}
@@ -1668,7 +1703,7 @@ int start_video_record(struct sess_ctx* sess)
 		pictures_to_write --;
 
 		//printf("pictures to write ==%d\n", pictures_to_write);
-		if(email_alarm&&mail_alarm_tid){
+		if(email_alarm&&mail_alarm_tid&&pictures_to_write){
 			char *image=malloc(size);
 			if(image){
 				memcpy(image,buffer,size);
@@ -1715,12 +1750,7 @@ int start_video_record(struct sess_ctx* sess)
 		if(need_write_internal_head){
 			//printf("write video_internal_header\n");
 			/*
-			ret = nand_write(&video_internal_header,sizeof(video_internal_header));
-			 if( ret == VS_MESSAGE_NEED_END_HEADER ){
-				nand_prepare_close_record_header(&record_header);
-				//memcpy(record_header.LastTimeStamp,video_internal_header.StartTimeStamp,sizeof(record_header.LastTimeStamp));
-				nand_write_end_header(&record_header);
-			}
+			 nand_write(&video_internal_header,sizeof(video_internal_header));
 			*/
 			video_internal_header.flag[0]=0;
 			need_write_internal_head = 0;
@@ -1761,7 +1791,7 @@ retry:
 		gettimeofday(&endtime,NULL);
 		timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - prev_write_sound_time.tv_sec ) + endtime.tv_usec - prev_write_sound_time.tv_usec;
 		if(timeuse>=(unsigned long long)1000000){
-			write_syn_sound(1);
+			write_syn_sound(&need_write_internal_head);
 			memcpy(&prev_write_sound_time,&endtime,sizeof(struct timeval));
 		}
 

@@ -594,3 +594,26 @@ v4L2UpDownTilt (struct vdIn *vd, short inc)
 	}
 	return 0;
 }
+extern struct vdIn *vdin_camera;
+void restart_v4l2(int width , int height )
+{
+	const char *videodevice = "/dev/video0";
+	int format = V4L2_PIX_FMT_MJPEG;
+	int grabmethod = 1;
+	int trygrab = 5;
+	pthread_mutex_lock(&vdin_camera->tmpbufflock);
+	close_v4l2 (vdin_camera);
+	if (init_videoIn(vdin_camera, (char *) videodevice, width, height, format, grabmethod) < 0) {
+		printf("init camera device error\n");
+		exit(0);
+	}
+	while(uvcGrab (vdin_camera) < 0) {
+		trygrab--;
+		if(trygrab<=0)
+			exit(0);
+		printf("Error grabbing\n");
+		usleep(100000);
+	}
+	pthread_mutex_unlock(&vdin_camera->tmpbufflock);
+}
+

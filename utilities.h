@@ -2,6 +2,7 @@
 #define UTILITIES_H
 
 #include <semaphore.h>
+#include <sys/time.h>
 
 //#define DEBUG
 #ifdef DEBUG

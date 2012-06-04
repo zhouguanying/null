@@ -33,6 +33,7 @@
 #include <fcntl.h>
 #include <sys/ipc.h>
 #include <linux/fs.h>
+#include <sys/statfs.h>
 
 #include "includes.h"
 //#include <defines.h>
@@ -173,12 +174,23 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 		tmp=(struct sess_ctx*)sess->arg;
 		if(tmp!=NULL&&tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port){
 			printf("#######################found session in cache#########################\n");
+			if (strncmp(argv[0], "set_transport_type", 18) == 0){
+					pthread_mutex_lock(&tmp->sesslock);
+					tmp->running = 0;
+					pthread_mutex_unlock(&tmp->sesslock);
+					pthread_mutex_unlock(&global_ctx_lock);
+					printf("**********************set_transport_type session already running***************************\n");
+					return 0;
+			}
 			goto done;
 		}
 		tmp=global_ctx_running_list;
 		while(tmp!=NULL){
 			if(tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port){
 				if (strncmp(argv[0], "set_transport_type", 18) == 0){
+					pthread_mutex_lock(&tmp->sesslock);
+					tmp->running = 0;
+					pthread_mutex_unlock(&tmp->sesslock);
 					pthread_mutex_unlock(&global_ctx_lock);
 					printf("**********************set_transport_type session already running***************************\n");
 					return 0;
@@ -218,6 +230,8 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 		 	goto done;
 		 else if (strncmp(argv[0], "SetConfig", 9) == 0)
 		 	goto done;
+		 else if(strncmp(argv[0],"search_wifi",11)==0)
+		 	goto done;
 		 pthread_mutex_unlock(&global_ctx_lock);
 		 return NULL;
 done:
@@ -241,7 +255,8 @@ static int do_cli(struct cli_sess_ctx *sess)
      struct sockaddr_in cliaddr;
     ssize_t req_len;
 	int rsp_len;
-	int ret;
+	int ret = 0;
+	int s;
 	int on;
 
     //dbg("Starting CLI sid(%08X)", (u32) sess);
@@ -269,9 +284,10 @@ static int do_cli(struct cli_sess_ctx *sess)
 	/* Spin */
     while (sess->running) {
 		dbg("try to get cli cmd\n");
-		memset(req,0,BUF_SZ);
+		//memset(req,0,BUF_SZ);
         req_len = recvfrom(sess->sock, req, sizeof(req), 0, (struct sockaddr *) &from, &fromlen);
-		dbg("get cli cmd: %s\n",req);
+		req[req_len] = 0;
+		dbg("get cli cmd: %s ip ==%s  ,  port ==%d\n",req , inet_ntoa(from.sin_addr) , ntohs(from.sin_port));
         if (req_len <= 0) 
             dbg("socket error\n");
 		else {
@@ -282,12 +298,34 @@ static int do_cli(struct cli_sess_ctx *sess)
 			//dbg("sent rsp");
 				if( rsp_len ){
 					//1  it seems never occur
-					printf("enter seen nver happen rsp_len==%d\n",rsp_len);
-					ret =sendto(sess->sock, rsp, rsp_len, 0,(struct sockaddr *) &sess->from, fromlen);
-					printf("sendto return ==%ddst ip==%s , port ==%d\n",ret , inet_ntoa(sess->from.sin_addr), ntohs(sess->from.sin_port));
+					//printf("enter seen never happen rsp_len==%d\n",rsp_len);
+					s = 0;
+					while(rsp_len>0){
+						if(rsp_len>1000){
+							ret =sendto(sess->sock, rsp+s, 1000, 0,(struct sockaddr *) &sess->from, fromlen);
+							s+=1000;
+							rsp_len-=1000;
+						}else{
+							ret =sendto(sess->sock, rsp+s, rsp_len, 0,(struct sockaddr *) &sess->from, fromlen);
+							rsp_len = 0;
+						}
+					}
+					//printf("sendto return ==%ddst ip==%s , port ==%d\n",ret , inet_ntoa(sess->from.sin_addr), ntohs(sess->from.sin_port));
 				}
 				else{
-					ret = sendto(sess->sock, rsp, strlen(rsp), 0,(struct sockaddr *) &sess->from, fromlen);
+					rsp_len = strlen(rsp);
+					s = 0;
+					while(rsp_len>0){
+						if(rsp_len>1000){
+							ret =sendto(sess->sock, rsp+s, 1000, 0,(struct sockaddr *) &sess->from, fromlen);
+							s+=1000;
+							rsp_len-=1000;
+						}else{
+							ret =sendto(sess->sock, rsp+s, rsp_len, 0,(struct sockaddr *) &sess->from, fromlen);
+							rsp_len = 0;
+						}
+					}
+					//ret = sendto(sess->sock, rsp, strlen(rsp), 0,(struct sockaddr *) &sess->from, fromlen);
 					printf("send to addr ip:%s ; port: %d\n",inet_ntoa(sess->from.sin_addr),ntohs(sess->from.sin_port));
 					printf("sendto return == %d\n",ret);
 					fromlen = sizeof(struct sockaddr_in);
@@ -508,7 +546,7 @@ int stop_vid(struct sess_ctx *sess, char *arg)
 static int set_transport_type(struct sess_ctx *sess, char *arg)
 {
     int on;
-    struct sess_ctx*tmp;
+  //  struct sess_ctx*tmp;
     if (sess == NULL || arg == NULL) {
             dbg("error");
             return -1;
@@ -1169,13 +1207,13 @@ static int stop_aud(struct sess_ctx *sess, char *arg)
  */
 static int restart_server(struct sess_ctx *sess, char *arg)
 {
-	struct sess_ctx * tmp;
-	int p;
+	//struct sess_ctx * tmp;
+	//int p;
 	if(sess==NULL)
 		return 0;
-	if(sess->is_rtp){
+	//if(sess->is_rtp){
 		
-	}
+	//}
 	
 	printf("enter restar_server now begin\n");
 	playback_exit(sess->from);
@@ -1187,6 +1225,7 @@ static int restart_server(struct sess_ctx *sess, char *arg)
 	//pthread_join(sess->tid,NULL); if we wait here we will lock global_ctx_lock forever!
 	//printf("ok the thread stop now\n");
 	return 0;
+	/*
 	if (sess != NULL) {
 	        dbg("issued soft restart of server");
 	//for playback and monitor, it is same: we will handle playback first.
@@ -1198,6 +1237,7 @@ static int restart_server(struct sess_ctx *sess, char *arg)
 	        dbg("error");
 
 	return 0;
+	*/
 }
 
 /**
@@ -1232,10 +1272,17 @@ static char *get_firmware_info(struct sess_ctx *sess, char *arg)
         char *resp;
 	printf("ok enter firmware_info now\n");
         if (1/*sess != NULL*/) {
-		printf("enter if(1)\n");
+		//printf("enter if(1)\n");
+		  /*
                 if ((resp = strdup(FIRMWARE_BUILD)) == NULL)
                         return NULL;
-	         dbg("Firmware build==%s", resp);        
+	         dbg("Firmware build==%s", resp);  
+	         */
+	         resp = malloc(64);
+		if(!resp)
+			return NULL;
+		memset(resp , 0 ,sizeof(resp));
+		sprintf(resp,"%x",threadcfg.cam_id);
                 return resp;
         } else {
                 dbg("error\n");
@@ -1398,19 +1445,167 @@ static int Rs485Cmd(char* arg)
 	return 0;
 }
 char * get_parse_scan_result( int *numssid);
+char *search_wifi(char *arg)
+{
+	int numssid;
+	char *buf;
+	int length;
+	char slength[5];
+	char *p;
+	int size;
+	if (!arg)
+		return NULL;
+	if(*arg=='0'){
+		buf = get_parse_scan_result(&numssid);
+		if(!buf)
+			return NULL;
+		length = strlen(buf);
+		memmove(buf+4 ,buf,length);
+		memset(buf,0,4);
+		size = length +4;
+		p = buf;
+		while(size>0){
+			if(size>1000){
+				length = 1000 - 4;
+				sprintf(slength,"%4d",length);
+				memcpy(p,slength,4);
+				p+=1000;
+				memmove(p+4,p,size - 1000);
+				size+=4;
+				size -=1000;
+			}else{
+				length = size-4;
+				sprintf(slength , "%4d",length);
+				memcpy(p,slength,4);
+				size = 0;
+			}	
+		}
+		return buf;
+	}else{
+		dbg("invalid argument\n");
+	}
+	return NULL;
+}
 int snd_soft_restart();
+int querryfs(char *fs , long *maxsize,long * freesize)
+{
+    struct statfs st; 
+   *maxsize = 0;
+   *freesize = 0;
+    if(statfs(fs,&st)<0){
+        printf("error querry fs %s\n",fs);
+        return -1; 
+    }   
+    *maxsize = st.f_blocks*st.f_bsize;
+    *freesize = st.f_bfree *st.f_bsize;
+    return 0;
+}
+static inline char * gettimestamp()
+{
+	static char timestamp[15];
+	time_t t;
+	struct tm *curtm;
+	 if(time(&t)==-1){
+        	 printf("get time error\n");
+         	 exit(0);
+   	  }
+	 curtm=localtime(&t);
+	  sprintf(timestamp,"%04d%02d%02d%02d%02d%02d",curtm->tm_year+1900,curtm->tm_mon+1,
+                curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
+	 return timestamp;
+}
+static int clean_video_line(char *buf)
+{
+	char *p;
+	p = buf;
+	while(*p&&(*p==' '||*p=='\t'))p++;
+	if(!*p)return 0;
+	if(strncmp(p , "inet_wlan_ssid",strlen("inet_wlan_ssid"))==0||
+		strncmp(p , "inet_wlan_key_mgmt",strlen("inet_wlan_key_mgmt"))==0||
+		strncmp(p , "inet_wlan_wep_key0",strlen("inet_wlan_wep_key0"))==0||
+		strncmp(p , "inet_wlan_wep_key1",strlen("inet_wlan_wep_key1"))==0||
+		strncmp(p , "inet_wlan_wep_key2",strlen("inet_wlan_wep_key2"))==0||
+		strncmp(p , "inet_wlan_wep_tx_keyindx",strlen("inet_wlan_wep_tx_keyindx"))==0||
+		strncmp(p , "inet_wlan_auth_alg",strlen("inet_wlan_auth_alg"))==0||
+		strncmp(p , "inet_wlan_mode",strlen("inet_wlan_mode"))==0||
+		strncmp(p , "inet_wlan_proto",strlen("inet_wlan_proto"))==0||
+		strncmp(p , "inet_wlan_pairwise",strlen("inet_wlan_pairwise"))==0||
+		strncmp(p , "inet_wlan_group", strlen("inet_wlan_group"))==0||
+		strncmp(p , "inet_wlan_psk",strlen("inet_wlan_psk"))==0){
+		while(*p&&*p!='=')p++;
+		if(!*p){
+			*p='=';
+			p++;
+			*p='\n';
+			return 0;
+		}
+		p++;
+		*p='\n';
+		p++;
+		while(*p){
+			*p=0;
+			p++;
+		}
+	}
+	return 0;
+}  
+char * get_clean_video_cfg()
+{
+	char buf[256];
+	FILE * fp;
+	int length;
+	char *cfg_buf;
+	char *p;
+	fp =fopen(RECORD_PAR_FILE, "r");
+	if(!fp){
+		system("cp /video.cfg  /data/video.cfg");
+		usleep(100000);
+		fp =fopen(RECORD_PAR_FILE, "r");
+		if(!fp)
+			return NULL;
+	}
+	cfg_buf = (char *)malloc(2048);
+	if(!cfg_buf){
+		printf("malloc buf for config file error\n");
+		fclose(fp);
+		return NULL;
+	}
+	memset(cfg_buf , 0 , 2048);
+	length = 0;
+	memset(buf , 0 ,256);
+	while(fgets(buf ,256 , fp)!=NULL){
+		clean_video_line( buf);
+		memcpy(cfg_buf+length , buf ,strlen(buf));
+		length +=strlen(buf);
+		memset(buf , 0 ,256);
+	}
+	fclose(fp);
+	/*
+	usleep(50000);
+	fp = fopen(RECORD_PAR_FILE, "w");
+	fwrite(cfg_buf , length , 1,fp);
+	fflush(fp);
+	fclose(fp);
+	*/
+	return cfg_buf;
+}
+
+
 static char* GetConfig(char* arg , int *rsp_len)
 {
-	char ConfigType = (int)*arg;
-	FILE* fd;
+	char ConfigType;
+	//FILE* fd;
 	int length = 0;
 	char* ret = 0;
 	char *p;
-	int numssid;
-	char *scanbuf;
-	int nums;
-	char snums[5];
+	char *s;
+	long sd_maxsize;
+	long sd_freesize;
+	int size;
 	char slength[5];
+	if(!arg)
+		return NULL;
+	ConfigType = (int)*arg;
 	ret = malloc(4096);
 	if(!ret) return NULL;
 	memset(ret , 0 ,4096);
@@ -1418,59 +1613,49 @@ static char* GetConfig(char* arg , int *rsp_len)
 	p = ret+4;
 	printf("#############enter GetConfig####################\n");
 	if( ConfigType == '1' ){
-		fd = fopen(RECORD_PAR_FILE, "r");
-		if( fd == 0 ){
+		sprintf(p,"cam_id=%x\n",threadcfg.cam_id);
+		(*rsp_len)+=strlen(p);
+		p+=strlen(p);
+		s = get_clean_video_cfg();
+		if(!s){
 			length = 0;
-			//nums = 1;
-			//sprintf(ret,"%4d",nums);
-			sprintf(ret ,"%4d",length);
+		}else{
+			memcpy(p , s , strlen(s));
+			length = strlen(s);
+			free(s);
 		}
-		else{
-			fseek(fd, 0, SEEK_END);
-			length = ftell(fd);
-			fseek(fd, 0, SEEK_SET);
-			fread(p,1,length,fd);
-			fclose(fd);
-			//printf("*****************GET CONFIG***************************\n");
-			//printf("%s",p);
-
-			printf("strlen(p)==%d length==%d\n",strlen(p),length);
-			//printf("***************************end*************************\n");
-			/*
-			p+=(length-1);
-			if(*p=='\n'){
-				printf("enter *p==\\n\n");
-				*p = 0;
-				*rsp_len = (*rsp_len)+length-1;
-			}
-			else{
-				p++;
-				*rsp_len = (*rsp_len)+length;
-			}
-			//scanbuf = get_parse_scan_result(& numssid);
-			scanbuf = NULL;
-			if(!scanbuf){
-				sprintf(p,"%4d\n",0);
-				*rsp_len += strlen(p);
-			}
-			else{
-				sprintf(p,"%4d\n",numssid);
-				(*rsp_len)+=strlen(p);
-				p+=strlen(p);
-				memcpy(p,scanbuf,strlen(scanbuf));
-				(*rsp_len)+=strlen(scanbuf);
-				printf("strlen(scanbuf)==%d\n",strlen(scanbuf));
-				free(scanbuf);
-			}
-			*/
-			(*rsp_len) +=length;
-			length= (*rsp_len-4);
-			//nums =(int) ((*rsp_len+1023)/1024);
-			//sprintf(snums,"%4d",nums);
-			sprintf(slength,"%4d",length);
-			//memcpy(ret,snums,4);
-			memcpy(ret,slength,4);
+		(*rsp_len) +=length;
+		p+=length;
+		sprintf(p,"system_time=%s\n",gettimestamp());
+		(*rsp_len)+=strlen(p);
+		p+=strlen(p);
+		querryfs("/sdcard", &sd_maxsize, &sd_freesize);
+		sprintf(p,"tfcard_maxsize=%ld\n",sd_maxsize);
+		(*rsp_len)+=strlen(p);
+		p+=strlen(p);
+		sprintf(p,"tfcard_freesize=%ld\n",sd_freesize);
+		(*rsp_len)+=strlen(p);
+		p+=strlen(p);
+		size = *rsp_len;
+		p = ret;
+		while(size>0){
+			if(size>1000){
+				length = 1000 - 4;
+				sprintf(slength,"%4d",length);
+				memcpy(p,slength,4);
+				p+=1000;
+				memmove(p+4,p,size - 1000);
+				(*rsp_len)+=4;
+				size+=4;
+				size -=1000;
+			}else{
+				length = size-4;
+				sprintf(slength , "%4d",length);
+				memcpy(p,slength,4);
+				size = 0;
+			}	
 		}
+		
 	}else{
 		free(ret);
 		printf("#####################GetConfig invalid parmeter#########\n");
@@ -1522,45 +1707,58 @@ static char* GetConfig(char* arg , int *rsp_len)
 	//printf("#########################END#####################\n");
 	return ret;	
 }
-
+/*
 int test_printf_getConfig()
 {
 	int id ='1';
 	int rsp_len;
 	char *buf;
-	char p[5];
-	p[4]=0;
+	char *p;
+	char data_len[5];
+	data_len[4]=0;
 	buf=GetConfig(&id, &rsp_len);
 	if(!buf){
 		printf("**************get Config error*******************\n");
 		return 0;
 	}
 	printf("######################CONFIG RESULTS#########################\n");
-	printf("rsp_len==%d\n",rsp_len);
-	printf("strlen(buf)==%d\n",strlen(buf));
-	memcpy(p,buf,4);
-	printf("nums==%d\n",atoi(p));
-	memcpy(p,buf+4,4);
-	printf("data_len==%d\n",atoi(p));
-	printf("\n");
-	printf("%s",buf+8);
+	printf("strlen(buf)==%d rsp_len==%d\n",strlen(buf),rsp_len);
+	p = buf;
+	memcpy(data_len , p,4);
+	p+=4;
+	p+=atoi(data_len);
+	p+=4;
+	printf("second data_len==%d\n",strlen(p));
+	printf("%s",buf);
 	free(buf);
 	printf("######################END#############################\n");
 	return 0;
 }
-
+*/
+int set_raw_config_value(char * buffer);
 static int SetConfig(char* arg)
 {
-	char ConfigType = (int)*arg;
-	FILE* fp;
-	int fd;
-	int length = 0;
-	int size;
-	char* buffer, *p1;
-	unsigned int* pInt;
-	int fdconfig;
+	char ConfigType;
+	struct sockaddr_in from;
+	socklen_t fromlen;
+	fd_set sockset;
+	struct timeval timeout;
+	char *buf;
+	char *p;
+	int data_len;
+	char sdata_len[5];
+	int recvlen= 0;
+	int tryrecv = 10;
+	int ret;
 
+	if(!arg)
+		return  -1;
+	ConfigType = (int)*arg;
 	dbg("save the config file\n");
+	if(ConfigType == '0'){
+		printf("reset the value to default\n");
+		return 0;
+	}
 	if( ConfigType != '1' && ConfigType != '3' ){
 		dbg("invalid agument\n");
 		return -1;
@@ -1568,8 +1766,66 @@ static int SetConfig(char* arg)
 
 	//v2ipd_share_mem->v2ipd_to_client0_msg = VS_MESSAGE_STOP_MONITOR;
 	//usleep(500);
-
 	if( ConfigType == '1' ){
+		buf = (char *)malloc (4096);
+		if(!buf){
+			printf("error malloc buf for video.cfg\n");
+			return -1;
+		}
+		memset(buf,0,4096);
+		p = buf;
+again:
+		fromlen = sizeof(struct sockaddr_in);
+		timeout.tv_sec = 5;
+		timeout.tv_usec = 0;
+		FD_ZERO(&sockset);
+		FD_SET(g_cli_ctx->sock, &sockset);
+		do{
+			ret = select(g_cli_ctx->sock + 1, &sockset, NULL, NULL, &timeout);
+		}while(ret == -1);
+		if(ret == 0){
+			goto done;
+		}else{
+			ret =  recvfrom(g_cli_ctx->sock, p, 4096-recvlen, 0, (struct sockaddr *) &from, &fromlen);
+			if(g_cli_ctx->from.sin_addr.s_addr!=from.sin_addr.s_addr||g_cli_ctx->from.sin_port!=from.sin_port){
+				memset(p,0,4096-recvlen);
+				tryrecv --;
+				if(tryrecv<=0)
+					goto done;
+				goto again;
+			}else{
+				sdata_len[4] =0;
+				memcpy(sdata_len , p , 4);
+				data_len = atoi(sdata_len);
+				printf("sdata_len=%s\n",sdata_len);
+				printf("data len ==%d\n",data_len);
+				if(ret == data_len+4){
+					recvlen+=data_len;
+					memmove(p,p+4,data_len);
+					p+=data_len;
+					memset(p,0,4);
+					goto again;
+				}else{
+					printf("the data len is not match the recv len\n");
+					printf("we expected data len %d but we recv %d\n",data_len+4 , ret);
+					free(buf);
+					return -1;
+				}
+			}
+		}
+done:
+		if(recvlen ==0){
+			printf("recv config data none  not send?\n");
+			free(buf);
+			return -1;
+		}
+		printf("ok recv config data len ==%d ,strlen ==%d\n",recvlen ,strlen(buf));
+		printf("%s",buf);
+		set_raw_config_value(buf);
+		free(buf);
+		snd_soft_restart();
+		return 0;
+		/*
 		fp = fopen(RECORD_PAR_FILE, "wb");
 		if( fp == 0 ){
 			printf("open config file error\n");
@@ -1582,12 +1838,13 @@ static int SetConfig(char* arg)
 			fclose(fp);
 			dbg("write:%d\n",size);
 		}
+		*/
 	}else{
 		dbg("invalid argument\n");
 		return -1;
 	}
-	dbg("send soft restart\n");
-	snd_soft_restart();
+	//dbg("send soft restart\n");
+	//snd_soft_restart();
 	/*
 	if( ConfigType == '3' ){
 		fp = fopen(MONITOR_PAR_FILE, "wb");
@@ -1661,7 +1918,7 @@ static int SetConfig(char* arg)
 
 	v2ipd_restart_all();
 	*/
-	return 0;	
+	//return 0;	
 }
 
 static void SetTime(char* arg)
@@ -1718,6 +1975,8 @@ static char* GetNandRecordFile(char* arg)
 	int max_count;
 
 //	dbg("get a id char=%s\n",arg);
+	if(!arg)
+		return NULL;
 	id = dec_string_to_int(arg, 8);
 	dbg("get a id=%d\n",id);
 	if(id==0){
@@ -1819,7 +2078,7 @@ static char* GetRecordStatue(char* arg)
 {
 	char* buffer;
 	int size;
-	int state;
+	int state=1;
 	char* ip;
 	int ret;
 
@@ -1985,7 +2244,8 @@ static void ReplayRecord(struct sess_ctx *sess,char* arg)
 {
 	int file_id;
 	int seek;
-
+	if(!arg)
+		return;
 	file_id = hex_string_to_int(arg, 8);
 	seek = hex_string_to_int(&arg[8], 8);
 	/*
@@ -2102,6 +2362,8 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
 		*/
 
 		/*the first class */
+		if(!cmd)
+			return NULL;
      	 if (strncmp(cmd, "get_firmware_info", 17) == 0)
                return resp = get_firmware_info(sess, NULL);/*give the function a parameter that it don't use i don't konw why*/
 	 else if (strncmp(cmd, "GetRecordStatue", 15) == 0)
@@ -2118,9 +2380,11 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
                 SetConfig(param);
 		  return resp;
         }
+	 else if(strncmp(cmd,"search_wifi",11)==0)
+	 	return search_wifi(param);
 	 /*the second class*/
         if (sess == NULL || cmd == NULL) return NULL;
-		dbg("%s\n",cmd);
+		//dbg("%s\n",cmd);
         if (strncmp(cmd, "set_dest_addr", 13) == 0)
                 set_dest_addr(sess, param);
         else if (strncmp(cmd, "set_dest_port", 13) == 0)

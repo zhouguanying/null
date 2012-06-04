@@ -1947,7 +1947,7 @@ int test_set_sound_card()
 	free(argv[0]);
 	free(argv[1]);
 	usleep(1000);
-	controls(LEVEL_BASIC | level) ;
+	//controls(LEVEL_BASIC | level) ;
 	return 0;
 }
 

@@ -155,7 +155,7 @@ int keep_playback_port_alive_thread()
 	list_for_each(p, &playback_list){
 		pb = list_entry(p, playback_t, list);
 		if(pb->address.sin_addr.s_addr ==
-				address.sin_addr.s_addr/*&&pb->address.sin_port==address.sin_port*/){
+				address.sin_addr.s_addr&&pb->address.sin_port==address.sin_port){
 			printf("%s: pb address=0x%x, address to find=0x%x\n",
 				__func__, pb->address.sin_addr.s_addr, address.sin_addr.s_addr);
 			printf("pb port=%d , address port=%d\n",ntohs(pb->address.sin_port),ntohs(address.sin_port));
@@ -199,6 +199,7 @@ static int playback_destroy(playback_t* pb)
 	pthread_mutex_unlock(&pb_rtp_port_lock);
 	*/
 	free(pb);
+	return 0;
 }
 
 void playback_remove_dead()
@@ -227,13 +228,13 @@ int playback_new(struct sockaddr_in address, int file, int seek_percent)
 {
 	int ret = 0;
 	playback_t* pb;
-	int i;
+	//int i;
 
 	playback_remove_dead();
 
 	pthread_mutex_lock(&list_lock);
-
-	if(pb = playback_find(address)){
+	pb = playback_find(address);
+	if(pb){
 		//alread have a playback instance? kill it.
 		if(playback_get_status(pb) != PLAYBACK_STATUS_OFFLINE){
 			if(!playback_is_dead(pb)){
@@ -371,6 +372,7 @@ int playback_seekto(struct sockaddr_in address, int percent)
 		pb->status = PLAYBACK_STATUS_SEEK;
 		pthread_mutex_unlock(&pb->lock);
 	}
+	return 0;
 }
 
 int playback_exit(struct sockaddr_in address)
@@ -470,7 +472,7 @@ void* playback_thread(void * arg)
 			case PLAYBACK_STATUS_RUNNING:
 			{
 				size = record_file_read(
-							file, buf, PLAYBACK_SECTOR_NUM_ONE_READ);
+							file,(unsigned char *) buf, PLAYBACK_SECTOR_NUM_ONE_READ);
 				if(size <= 0){
 					//ready to restart.
 					/*
@@ -509,6 +511,6 @@ void* playback_thread(void * arg)
 	free(buf);
 	record_file_close(file);
 	playback_set_dead(pb);
-	
+	return NULL;
 }
 

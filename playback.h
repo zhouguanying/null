@@ -50,12 +50,15 @@ typedef struct
 #endif
 
 //int playback_new(struct sockaddr_in address, int file);
+int playback_init();
 int playback_new(struct sockaddr_in address, int file, int seek_percent);
 //int playback_seekto(playback_t* pb, int percent);
 int playback_connect(struct sockaddr_in address, int socket);
 int playback_exit(struct sockaddr_in address);
 int playback_seekto(struct sockaddr_in address, int percent);
 void playback_remove_dead();
+int playback_get_status(playback_t * pb);
+int playback_set_status(playback_t * pb, int status);
 #ifdef __cplusplus
 }
 #endif

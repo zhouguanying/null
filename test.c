@@ -18,6 +18,8 @@
 #include <linux/if.h>
 #include <linux/sockios.h>
 #include <linux/ethtool.h>
+#include <sys/msg.h>
+#include <assert.h>
 
 
 
@@ -32,10 +34,10 @@
 #include "rtp.h"
 #include "udp_transfer.h"
 #include "vpu_server.h"
+#include "cudt.h"
 extern int check_net_thread();
 extern int mywpa_cli(int argc, char *argv[]);
 int built_net(int check_wlan0,int check_eth0 , int ping_wlan0 , int ping_eth0);
-extern char __gate_way[32];
 extern char *scanresult;
 extern int result_len;
 extern char inet_eth_device[64];
@@ -390,6 +392,7 @@ static int write_config_value(struct configstruct *allconfig,int elements)
 {
 	FILE*fp;
 	int i;
+	int len;
 	char buf[512];
 	fp = fopen(RECORD_PAR_FILE, "w");
 	if(!fp){
@@ -399,13 +402,158 @@ static int write_config_value(struct configstruct *allconfig,int elements)
 	for(i=0;i<elements;i++){
 		memset(buf,0,512);
 		sprintf(buf,"%s=%s\n",allconfig[i].name,allconfig[i].value);
-		fwrite(buf,1,strlen(buf),fp);
+		len = strlen(buf);
+		if(len!=fwrite(buf,1,len,fp)){
+			printf("write config file error\n");
+		}
 	}
 	fflush(fp);
 	fclose(fp);
 	return 0;
 }
-
+int set_system_time(char * time)
+{
+	char buf[32];
+	struct tm _tm;
+	struct timeval tv;
+	time_t timep;
+	memset(buf,0,sizeof(buf));
+	memcpy(buf , time , 4);
+	_tm.tm_year = atoi(buf);
+	if(_tm.tm_year ==0)
+		return -1;
+	_tm.tm_year-=1900;
+	memset(buf,0,sizeof(buf));
+	memcpy(buf , time+4 , 2);
+	_tm.tm_mon =atoi(buf);
+	if(_tm.tm_mon==0)
+		return -1;
+	_tm.tm_mon --;
+	memset(buf , 0 ,sizeof(buf));
+	memcpy(buf ,time+6,2);
+	_tm.tm_mday = atoi(buf);
+	if(_tm.tm_mday == 0)
+		return -1;
+	memset(buf , 0 ,sizeof(buf));
+	memcpy(buf ,time+8,2);
+	if(*buf=='0'&&*(buf+1)=='0')
+		_tm.tm_hour = 0;
+	else{
+		_tm.tm_hour = atoi(buf);
+		if(_tm.tm_hour==0)
+			return -1;
+	}
+	memset(buf , 0 ,sizeof(buf));
+	memcpy(buf ,time+10,2);
+	if(*buf=='0'&&*(buf+1)=='0')
+		_tm.tm_min = 0;
+	else{
+		_tm.tm_min = atoi(buf);
+		if(_tm.tm_min==0)
+			return -1;
+	}
+	memset(buf , 0 ,sizeof(buf));
+	memcpy(buf ,time+12,2);
+	if(*buf=='0'&&*(buf+1)=='0')
+		_tm.tm_sec = 0;
+	else{
+		_tm.tm_sec = atoi(buf);
+		if(_tm.tm_sec==0)
+			return -1;
+	}
+	timep = mktime(&_tm);
+	tv.tv_sec = timep;
+	tv.tv_usec = 0;
+	if(settimeofday(&tv , NULL)<0){
+		printf("settime fail\n");
+	}
+	printf("set time sucess\n");
+	printf("time==%s\n",time);
+	return 0;
+}
+int set_raw_config_value(char * buffer)
+{
+	struct configstruct *conf_p;
+	FILE*fp;
+	char *s;
+	char *d;
+	char *sp;
+	char *dp;
+	char buf[512];
+	char name[64];
+	char value[64];
+	int lines;
+	conf_p = (struct configstruct *)calloc(100,sizeof(struct configstruct));
+	if(!conf_p){
+		printf("unable to calloc 100 configstruct \n");
+		return -1;
+	}
+	fp =fopen(RECORD_PAR_FILE, "r");
+	if(!fp){
+		printf("open video.cfg error\n");
+		free(conf_p);
+		return -1;
+	}
+	memset(conf_p,0,100*sizeof(struct configstruct));
+	lines = 0;
+	memset(buf,0,512);
+	while(fgets(buf,512,fp)!=NULL){
+		sp=buf;
+		dp=conf_p[lines].name;
+		while(*sp==' '||*sp=='\t')sp++;
+		while(*sp&&*sp!='='){
+			*dp=*sp;
+			dp++;
+			sp++;
+		}
+		sp++;
+		while(*sp&&(*sp==' '||*sp=='\t'))sp++;
+		dp=conf_p[lines].value;
+		while(*sp&&*sp!='\n'){
+			*dp=*sp;
+			dp++;
+			sp++;
+		}
+		//printf("name==%s , value=%s\n",conf_p[lines].name,conf_p[lines].value);
+		lines++;
+		memset(buf,0,512);
+	}
+	fclose(fp);
+	s=buffer;
+	while(*s){
+		memset(name,0,sizeof(name));
+		memset(value,0,sizeof(value));
+		while(*s==' '||*s=='\t')s++;
+		d = name;
+		while(*s&&*s!='='){
+			if(*s=='\n')
+				goto out;
+			*d =*s;
+			d++;
+			s++;
+		}
+		if(!*s)break;
+		s++;
+		while(*s&&(*s==' '||*s=='\t'))s++;
+		d=value;
+		while(*s&&*s!='\n'){
+			*d =*s;
+			d++;
+			s++;
+		}
+		if(*s=='\n')
+			s++;
+		if(strncmp(name,"system_time",strlen("system_time"))==0)
+			set_system_time(value);
+		else
+			set_value(conf_p,lines, name, 1,  value);
+	}
+out:
+	write_config_value(conf_p,lines);
+	free(conf_p);
+	printf("write config file sucess\n");
+	return 0;
+}
 int get_gateway(char * device ,char *gateway){
 	char buf[512];
 	FILE * routefp;
@@ -610,22 +758,6 @@ int config_wifi(struct configstruct *conf_p, int lines)
 	}
 
 	memset(buf,0,256);
-	extract_value(conf_p, lines, "inet_wlan_proto", 1, buf);
-	printf("inet_wlan_proto = %s\n",buf);
-	if(buf[0]){
-		sprintf(argv[0],"set_network");
-		//sprintf(argv[1],"0");
-		sprintf(argv[1],"%s",network_id);
-		sprintf(argv[2],"proto");
-		sprintf(argv[3],"%s",buf);
-		printf("try proto\n");
-		mywpa_cli(4,  argv );
-		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-			goto error;
-		}
-	}
-
-	memset(buf,0,256);
 	extract_value(conf_p, lines, "inet_wlan_key_mgmt", 1, buf);
 	printf("inet_wlan_key_mgmt = %s\n",buf);
 	if(buf[0]){
@@ -643,134 +775,156 @@ int config_wifi(struct configstruct *conf_p, int lines)
 		printf("error key_mgmt \n");
 		goto error;
 	}
-
-	memset(buf,0,256);
-	extract_value(conf_p, lines, "inet_wlan_wep_key0", 1, buf);
-	printf("inet_wlan_wep_key0 = %s\n",buf);
-	if(buf[0]){
-		sprintf(argv[0],"set_network");
-		//sprintf(argv[1],"0");
-		sprintf(argv[1],"%s",network_id);
-		sprintf(argv[2],"wep_key0");
-		sprintf(argv[3],"%s",buf);
-		printf("try wep_key0\n");
-		mywpa_cli(4,  argv );
-		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-			goto error;
+	if(strncmp(buf , "WPA-PSK",7)==0){
+		memset(buf,0,256);
+		extract_value(conf_p, lines, "inet_wlan_proto", 1, buf);
+		printf("inet_wlan_proto = %s\n",buf);
+		if(buf[0]){
+			sprintf(argv[0],"set_network");
+			//sprintf(argv[1],"0");
+			sprintf(argv[1],"%s",network_id);
+			sprintf(argv[2],"proto");
+			sprintf(argv[3],"%s",buf);
+			printf("try proto\n");
+			mywpa_cli(4,  argv );
+			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+				goto error;
+			}
 		}
-	}
 
-	memset(buf,0,256);
-	extract_value(conf_p, lines, "inet_wlan_wep_key1", 1, buf);
-	printf("inet_wlan_wep_key1 = %s\n",buf);
-	if(buf[0]){
-		sprintf(argv[0],"set_network");
-		//sprintf(argv[1],"0");
-		sprintf(argv[1],"%s",network_id);
-		sprintf(argv[2],"wep_key1");
-		sprintf(argv[3],"%s",buf);
-		printf("try wep_key1\n");
-		mywpa_cli(4,  argv );
-		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-			goto error;
+		memset(buf,0,256);
+		extract_value(conf_p, lines, "inet_wlan_group", 1, buf);
+		printf("inet_wlan_group = %s\n",buf);
+		if(buf[0]){
+			sprintf(argv[0],"set_network");
+			//sprintf(argv[1],"0");
+			sprintf(argv[1],"%s",network_id);
+			sprintf(argv[2],"group");
+			sprintf(argv[3],"%s",buf);
+			printf("try group\n");
+			mywpa_cli(4,  argv );
+			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+				goto error;
+			}
 		}
-	}
 
-	memset(buf,0,256);
-	extract_value(conf_p, lines, "inet_wlan_wep_key2", 1, buf);
-	printf("inet_wlan_wep_key2 = %s\n",buf);
-	if(buf[0]){
-		sprintf(argv[0],"set_network");
-		//sprintf(argv[1],"0");
-		sprintf(argv[1],"%s",network_id);
-		sprintf(argv[2],"wep_key2");
-		sprintf(argv[3],"%s",buf);
-		printf("try wep_key2\n");
-		mywpa_cli(4,  argv );
-		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-			goto error;
+
+		memset(buf,0,256);
+		extract_value(conf_p, lines, "inet_wlan_pairwise", 1, buf);
+		printf("inet_wlan_pairwise = %s\n",buf);
+		if(buf[0]){
+			sprintf(argv[0],"set_network");
+			//sprintf(argv[1],"0");
+			sprintf(argv[1],"%s",network_id);
+			sprintf(argv[2],"pairwise");
+			sprintf(argv[3],"%s",buf);
+			printf("try pairwise\n");
+			mywpa_cli(4,  argv );
+			/*
+			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+				goto error;
+			}
+			*/
 		}
-	}
 
-	memset(buf,0,256);
-	extract_value(conf_p, lines, "inet_wlan_wep_tx_keyindx", 1, buf);
-	printf("inet_wlan_wep_tx_keyindx = %s\n",buf);
-	if(buf[0]){
-		sprintf(argv[0],"set_network");
-		//sprintf(argv[1],"0");
-		sprintf(argv[1],"%s",network_id);
-		sprintf(argv[2],"wep_tx_keyidx");
-		sprintf(argv[3],"%s",buf);
-		printf("try wep_tx_keyidx\n");
-		mywpa_cli(4,  argv );
-		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-			goto error;
+		memset(buf,0,256);
+		extract_value(conf_p, lines, "inet_wlan_psk", 1, buf);
+		printf("inet_wlan_psk = %s\n",buf);
+		if(buf[0]){
+			sprintf(argv[0],"set_network");
+			//sprintf(argv[1],"0");
+			sprintf(argv[1],"%s",network_id);
+			sprintf(argv[2],"psk");
+			sprintf(argv[3],"%s",buf);
+			printf("try psk\n");
+			mywpa_cli(4,  argv );
+			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+				goto error;
+			}
 		}
-	}
+	}else{
+		memset(buf,0,256);
+		extract_value(conf_p, lines, "inet_wlan_wep_key0", 1, buf);
+		printf("inet_wlan_wep_key0 = %s\n",buf);
+		if(buf[0]){
+			sprintf(argv[0],"set_network");
+			//sprintf(argv[1],"0");
+			sprintf(argv[1],"%s",network_id);
+			sprintf(argv[2],"wep_key0");
+			sprintf(argv[3],"%s",buf);
+			printf("try wep_key0\n");
+			mywpa_cli(4,  argv );
+			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+				goto error;
+			}
+		}
 
-	memset(buf,0,256);
-	extract_value(conf_p, lines, "inet_wlan_auth_alg", 1, buf);
-	printf("inet_wlan_auth_alg = %s\n",buf);
-	if(buf[0]){
-		sprintf(argv[0],"set_network");
-		//sprintf(argv[1],"0");
-		sprintf(argv[1],"%s",network_id);
-		sprintf(argv[2],"auth_alg");
-		sprintf(argv[3],"%s",buf);
-		printf("try auth_alg\n");
-		mywpa_cli(4,  argv );
-		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-			goto error;
+		memset(buf,0,256);
+		extract_value(conf_p, lines, "inet_wlan_wep_key1", 1, buf);
+		printf("inet_wlan_wep_key1 = %s\n",buf);
+		if(buf[0]){
+			sprintf(argv[0],"set_network");
+			//sprintf(argv[1],"0");
+			sprintf(argv[1],"%s",network_id);
+			sprintf(argv[2],"wep_key1");
+			sprintf(argv[3],"%s",buf);
+			printf("try wep_key1\n");
+			mywpa_cli(4,  argv );
+			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+				goto error;
+			}
+		}
+
+		memset(buf,0,256);
+		extract_value(conf_p, lines, "inet_wlan_wep_key2", 1, buf);
+		printf("inet_wlan_wep_key2 = %s\n",buf);
+		if(buf[0]){
+			sprintf(argv[0],"set_network");
+			//sprintf(argv[1],"0");
+			sprintf(argv[1],"%s",network_id);
+			sprintf(argv[2],"wep_key2");
+			sprintf(argv[3],"%s",buf);
+			printf("try wep_key2\n");
+			mywpa_cli(4,  argv );
+			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+				goto error;
+			}
+		}
+
+		memset(buf,0,256);
+		extract_value(conf_p, lines, "inet_wlan_wep_tx_keyindx", 1, buf);
+		printf("inet_wlan_wep_tx_keyindx = %s\n",buf);
+		if(buf[0]){
+			sprintf(argv[0],"set_network");
+			//sprintf(argv[1],"0");
+			sprintf(argv[1],"%s",network_id);
+			sprintf(argv[2],"wep_tx_keyidx");
+			sprintf(argv[3],"%s",buf);
+			printf("try wep_tx_keyidx\n");
+			mywpa_cli(4,  argv );
+			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+				goto error;
+			}
+		}
+
+		memset(buf,0,256);
+		extract_value(conf_p, lines, "inet_wlan_auth_alg", 1, buf);
+		printf("inet_wlan_auth_alg = %s\n",buf);
+		if(buf[0]){
+			sprintf(argv[0],"set_network");
+			//sprintf(argv[1],"0");
+			sprintf(argv[1],"%s",network_id);
+			sprintf(argv[2],"auth_alg");
+			sprintf(argv[3],"%s",buf);
+			printf("try auth_alg\n");
+			mywpa_cli(4,  argv );
+			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+				goto error;
+			}
 		}
 	}
 	
-	memset(buf,0,256);
-	extract_value(conf_p, lines, "inet_wlan_pairwise", 1, buf);
-	printf("inet_wlan_pairwise = %s\n",buf);
-	if(buf[0]){
-		sprintf(argv[0],"set_network");
-		//sprintf(argv[1],"0");
-		sprintf(argv[1],"%s",network_id);
-		sprintf(argv[2],"pairwise");
-		sprintf(argv[3],"%s",buf);
-		printf("try pairwise\n");
-		mywpa_cli(4,  argv );
-		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-			goto error;
-		}
-	}
-
-	memset(buf,0,256);
-	extract_value(conf_p, lines, "inet_wlan_group", 1, buf);
-	printf("inet_wlan_group = %s\n",buf);
-	if(buf[0]){
-		sprintf(argv[0],"set_network");
-		//sprintf(argv[1],"0");
-		sprintf(argv[1],"%s",network_id);
-		sprintf(argv[2],"group");
-		sprintf(argv[3],"%s",buf);
-		printf("try group\n");
-		mywpa_cli(4,  argv );
-		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-			goto error;
-		}
-	}
-
-	memset(buf,0,256);
-	extract_value(conf_p, lines, "inet_wlan_psk", 1, buf);
-	printf("inet_wlan_psk = %s\n",buf);
-	if(buf[0]){
-		sprintf(argv[0],"set_network");
-		//sprintf(argv[1],"0");
-		sprintf(argv[1],"%s",network_id);
-		sprintf(argv[2],"psk");
-		sprintf(argv[3],"%s",buf);
-		printf("try psk\n");
-		mywpa_cli(4,  argv );
-		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-			goto error;
-		}
-	}
+	
 	sprintf(argv[0],"select_network");
 	//sprintf(argv[1],"0");
 	sprintf(argv[1],"%s",network_id);
@@ -976,6 +1130,7 @@ char * get_parse_scan_result( int *numssid)
 				if(strncmp(flags,"WPA-PSK",strlen("WPA-PSK"))==0){
 					flags+=strlen("WPA-PSK");
 					sprintf(key_mgmt,"WPA-PSK");
+					sprintf(proto,"WPA");
 					if(*flags=='-'){
 						flags++;
 						for(j=0;*flags!=']';j++){
@@ -990,11 +1145,13 @@ char * get_parse_scan_result( int *numssid)
 								flags++;
 							}
 						}
+						memcpy(pairwise , group,sizeof(pairwise));
 					}
 				}
 				if(strncmp(flags,"WPA2-PSK",strlen("WPA2-PSK"))==0){
 					flags+=strlen("WPA2-PSK");
 					sprintf(key_mgmt,"WPA-PSK");
+					sprintf(proto,"WPA2");
 					if(*flags=='-'){
 						flags++;
 						for(j=0;*flags!=']';j++){
@@ -1009,6 +1166,7 @@ char * get_parse_scan_result( int *numssid)
 								flags++;
 							}
 						}
+						memcpy(pairwise , group,sizeof(pairwise));
 					}
 				}
 			}
@@ -1021,12 +1179,46 @@ char * get_parse_scan_result( int *numssid)
 	return buf;
  }
 
+int get_cam_id(unsigned int *id)
+{
+	FILE*fp;
+	int id0,id1,id2;
+	char buf[64];
+	fp = fopen("/sys/uid/otp/id","r");
+	if(!fp){
+		return -1;
+	}
+	memset(buf,0,sizeof(buf));
+	if(fgets(buf,64,fp)==NULL){
+	  fclose(fp);
+	  return -1;
+	}
+	if(sscanf(buf,"%x %x %x %x",&id0,&id1,&id2,id)!=4){
+		fclose(fp);
+		return -1;
+	}
+	fclose(fp);
+	return 0;
+}
+
+#define HID_READ_VIDEO_CFG 		   1
+#define HID_WRITE_VIDEO_CFG	 	   2
+#define HID_READ_SEARCH_WIFI		   3
+
+#define HID_FAILE					   4
+
 #define HIDCMD_SCAN_WIFI	0
 #define HIDCMD_SET_NETWORK_MODE 1
 #define HIDCMD_GET_CONFIG	2
 #define HIDCMD_SET_NETWORK_ADDRESS	3
 #define HIDCMD_GET_NETWORK_ADDRESS	4
 int test_printf_getConfig();
+int querryfs(char *fs , long *maxsize,long * freesize);
+char * get_clean_video_cfg();
+void sig_handle(int signo)
+{
+	exit(0);
+}
 int main()
 {
 	int ret;
@@ -1040,12 +1232,12 @@ int main()
 	FILE*fd;
 	char buf[512];
 	struct configstruct *conf_p;
-	int i;
+	//int i;
 	char *ip=NULL;
 	char *mask=NULL;
-	FILE *netconfig_fd;
 	
 	sleep(1);
+	signal(SIGINT , sig_handle);
 	if( open_usbdet() != 0 ){
 		printf("open usb detect error\n");
 		return -1;
@@ -1059,52 +1251,244 @@ int main()
 		system("reboot &");
 		exit (0);
 	}
-
+	/*
+		{
+			FILE *config_fp;
+			char hid_r_cmd[2];
+			char hid_w_cmd[3];
+			unsigned short  data_len;
+			char *p;
+			int i;
+			int ret;
+			long sd_maxsize;
+			long sd_freesize;
+			int cmd;
+			int size;
+			char *hid_buf;
+			int numssid;
+			printf("HID_READ_VIDEO_CFG\n");
+			if(get_cam_id(&threadcfg.cam_id)<0){
+				printf("************************************************\n");
+				printf("*            get camera id error,something wrong               *\n");
+				printf("************************************************\n");
+				goto hid_fail;
+			}
+			hid_buf = (char *)malloc(4096);
+			if(!hid_buf)
+				goto hid_fail;
+			memset(hid_buf , 0,4096);
+			p=hid_buf;
+			data_len = 0;
+			sprintf(p , "cam_id=%x\n",threadcfg.cam_id);
+			data_len +=strlen(p);
+			p+=strlen(p);
+			config_fp = fopen(RECORD_PAR_FILE, "r");
+			if(!config_fp){
+				system("cp /video.cfg  /data/video.cfg");
+				usleep(100000);
+				config_fp = fopen(RECORD_PAR_FILE, "r");
+				if(!config_fp){
+					free(hid_buf);
+					goto hid_fail;
+				}
+			}
+			fseek(config_fp, 0, SEEK_END);
+			size = ftell(config_fp);
+			fseek(config_fp, 0, SEEK_SET);
+			assert(size < 4060);
+			fread(p,1,size,config_fp);
+			fclose(config_fp);
+			data_len+=size;
+			p+=(size-1);
+			if(*p=='\n'){
+				p++;
+			}else{
+				p++;
+				*p='\n';
+				p++;
+				data_len++;
+			}
+			querryfs("/sdcard", &sd_maxsize, &sd_freesize);
+			sprintf(p,"tfcard_maxsize=%ld\n",sd_maxsize);
+			data_len +=strlen(p);
+			p+=strlen(p);
+			sprintf(p,"tfcard_freesize=%ld\n",sd_freesize);
+			data_len +=strlen(p);
+			if(data_len%2)
+				data_len++;
+			printf("data_len==%d\n",(int)data_len);
+			printf("data_len base 16==%4x\n",data_len);
+			printf("#############data############\n");
+			printf("%s",hid_buf);
+			printf("##########################\n");
+			hid_w_cmd[0] = 0;
+			memcpy(hid_w_cmd+1,&data_len , 2);
+			printf("%2x %2x %2x\n",hid_w_cmd[0] , hid_w_cmd[1] , hid_w_cmd[2]);
+			free(hid_buf);
+			sleep(30);
+			exit(0);
+		}
+	*/
 	if( ioctl_usbdet_read()){
 		int hid_fd;
-		char hid_cmd[2];
-		int data_len;
+		//FILE *config_fp;
+		char hid_r_cmd[2];
+		char hid_w_cmd[2];
+		unsigned short  data_len;
+		char *p;
+		char *s;
+		int i;
 		int ret;
+		long sd_maxsize;
+		long sd_freesize;
 		int cmd;
-		int size;
+		//int size;
+		char *hid_buf;
+		int numssid;
 		
 		system("switch gadget && sleep 2");
 		if((hid_fd = open("/dev/hidg0", O_RDWR)) != -1 && set_fl( hid_fd, O_NONBLOCK ) != -1 ){
 			while( 1 ){
-				while(1){
+				do{
 					if(!( ioctl_usbdet_read())){
 						system("reboot &");
 						exit(0);
 					}
-					ret = read(hid_fd, &hid_cmd, 2);
-					if(ret==2){
-						netconfig_fd=fopen("/data/net.config","w");
-						if(netconfig_fd==NULL){
-							printf("can not open net.config\n");
-							return 0;
+					ret = read(hid_fd, hid_r_cmd, 2);
+				}while(ret!=2);
+				cmd=(int)hid_r_cmd[1];
+				switch(cmd)
+				{
+					case HID_READ_VIDEO_CFG:
+						printf("HID_READ_VIDEO_CFG\n");
+						//sleep(60);
+						if(get_cam_id(&threadcfg.cam_id)<0){
+							printf("************************************************\n");
+							printf("*            get camera id error,something wrong               *\n");
+							printf("************************************************\n");
+							goto hid_fail;
 						}
+						hid_buf = (char *)malloc(4096);
+						if(!hid_buf)
+							goto hid_fail;
+						memset(hid_buf , 0,4096);
+						p=hid_buf;
+						data_len = 0;
+						sprintf(p , "cam_id=%x\n",threadcfg.cam_id);
+						data_len +=strlen(p);
+						p+=strlen(p);
+						s = get_clean_video_cfg();
+						if(!s){
+							free(hid_buf);
+							goto hid_fail;
+						}
+						memcpy(p,s,strlen(s));
+						data_len+=strlen(s);
+						p+=strlen(s);
+						free(s);
+						querryfs("/sdcard", &sd_maxsize, &sd_freesize);
+						sprintf(p,"tfcard_maxsize=%ld\n",sd_maxsize);
+						data_len +=strlen(p);
+						p+=strlen(p);
+						sprintf(p,"tfcard_freesize=%ld\n",sd_freesize);
+						data_len +=strlen(p);
+						if(data_len%2)
+							data_len++;
+						ret = write(hid_fd, (char *)&data_len , 2);
+						p = (char *)&data_len;
+						printf("data_len==%d  %2x %2x\n",(int)data_len,*p ,*(p+1));
+						printf("ret ==%d\n" , ret);
+						printf("##########################\n");
+						sleep(2);
+						for(i = 0; i<data_len; i+=2)
+						{
+							do{
+								usleep(20000);
+								ret = write(hid_fd , hid_buf+i ,2);
+								//printf("write ret==%d , i==%d\n",ret , i);
+							}while(ret != 2);
+						}
+						free(hid_buf);
 						break;
-					}
-				}
-				cmd=(int)hid_cmd[0];
-				size=(int)hid_cmd[1];
+					case HID_READ_SEARCH_WIFI:
+						printf("HID_READ_SEARCH_WIFI\n");
+						hid_buf = get_parse_scan_result(& numssid);
+						data_len = strlen(hid_buf);
+						if(data_len%2)
+							data_len++;
+						printf("data_len==%d\n",(int)data_len);
+						do{
+							usleep(20000);
+							ret = write(hid_fd, (char *)&data_len , 2);
+						}while(ret != 2);
+						printf("##########################\n");
+						sleep(1);
+						for(i = 0; i<data_len; i+=2)
+						{
+							do{
+								usleep(20000);
+								ret = write(hid_fd , hid_buf+i ,2);
+							}while(ret != 2);
+						}
+						free(hid_buf);
+						break;
+					case HID_WRITE_VIDEO_CFG:
+						printf("HID_WRITE_VIDEO_CFG\n");
+						hid_buf = (char *)malloc(4096);
+						if(!hid_buf)
+							exit(0);
+						memset(hid_buf , 0 ,4096);
+						do{
+							ret = read(hid_fd, hid_r_cmd, 2);
+						}while(ret!=2);
+						memcpy(&data_len , hid_r_cmd , 2);
+						if(data_len%2)
+							data_len++;
+						printf("data_len==%d\n",(int)data_len);
+						p = hid_buf;
+						for(i=0;i<data_len;i+=2){
+							do{
+								usleep(10000);
+								ret = read(hid_fd, hid_r_cmd, 2);
+								if(ret == 1)
+									printf("***********read one char****************\n");
+							}while(ret!=2);
+							*p = hid_r_cmd[0];
+							p++;
+							*p = hid_r_cmd[1];
+							p++;
+							printf("i==%d , %2x %2x \n",i , hid_r_cmd[0],hid_r_cmd[1]);
+						}
+						printf("####################GET VIDEO_CFG###################\n");
+						printf("%s",hid_buf);
+						printf("##################################################\n");
+						set_raw_config_value(hid_buf);
+						free(hid_buf);
+						break;
+					default:
+					hid_fail:
+						hid_w_cmd[0] = 0;
+						hid_w_cmd[1] = 0;
+						write(hid_fd, hid_w_cmd , 2);
+				}	
+				/*
 				printf("size==%d\n",size);
 				data_len=size;
 				i=0;
 				ip=buf;
 				while(data_len>0){
-					ret = read(hid_fd, &hid_cmd, 2);
+					ret = read(hid_fd, &hid_r_cmd, 2);
 					if(ret!=2){
 						continue;
 					}
-					buf[i]=hid_cmd[0];
+					buf[i]=hid_r_cmd[0];
 					printf("%c",buf[i]);
 					if(buf[i]=='\n'){
 						data_len--;
 						printf("\ndata_len==%d\n",data_len);
 					}
 					i++;
-					buf[i]=hid_cmd[1];
+					buf[i]=hid_r_cmd[1];
 					printf("%c",buf[i]);
 					if(buf[i]=='\n'){
 						data_len--;
@@ -1117,14 +1501,42 @@ int main()
 				fflush(netconfig_fd);
 				fclose(netconfig_fd);
 				printf("\n####################ok################\n");
+				*/
 			}
 		}
 	}
+
+/*
+	FILE * test_fp;
+	char *test_buf;
+	int test_size;
+	test_buf = malloc(4096);
+	if(!test_buf){
+		printf("malloc test buf error\n");
+		exit(0);
+	}
+	memset(test_buf , 0 ,4096);
+	test_fp =  fopen(RECORD_PAR_FILE, "r");
+	if(!test_fp){
+		printf("open video.cfg error\n");
+		exit(0);
+	}
+	fread(test_buf , 1,980,test_fp);
+	fclose(test_fp);
+	printf("#################test buf##################\n");
+	printf(test_buf);
+	printf("#########################################\n");
+	set_raw_config_value(test_buf);
+	printf("!!!!!!!!!!!!!!!!!!!!set ok!!!!!!!!!!!!!!!!!!!!!!\n");
+	sleep(30);
+	exit(0);
+	*/
 	
 	system("switch host");
 	sleep(1);
 	system("switch host");
 	sleep(1);
+	
 	//test_printf_getConfig();
 	/*
 	int numssid;
@@ -1254,7 +1666,7 @@ int main()
 				sp++;
 			}
 			sp++;
-			while(*sp==' '||*sp=='\t')sp++;
+			while(*sp&&(*sp==' '||*sp=='\t'))sp++;
 			dp=conf_p[lines].value;
 			while(*sp&&*sp!='\n'){
 				*dp=*sp;
@@ -1268,14 +1680,15 @@ int main()
 
 		fclose(fd);
 
-		
-		threadcfg.cam_id = -1;
-		extract_value(conf_p, lines, "cam_id", 0, &threadcfg.cam_id);
-		if(threadcfg.cam_id ==-1){
-			printf("the config file is error\n");
-			return -1;
+		if(get_cam_id(&threadcfg.cam_id)<0){
+			printf("************************************************\n");
+			printf("*            get camera id error,something wrong               *\n");
+			printf("************************************************\n");
+			return 0;
 		}
-		printf("cam_id = %d\n",threadcfg.cam_id);
+		//set_value(conf_p, lines, "cam_id", 0, &threadcfg.cam_id);
+		
+		printf("cam_id = %x\n",threadcfg.cam_id);
 		
 		extract_value(conf_p, lines, "name", 1, threadcfg.name);
 		printf("name = %s\n",threadcfg.name);
@@ -1295,7 +1708,7 @@ int main()
 		if(!(int)threadcfg.monitor_mode[0])
 			sprintf(threadcfg.monitor_mode,"inteligent");
 
-		extract_value(conf_p, lines, "framerate", 0, &threadcfg.framerate);
+		extract_value(conf_p, lines, "framerate", 0,(void *) &threadcfg.framerate);
 		printf("framerate= %d\n",threadcfg.framerate);
 
 		if(!threadcfg.framerate)
@@ -1304,7 +1717,7 @@ int main()
 			threadcfg.framerate = 1;
 		else if(threadcfg.framerate >25)
 			threadcfg.framerate = 25;
-
+		init_sleep_time();
 
 		extract_value(conf_p, lines, "compression", 1, threadcfg.compression);
 		printf("compression = %s\n",threadcfg.compression);
@@ -1315,28 +1728,28 @@ int main()
 		if(!(int)threadcfg.resolution[0])
 			sprintf(threadcfg.resolution,"vga");
 
-		extract_value(conf_p, lines, "gop", 0, &threadcfg.gop);
+		extract_value(conf_p, lines, "gop", 0, (void *)&threadcfg.gop);
 		printf("gop = %d\n",threadcfg.gop);
 	
-		extract_value(conf_p, lines, "rotation_angle", 0, &threadcfg.rotation_angle);
+		extract_value(conf_p, lines, "rotation_angle", 0, (void *)&threadcfg.rotation_angle);
 		printf("rotation_angle = %d\n",threadcfg.rotation_angle);
 
-		extract_value(conf_p, lines, "output_ratio", 0, &threadcfg.output_ratio);
+		extract_value(conf_p, lines, "output_ratio", 0, (void *)&threadcfg.output_ratio);
 		printf("output_ratio = %d\n",threadcfg.output_ratio);
 
-		extract_value(conf_p, lines, "bitrate", 0, &threadcfg.bitrate);
+		extract_value(conf_p, lines, "bitrate", 0, (void *)&threadcfg.bitrate);
 		printf("bitrate = %d\n",threadcfg.bitrate);
 
-		extract_value(conf_p, lines, "brightness", 0, &threadcfg.brightness);
+		extract_value(conf_p, lines, "brightness", 0, (void *)&threadcfg.brightness);
 		printf("brightness = %d\n",threadcfg.brightness);
 
-		extract_value(conf_p, lines, "contrast", 0, &threadcfg.contrast);
+		extract_value(conf_p, lines, "contrast", 0, (void *)&threadcfg.contrast);
 		printf("contrast = %d\n",threadcfg.contrast);
 
-		extract_value(conf_p, lines, "saturation", 0, &threadcfg.saturation);
+		extract_value(conf_p, lines, "saturation", 0,(void *) &threadcfg.saturation);
 		printf("saturation = %d\n",threadcfg.saturation);
 
-		extract_value(conf_p, lines, "gain", 0, &threadcfg.gain);
+		extract_value(conf_p, lines, "gain", 0, (void *)&threadcfg.gain);
 		printf("gain = %d\n",threadcfg.gain);
 
 		extract_value(conf_p, lines, "record_mode", 1, threadcfg.record_mode);
@@ -1345,7 +1758,17 @@ int main()
 		if(!(int)threadcfg.record_mode[0])
 			sprintf(threadcfg.record_mode,"inteligent");
 
-		extract_value(conf_p, lines, "record_normal_speed", 0, &threadcfg.record_normal_speed);
+		extract_value(conf_p, lines, "record_resolution", 1, threadcfg.record_resolution);
+		printf("record_resolution = %s\n",threadcfg.record_resolution);
+
+		if(!(int)threadcfg.record_resolution[0])
+			memcpy(threadcfg.record_resolution , threadcfg.resolution , 64);
+		else
+			memcpy(threadcfg.resolution ,threadcfg.record_resolution,64);
+		
+		set_value(conf_p, lines, "resolution", 1, &threadcfg.resolution);
+
+		extract_value(conf_p, lines, "record_normal_speed", 0, (void *)&threadcfg.record_normal_speed);
 		printf("record_normal_speed= %d\n",threadcfg.record_normal_speed);
 
 		if(!threadcfg.record_normal_speed)
@@ -1355,7 +1778,7 @@ int main()
 		else if(threadcfg.record_normal_speed >25)
 			threadcfg.record_normal_speed = 25;
 
-		extract_value(conf_p, lines, "record_normal_duration", 0, &threadcfg.record_normal_duration);
+		extract_value(conf_p, lines, "record_normal_duration", 0, (void *)&threadcfg.record_normal_duration);
 		printf("record_normal_duration= %d\n",threadcfg.record_normal_duration);
 
 		if(threadcfg.record_normal_duration<=0)
@@ -1365,43 +1788,43 @@ int main()
 
 
 
-		extract_value(conf_p, lines, "record_sensitivity", 0, &threadcfg.record_sensitivity);
+		extract_value(conf_p, lines, "record_sensitivity", 0, (void *)&threadcfg.record_sensitivity);
 		printf("record_sensitivity = %d\n",threadcfg.record_sensitivity);
 
 		if(threadcfg.record_sensitivity<1||threadcfg.record_sensitivity>3)
 			threadcfg.record_sensitivity = 1;
 
-		extract_value(conf_p, lines, "record_slow_speed", 0, &threadcfg.record_slow_speed);
+		extract_value(conf_p, lines, "record_slow_speed", 0, (void *)&threadcfg.record_slow_speed);
 		printf("record_slow_speed = %d\n",threadcfg.record_slow_speed);
 
 		if(threadcfg.record_slow_speed<1||threadcfg.record_slow_speed>25)
 			threadcfg.record_slow_speed = 1;
-
+		/*
 		extract_value(conf_p, lines, "record_slow_resolution", 1, threadcfg.record_slow_resolution);
 		printf("record_slow_resolution = %s\n",threadcfg.record_slow_resolution);
-
+		
 		if(!(int)threadcfg.record_slow_resolution[0])
 			sprintf(threadcfg.record_slow_resolution,"qvga");
-
-		extract_value(conf_p, lines, "record_fast_speed", 0, &threadcfg.record_fast_speed);
+		*/
+		extract_value(conf_p, lines, "record_fast_speed", 0, (void *)&threadcfg.record_fast_speed);
 		printf("record_fast_speed = %d\n",threadcfg.record_fast_speed);
 
 		if(threadcfg.record_fast_speed<1||threadcfg.record_fast_speed>25)
 			threadcfg.record_fast_speed = 25;
-
+		/*
 		extract_value(conf_p, lines, "record_fast_resolution", 1, threadcfg.record_fast_resolution);
 		printf("record_fast_resolution = %s\n",threadcfg.record_fast_resolution);
-
+		
 		if(!(int)threadcfg.record_fast_resolution[0])
 			sprintf(threadcfg.record_fast_resolution,"vga");
-
-		extract_value(conf_p, lines, "record_fast_duration", 0, &threadcfg.record_fast_duration);
+		*/
+		extract_value(conf_p, lines, "record_fast_duration", 0, (void *)&threadcfg.record_fast_duration);
 		printf("record_fast_duration = %d\n",threadcfg.record_fast_duration);
 
 		if(threadcfg.record_fast_duration<1)
 			threadcfg.record_fast_duration = 3;
 
-		extract_value(conf_p, lines, "email_alarm", 0, &threadcfg.email_alarm);
+		extract_value(conf_p, lines, "email_alarm", 0, (void *)&threadcfg.email_alarm);
 		printf("email_alarm = %d\n",threadcfg.email_alarm);
 
 		if(threadcfg.email_alarm<0)
@@ -1410,7 +1833,7 @@ int main()
 		extract_value(conf_p, lines, "mailbox", 1, threadcfg.mailbox);
 		printf("mailbox = %s\n",threadcfg.mailbox);
 
-		extract_value(conf_p, lines, "sound_duplex", 0, &threadcfg.sound_duplex);
+		extract_value(conf_p, lines, "sound_duplex", 0, (void *)&threadcfg.sound_duplex);
 		printf("sound_duplex = %d\n",threadcfg.sound_duplex);
 
 		if(threadcfg.sound_duplex<0)
@@ -1423,7 +1846,7 @@ int main()
 			sprintf(threadcfg.inet_mode,"inteligent");
 
 		threadcfg.inet_udhcpc = 1;
-		extract_value(conf_p, lines, "inet_udhcpc", 0, &threadcfg.inet_udhcpc);
+		extract_value(conf_p, lines, "inet_udhcpc", 0, (void *)&threadcfg.inet_udhcpc);
 		printf("inet_udhcpc = %d\n",threadcfg.inet_udhcpc);
 
 		extract_value(conf_p, lines, "inet_eth_device", 1, inet_eth_device);
@@ -1488,6 +1911,7 @@ int main()
 			check_wlan0 = 1;
 			if(config_wifi( conf_p, lines)<0){
 				ping_wlan = 0;
+				check_wlan0 = 0;
 				printf("configure wifi error check your data\n");
 			}else{
 				ping_wlan = 1;

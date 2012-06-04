@@ -27,9 +27,14 @@ struct __syn_sound_buf{
 	char *absolute_start_addr; /*the absolute start address of buffer  */
 };
 int init_and_start_sound();
+
 char* get_cop_sound_data(ssize_t *size);
-char *new_get_sound_data(int sess_id, int * size);
 int grab_sound_data();
+
+char *new_get_sound_data(int sess_id, int * size);
+void reset_syn_buf();
+void set_syn_sound_data_clean(int sess_id);
+
 int test_sound_tcp_transport(struct sess_ctx * sess);
 int play_cop_sound_data(char *buffer,ssize_t length);
 int grab_sound_thread();

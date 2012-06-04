@@ -479,11 +479,11 @@ struct vdIn * init_camera(void) {
 	pthread_mutex_init(&videoIn->vd_data_lock,NULL);
 	memset(videoIn->hrb_tid,0,sizeof(videoIn->hrb_tid));
 	
-	if(strncmp(threadcfg.resolution,"vga",3)==0){
+	if(strncmp(threadcfg.record_resolution,"vga",3)==0){
 		printf("vga \n");
 		width=640;
 		height=480;
-	}else if(strncmp(threadcfg.resolution,"qvga",4)==0){
+	}else if(strncmp(threadcfg.record_resolution,"qvga",4)==0){
 		width=320;
 		height=240;
 		printf("qvga \n");

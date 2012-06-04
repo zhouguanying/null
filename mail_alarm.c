@@ -512,7 +512,8 @@ __end:
 		attach_data_list_head.attach_data_list=NULL;
 		attach_data_list_head.data_list_tail=NULL;
 		pthread_mutex_unlock(&attach_data_list_head.mail_data_lock);
-		mail_alarm();
+		if(receiver[0])
+			mail_alarm();
  	}
  	return 0;
  }

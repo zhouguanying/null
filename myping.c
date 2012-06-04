@@ -18,7 +18,7 @@
 #include "server.h"
 #include "vpu_server.h"
 
-#define PACKET_SIZE 4096
+#define PACKET_SIZE 256
 #define MAX_WAIT_TIME 5
 #define MAX_NO_PACKETS 3
 
@@ -27,7 +27,6 @@ char inet_wlan_device[64];
 char inet_eth_gateway[64];
 char inet_wlan_gateway[64];
 char curr_device[32] = "eth0";
-char __gate_way[32];
 
 static int enable_wlan0 =0;
 static int enable_eth0 = 0;
@@ -115,6 +114,7 @@ int send_packet()
     int packetsize;
       nsend++;
       packetsize=pack(nsend); /*设置ICMP报头*/
+	//  printf("#############send packetsize==%d###########\n",packetsize);
       if(sendto(sockfd,sendpacket,packetsize,0,(struct sockaddr *)&dest_addr,sizeof(dest_addr))<0 )
       {
         perror("sendto error");
@@ -133,12 +133,13 @@ int recv_packet()
      fromlen=sizeof(from);
      //  alarm(MAX_WAIT_TIME);
     __retry:
-       if( (n=recvfrom(sockfd,recvpacket,sizeof(recvpacket),0,(struct sockaddr *)&from,&fromlen)) <0)
+       if( (n=recvfrom(sockfd,recvpacket,PACKET_SIZE,0,(struct sockaddr *)&from,&fromlen)) <0)
        {
            if(errno==EINTR) goto __retry;
-           perror("recvfrom error");
+          // perror("recvfrom error");
            return -1;
        }
+	 // printf("####################recv packet size==%d############\n",n);
        gettimeofday(&tvrecv,NULL); /*记录接收时间*/
        if(unpack(recvpacket,n)==-1) {
 	   	printf("unpack tell error\n");
@@ -215,7 +216,7 @@ int check_net(char *ping_addr,char * __device)
 	close(sockfd);
 	return -1;
    }
-   printf("bind to device %s , ip %s\n",device,inet_ntoa(addr.sin_addr));
+ //  printf("bind to device %s , ip %s\n",device,inet_ntoa(addr.sin_addr));
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0){
             printf("Error enabling socket rcv time out \n");
     }
@@ -238,8 +239,8 @@ int check_net(char *ping_addr,char * __device)
     memcpy( (char *)&dest_addr.sin_addr.s_addr,(char *)&inaddr,sizeof(in_addr_t));
     /*获取main的进程id,用于设置ICMP的标志符*/
     pid=getpid();
-    printf("PING %s(%s): %d bytes data in ICMP packets.\n",argv[1],
-    inet_ntoa(dest_addr.sin_addr),datalen);
+  //  printf("PING %s(%s): %d bytes data in ICMP packets.\n",argv[1],
+   // inet_ntoa(dest_addr.sin_addr),datalen);
    // signal(SIGINT,statistics);
    for(n =0;n<3;n++){
    	send_packet();
@@ -366,7 +367,6 @@ __retry:
 int check_net_thread()
 {
 	char ping_addr[32];
-	char trydevice[32];
 	int crrconected;
 	int eth0_wan;
 	int eth0_lan;
@@ -380,51 +380,37 @@ int check_net_thread()
 		
 		/*check eth0 wan*/
 		memset(ping_addr,0,32);
-		memset(trydevice,0,32);
 		sprintf(ping_addr,"www.baidu.com");
-		//sprintf(trydevice,"eth0");
-		memcpy(trydevice , inet_eth_device,32);
-		eth0_wan = check_net( ping_addr, trydevice);
+		eth0_wan = check_net( ping_addr, inet_eth_device);
 		if(eth0_wan == 0)
 			goto __check_ok;
 
 		/*check wlan0 wan*/
 		if(enable_wlan0){
 			memset(ping_addr,0,32);
-			memset(trydevice,0,32);
 			sprintf(ping_addr,"www.baidu.com");
-			//sprintf(trydevice,"wlan0");
-			memcpy(trydevice , inet_wlan_device , 32);
-			wlan0_wan = check_net( ping_addr, trydevice);
+			wlan0_wan = check_net( ping_addr, inet_wlan_device);
 			if(wlan0_wan == 0)
 				goto __check_ok;
 		}
 		//check eth0 lan
 		memset(ping_addr,0,32);
-		memset(trydevice,0,32);
-		//sprintf(trydevice,"eth0");
-		memcpy(trydevice , inet_eth_device,32);
-		memcpy(__gate_way , inet_eth_gateway , 32);
-		memcpy(ping_addr,__gate_way,32);
-		eth0_lan = check_net( ping_addr, trydevice);
+		memcpy(ping_addr , inet_eth_gateway,32);
+		eth0_lan = check_net( ping_addr, inet_eth_device);
 		if(eth0_lan == 0)
 			goto __check_ok;
 
 		//check wlan0 lan
 		if(enable_wlan0){
 			memset(ping_addr,0,32);
-			memset(trydevice,0,32);
-			//sprintf(trydevice,"wlan0");
-			memcpy(trydevice , inet_wlan_device , 32);
-			memcpy(__gate_way , inet_wlan_gateway , 32);
-			memcpy(ping_addr,__gate_way,32);
-			wlan0_lan = check_net( ping_addr, trydevice);
+			memcpy(ping_addr , inet_wlan_gateway,32);
+			wlan0_lan = check_net( ping_addr, inet_wlan_device);
 		}
 __check_ok:
-		printf("check return ok \n");
+		//printf("check net return ok \n");
 		if(eth0_wan ==0 ){
-			printf("enter eth0_wan ==0\n");
-			if(strncmp(curr_device,"eth0",4)!=0){
+			printf("eth_wan ok\n");
+			if(strncmp(curr_device,inet_eth_device,strlen(curr_device))!=0){
 				pthread_mutex_lock(&global_ctx_lock);
 				crrconected =currconnections;
 				pthread_mutex_unlock(&global_ctx_lock);
@@ -436,8 +422,8 @@ __check_ok:
 				goto __done;
 		}
 		if(wlan0_wan ==0){
-			printf("enter wlan0_wan ==0\n");
-			if(strncmp(curr_device,"wlan0",5)!=0){
+			printf("wlan_wan ok\n");
+			if(strncmp(curr_device,inet_wlan_device,strlen(curr_device))!=0){
 				pthread_mutex_lock(&global_ctx_lock);
 				crrconected =currconnections;
 				pthread_mutex_unlock(&global_ctx_lock);
@@ -449,8 +435,8 @@ __check_ok:
 				goto __done;
 		}
 		if(eth0_lan ==0){
-			printf("enter eth0_lan == 0\n");
-			if(strncmp(curr_device,"eth0",4)!=0){
+			printf("eth_lan ok\n");
+			if(strncmp(curr_device,inet_eth_device,strlen(curr_device))!=0){
 				pthread_mutex_lock(&global_ctx_lock);
 				crrconected =currconnections;
 				pthread_mutex_unlock(&global_ctx_lock);
@@ -462,8 +448,8 @@ __check_ok:
 				goto __done;
 		}
 		if(wlan0_lan == 0){
-			printf("enter wlan0_lan == 0\n");
-			if(strncmp(curr_device,"wlan0",5)!=0){
+			printf("wlan_lan ok\n");
+			if(strncmp(curr_device,inet_wlan_device,strlen(curr_device))!=0){
 				pthread_mutex_lock(&global_ctx_lock);
 				crrconected =currconnections;
 				pthread_mutex_unlock(&global_ctx_lock);
@@ -474,6 +460,7 @@ __check_ok:
 			}else
 				goto __done;
 		}
+		printf("bad netwrok\n");
 		/*all cannot connected ......*/
 		//printf("all disconnected  now reboot\n");
 		//system("reboot");
@@ -486,7 +473,6 @@ __done:
 int built_net(int check_wlan0,int check_eth0 , int ping_wlan0 , int ping_eth0)
 {
 	char ping_addr[32];
-	char trydevice[32];
 	int eth0_wan;
 	int eth0_lan;
 	int wlan0_wan;
@@ -497,21 +483,18 @@ int built_net(int check_wlan0,int check_eth0 , int ping_wlan0 , int ping_eth0)
 	wlan0_wan = -1;
 	 enable_wlan0 = check_wlan0;
 	enable_eth0 = check_eth0;
-	if(!check_eth0){
-		memcpy(curr_device , inet_wlan_device , 32);
-		return 0;
-	}
 	if(!check_wlan0){
 		memcpy(curr_device,inet_eth_device,32);
+		return 0;
+	}
+	if(!check_eth0){
+		memcpy(curr_device , inet_wlan_device , 32);
 		return 0;
 	}
 	/*check eth0 wan*/
 		if(check_eth0&&ping_eth0){
 			memset(ping_addr,0,32);
-			memset(trydevice,0,32);
 			sprintf(ping_addr,"www.baidu.com");
-			//sprintf(trydevice,"eth0");
-			//memcpy(trydevice , inet_eth_device,32);
 			eth0_wan = check_net( ping_addr, inet_eth_device);
 			if(eth0_wan == 0)
 				goto __check_ok;
@@ -520,10 +503,7 @@ int built_net(int check_wlan0,int check_eth0 , int ping_wlan0 , int ping_eth0)
 		/*check wlan0 wan*/
 		if(check_wlan0&&ping_wlan0){
 			memset(ping_addr,0,32);
-			memset(trydevice,0,32);
 			sprintf(ping_addr,"www.baidu.com");
-			//sprintf(trydevice,"wlan0");
-			//memcpy(trydevice , inet_wlan_device,32);
 			wlan0_wan = check_net( ping_addr,  inet_wlan_device);
 			if(wlan0_wan == 0)
 				goto __check_ok;
@@ -531,12 +511,8 @@ int built_net(int check_wlan0,int check_eth0 , int ping_wlan0 , int ping_eth0)
 		//check eth0 lan
 		if(check_eth0&&ping_eth0){
 			memset(ping_addr,0,32);
-			memset(trydevice,0,32);
-			//sprintf(trydevice,"eth0");
-			memcpy(trydevice , inet_eth_device,32);
-			memcpy(__gate_way,inet_eth_gateway,32);
-			memcpy(ping_addr,__gate_way,32);
-			eth0_lan = check_net( inet_eth_gateway,  inet_eth_device);
+			memcpy(ping_addr , inet_eth_gateway,32);
+			eth0_lan = check_net( ping_addr,  inet_eth_device);
 			if(eth0_lan == 0)
 				goto __check_ok;
 		}
@@ -544,12 +520,8 @@ int built_net(int check_wlan0,int check_eth0 , int ping_wlan0 , int ping_eth0)
 		//check wlan0 lan
 		if(check_wlan0&&ping_wlan0){
 			memset(ping_addr,0,32);
-			memset(trydevice,0,32);
-			//sprintf(trydevice,"wlan0");
-			memcpy(trydevice,inet_wlan_device,32);
-			memcpy(__gate_way , inet_wlan_gateway,32);
-			memcpy(ping_addr,__gate_way,32);
-			wlan0_lan = check_net( ping_addr, trydevice);
+			memcpy(ping_addr , inet_wlan_gateway , 32);
+			wlan0_lan = check_net( ping_addr, inet_wlan_device);
 		}
 __check_ok:
 		memset(curr_device,0,32);
@@ -574,6 +546,7 @@ __check_ok:
 			goto __done;
 		}
 		printf("######################all net can't use#################\n");
+		memcpy(curr_device,inet_eth_device,32);
 		return -1;
 __done:
 	return 0;

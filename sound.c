@@ -130,6 +130,7 @@ static void thread_exit()
 	pthread_mutex_unlock(&audiothreadparams.audiothreadlock);
 }
 */
+/*
 static void signal_handler(int sig)
 {
 	pthread_mutex_lock(&audiothreadparams.audiothreadlock);
@@ -152,6 +153,7 @@ static void signal_handler(int sig)
 	pthread_mutex_unlock(&audiothreadparams.audiothreadlock);
 	exit(-1);
 }
+*/
 
 /*
 * I am not sure if we need to set params at each open mode(read or write) 
@@ -406,7 +408,6 @@ static int  xrun(snd_pcm_t*handle)
 {
 	snd_pcm_status_t *status;
 	int res;
-	
 	snd_pcm_status_alloca(&status);
 	if ((res = snd_pcm_status(handle, status))<0) {
 		printf("status error: %s\n", snd_strerror(res));
@@ -434,7 +435,7 @@ static int  xrun(snd_pcm_t*handle)
 			thread_exit();
 			return -1;
 		}
-		return 0;		/* ok, data should be accepted again */
+		return 0 ;		/* ok, data should be accepted again */
 	} 
 	if (snd_pcm_status_get_state(status) == SND_PCM_STATE_DRAINING) {
 		printf("Status(DRAINING)!\n");
@@ -541,7 +542,7 @@ static ssize_t pcm_read(u_char *data, size_t rcount)
 			printf("pcm_read over run\n");
 			if(xrun(audiothreadparams.rdthread.handle)<0)
 				return -1;
-			r=0;
+			increase_video_thread_sleep_time();
 		} else if (r == -ESTRPIPE) {
 			if(suspend(audiothreadparams.rdthread.handle)<0)
 				return -1;
@@ -895,7 +896,6 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
 	int tryaccept = MAX_CONNECTIONS;
 	char *dst;
 	ssize_t dst_size;
-	int i=0;
 	if ((lsockfd= create_tcp_socket()) < 0) {
              printf("Error creating sound listen socket");
 		pthread_mutex_lock(&sess->sesslock);
@@ -924,6 +924,7 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
                printf("Error listening for sound connection");
                goto __exit;
        }
+	   set_syn_sound_data_clean(sess->id);
 	while(1){
 		pthread_mutex_lock(&sess->sesslock);
 		if(!sess->running){
@@ -968,16 +969,14 @@ __tryaccept:
 		close(lsockfd);
 		sess->s3=sockfd;
 		lsockfd=-1;
-		if(threadcfg.sound_duplex){
-			if (pthread_create(&sess->swtid, NULL, (void *) test_sound_tcp_read_data, sess) < 0) {
-				printf("create write sound thread error\n");
-				goto __exit;
-			} 
-			pthread_mutex_lock(&sess->sesslock);
-			sess->ucount++;
-			pthread_mutex_unlock(&sess->sesslock);
-			printf("create write sound thread sucess\n");
-		}
+		if (pthread_create(&sess->swtid, NULL, (void *) test_sound_tcp_read_data, sess) < 0) {
+			printf("create write sound thread error\n");
+			goto __exit;
+		} 
+		pthread_mutex_lock(&sess->sesslock);
+		sess->ucount++;
+		pthread_mutex_unlock(&sess->sesslock);
+		printf("create write sound thread sucess\n");
 		while(1){
 			pthread_mutex_lock(&sess->sesslock);
 			if(!sess->running){
@@ -1002,12 +1001,20 @@ __tryaccept:
 				goto __exit;
 			}
 			*/
-			dst=get_cop_sound_data(&dst_size);
+	__tryget:
+			dst=new_get_sound_data(sess->id,&dst_size);
+			if(!dst){
+				//printf("sound data not prepare\n");
+				usleep(50000);
+				goto __tryget;
+			}
+			if(dst_size>128)
+				printf("tcp send sound get size==%d\n",dst_size);
 			ret=dst_size;
 			s=0;
 			while(ret>0){
-				if(ret>1280){
-					n=send(sockfd,dst+s,1280,0);
+				if(ret>1024){
+					n=send(sockfd,dst+s,1024,0);
 				}else{
 					n=send(sockfd,dst+s,ret,0);
 				}
@@ -1022,9 +1029,8 @@ __tryaccept:
 				}
 			}
 			free(dst);
-			i++;
 			//printf("send sound data count==%d\n",i);
-			usleep(1);
+			usleep(1000);
 		}
 	}
 __exit:
@@ -1247,7 +1253,7 @@ int init_and_start_sound(){
 	free(audiothreadparams.params);
 	return -1;
 #else
-	printf("chunk_size==%d\n",audiothreadparams.params->chunk_size);
+	printf("chunk_size==%d\n",(int)audiothreadparams.params->chunk_size);
 	printf("init sound sucess\n");
 	return 0;
 #endif	
@@ -1298,7 +1304,7 @@ __readed:
 }
 int play_cop_sound_data(char *buffer,ssize_t length)
 {
-	ssize_t r;
+	ssize_t r=0;
 	ssize_t pcm_frames;
 	int p;
 	if(buffer[0]!=amr_f_head[AMR_MODE]){
@@ -1320,7 +1326,7 @@ int play_cop_sound_data(char *buffer,ssize_t length)
 				pthread_mutex_unlock(&audiothreadparams.audiothreadlock);
 				return -1;
 			}
-			r=pcm_write(audiothreadparams.wrthread.audiobuf, pcm_frames);
+			r=pcm_write((u_char *)audiothreadparams.wrthread.audiobuf, pcm_frames);
 			length-=SIZE_OF_AMR_PER_PERIOD;
 			p+=SIZE_OF_AMR_PER_PERIOD;
 		}else{
@@ -1329,7 +1335,7 @@ int play_cop_sound_data(char *buffer,ssize_t length)
 				pthread_mutex_unlock(&audiothreadparams.audiothreadlock);
 				return -1;
 			}
-			r=pcm_write(audiothreadparams.wrthread.audiobuf, pcm_frames);
+			r=pcm_write((u_char *)audiothreadparams.wrthread.audiobuf, pcm_frames);
 			length = 0;
 		}
 	}
@@ -1436,10 +1442,28 @@ static inline int new_grab_sound_data()
 	pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
 	return 0;
 }
+
+ void reset_syn_buf()
+{
+	pthread_rwlock_wrlock(&syn_buf.syn_buf_lock);
+	syn_buf.start = syn_buf.end = 0;
+	pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
+}
+void set_syn_sound_data_clean(int sess_id)
+{
+	int us_pos;
+	pthread_rwlock_rdlock(&syn_buf.syn_buf_lock);
+	us_pos = syn_buf.start;
+	while(us_pos!=syn_buf.end){
+		syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id] = 1;
+		us_pos = (us_pos +1)%NUM_BUFFERS;
+	}
+	pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
+}
 int grab_sound_thread()
 {
 	while(1){
-		if(grab_sound_data()<0){
+		if(new_grab_sound_data()<0){
 			printf("grab sound data error\n");
 			exit(-1);
 		}

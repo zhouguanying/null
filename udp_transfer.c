@@ -198,7 +198,7 @@ int remove_from_ready_list(uint32_t addr,uint16_t cliport)
 
 static inline int touch_port(int sockfd,uint32_t ip,uint16_t port)
 {
-	int i;
+	//int i;
 	int ret;
 	struct sockaddr_in from,localaddr;
 	socklen_t fromlen;
@@ -206,16 +206,16 @@ static inline int touch_port(int sockfd,uint32_t ip,uint16_t port)
 	  fromlen=sizeof(struct sockaddr_in);
 	  from.sin_addr.s_addr=ip;
 	  from.sin_port=port;
-	  for(i = 0;i<3;i++){
-		  ret = sendto(sockfd, "   ", strlen("   "), 0,(struct sockaddr *) &from, fromlen);
-		  printf("send touch to ip:%s  ; port:%d ; return %d\n",inet_ntoa(from.sin_addr),ntohs(from.sin_port),ret);
-		  fromlen=sizeof(struct sockaddr_in);
-		   if(getsockname(sockfd,(struct sockaddr*)&localaddr,&fromlen) <0){
-				printf("cannot get sock name\n");
-				return -1;
-		  }
-		   printf("used cli ip:%s , port: %d\n",inet_ntoa(localaddr.sin_addr),ntohs(localaddr.sin_port));
+	//  for(i = 0;i<3;i++){
+	  ret = sendto(sockfd, "    ", strlen("    "), 0,(struct sockaddr *) &from, fromlen);
+	  printf("send touch to ip:%s  ; port:%d ; return %d\n",inet_ntoa(from.sin_addr),ntohs(from.sin_port),ret);
+	  fromlen=sizeof(struct sockaddr_in);
+	   if(getsockname(sockfd,(struct sockaddr*)&localaddr,&fromlen) <0){
+			printf("cannot get sock name\n");
+			return -1;
 	  }
+	   printf("used cli ip:%s , port: %d\n",inet_ntoa(localaddr.sin_addr),ntohs(localaddr.sin_port));
+	//  }
 	  return 0;
 }
 
@@ -282,7 +282,7 @@ int build_local_sock(uint16_t port)
 	  free(s);
 	  return sockfd; 
 }
-
+void restart_v4l2(int width , int height );
 int transfer_thread()
 {
 	int ret;
@@ -347,7 +347,7 @@ int transfer_thread()
 		 printf("convert server addr sucess ip:%s\n",inet_ntoa(from.sin_addr));
 		 fromlen=sizeof(struct sockaddr_in); 
 		 while(1){ 
-		 	camid=threadcfg.cam_id;
+		 	camid=(uint32_t)threadcfg.cam_id;
 		 	size=sizeof(camid);
 			req[0]=NET_CAMERA_ID;
 			nsize=htons(size);
@@ -368,14 +368,21 @@ int transfer_thread()
 	printf("camera set alive ok\n");
 	while(1){
 		gettimeofday(&newtime,NULL);
-		if(abs(newtime.tv_sec-oldtime.tv_sec)>10){
+		if(abs(newtime.tv_sec-oldtime.tv_sec)>30){
 			 from.sin_addr.s_addr = server_addr;
 			 from.sin_family=AF_INET;
 			 from.sin_port=htons(CAMERA_WATCH_PORT);
 			 fromlen=sizeof(struct sockaddr_in); 
-			req[0]=0;
-    			 sendto(sockfd, req, 1, 0,(struct sockaddr *) &from, fromlen); 
-			memcpy(&oldtime,&newtime,sizeof(struct timeval));
+			camid=(uint32_t)threadcfg.cam_id;
+		 	size=sizeof(camid);
+			req[0]=NET_CAMERA_ID;
+			nsize=htons(size);
+			memcpy(&req[1],&nsize,sizeof(nsize));
+			ncamid=htonl(camid);
+			memcpy(&req[3],&ncamid,sizeof(ncamid));
+    			sendto(sockfd, req, size+PACK_HEAD_SIZE, 0,(struct sockaddr *) &from, fromlen); 
+			req_len=recvfrom(sockfd, req, BUF_SZ, 0, (struct sockaddr *) &from, &fromlen); 
+			gettimeofday(&oldtime,NULL);
 		}
 		req_len=recvfrom(sockfd, req, BUF_SZ, 0, (struct sockaddr *) &from, &fromlen);
 		if(req_len<=0)
@@ -466,7 +473,13 @@ int transfer_thread()
 						printf("video port:%d\n",ntohs(pdest->port[NAT_V_PORT]));
 						printf("audio port:%d\n",ntohs(pdest->port[NAT_A_PORT]));
 						printf("\n#########################################################\n");
-						
+
+						if(strncmp(threadcfg.record_resolution ,"qvga",4)!=0){
+							restart_v4l2(320, 240);
+							memset(threadcfg.record_resolution , 0 ,sizeof(threadcfg.record_resolution));
+							sprintf(threadcfg.record_resolution , "qvga");
+							memcpy(threadcfg.resolution , threadcfg.record_resolution,sizeof(threadcfg.resolution));
+						}
 					}
 					break;
 				}

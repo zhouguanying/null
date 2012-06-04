@@ -41,7 +41,7 @@ struct wpa_ctrl * wpa_ctrl_open(const char *ctrl_path)
 	struct wpa_ctrl *ctrl;
 	static int counter = 0;
 	int ret;
-	size_t res;
+	//size_t res;
 	int tries = 0;
 
 	ctrl =(struct wpa_ctrl*)malloc(sizeof(*ctrl));
