@@ -1378,6 +1378,9 @@ int main()
 						memset(hid_buf , 0,4096);
 						p=hid_buf;
 						data_len = 0;
+						sprintf(p,VERSION);
+						data_len +=strlen(p);
+						p+=strlen(p);
 						sprintf(p , "cam_id=%x\n",threadcfg.cam_id);
 						data_len +=strlen(p);
 						p+=strlen(p);

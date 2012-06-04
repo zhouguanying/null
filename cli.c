@@ -1613,6 +1613,9 @@ static char* GetConfig(char* arg , int *rsp_len)
 	p = ret+4;
 	printf("#############enter GetConfig####################\n");
 	if( ConfigType == '1' ){
+		sprintf(p,VERSION);
+		(*rsp_len)+=strlen(p);
+		p+=strlen(p);
 		sprintf(p,"cam_id=%x\n",threadcfg.cam_id);
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
