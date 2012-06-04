@@ -124,6 +124,7 @@ struct sess_ctx {
  {
 	pthread_mutex_t threadcfglock;
 	unsigned int 		cam_id;
+	int 		sdcard_exist;
 	char     	name[64];
 	char    	password[64];
 	char 	server_addr[64];
@@ -144,6 +145,7 @@ struct sess_ctx {
 	volatile int gain;
 	char     record_mode[64];
 	char     record_resolution[64];
+	int 	    qvga_flag;
 	volatile int record_sensitivity;
 	volatile int record_normal_speed;
 	volatile int record_normal_duration;

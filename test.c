@@ -835,7 +835,7 @@ int config_wifi(struct configstruct *conf_p, int lines)
 			//sprintf(argv[1],"0");
 			sprintf(argv[1],"%s",network_id);
 			sprintf(argv[2],"psk");
-			sprintf(argv[3],"%s",buf);
+			sprintf(argv[3],"\"%s\"",buf);
 			printf("try psk\n");
 			mywpa_cli(4,  argv );
 			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
@@ -894,6 +894,8 @@ int config_wifi(struct configstruct *conf_p, int lines)
 		memset(buf,0,256);
 		extract_value(conf_p, lines, "inet_wlan_wep_tx_keyindx", 1, buf);
 		printf("inet_wlan_wep_tx_keyindx = %s\n",buf);
+		if(!buf[0])
+			sprintf(buf,"0");
 		if(buf[0]){
 			sprintf(argv[0],"set_network");
 			//sprintf(argv[1],"0");
@@ -1001,9 +1003,11 @@ int get_netlink_status(const char *if_name)
 	stat("/tmp/twpa", &st);
 	if(st.st_size <=0){
 		printf("start wpa_supplicant\n");
+		if(stat("/data/wpa.conf",&st)<0)
+			system("cp /etc/wpa.conf  /data/wpa.conf");
 		system("mkdir /tmp/wpa_supplicant");
 		system("wpa_supplicant -Dwext -iwlan0 -c/data/wpa.conf -B");
-		sleep(1);
+		sleep(3);
 	}
 	system("rm /tmp/twpa");
 	for(i=0;i<4;i++){
@@ -1535,7 +1539,7 @@ int main()
 	system("switch host");
 	sleep(1);
 	system("switch host");
-	sleep(1);
+	sleep(3);
 	
 	//test_printf_getConfig();
 	/*
@@ -1546,9 +1550,9 @@ int main()
 	printf("%s",scan_buf);
 	printf("#############################################\n");
 	free(scan_buf);
-	*/
-	//return 0;
 	
+	return 0;
+	*/
 	/*
 	system("mkdir /tmp/wpa_supplicant");
 	system("killall wpa_supplicant");
@@ -1705,7 +1709,7 @@ int main()
 		extract_value(conf_p, lines, "monitor_mode", 1, threadcfg.monitor_mode);
 		printf("monitor_mode = %s\n",threadcfg.monitor_mode);
 
-		if(!(int)threadcfg.monitor_mode[0])
+		if(!(int)threadcfg.monitor_mode[0]||(strncmp(threadcfg.monitor_mode , "normal",6)!=0&&strncmp(threadcfg.monitor_mode , "inteligent",10)!=0))
 			sprintf(threadcfg.monitor_mode,"inteligent");
 
 		extract_value(conf_p, lines, "framerate", 0,(void *) &threadcfg.framerate);
@@ -1881,7 +1885,28 @@ int main()
 						get_ip(inet_eth_device,ip,mask);
 					set_value(conf_p, lines, "inet_eth_ip", 1, ip);
 					set_value(conf_p, lines, "inet_eth_mask", 1, mask);
+					memset(buf , 0 , 512);
+					ip = buf;
+					mask = buf + 256;
+					get_dns(ip,mask);
+					set_value(conf_p, lines, "inet_eth_dns1", 1, ip);
+					set_value(conf_p, lines, "inet_eth_dns2", 1, mask);
 				}else{
+					memset(buf,0,512);
+					ip = buf;
+					mask = buf +256;
+					extract_value(conf_p, lines, "inet_eth_dns1", 1, ip);
+					extract_value(conf_p, lines, "inet_eth_dns2", 1, mask);
+					if(ip[0]||mask[0]){
+						set_dns(ip, mask);
+						memset(buf,0,512);
+						sprintf(buf,"ifconfig %s down",inet_eth_device);
+						system(buf);
+						sleep(1);
+						sprintf(buf,"ifconfig %s up",inet_eth_device);
+						system(buf);
+						sleep(1);
+					}
 					memset(buf,0,512);
 					ip=buf+256;
 					mask = buf + 256+32;
@@ -1929,7 +1954,28 @@ int main()
 					get_ip(inet_wlan_device,ip,mask);
 					set_value(conf_p, lines, "inet_wlan_ip", 1, ip);
 					set_value(conf_p, lines, "inet_wlan_mask", 1, mask);
+					memset(buf , 0 , 512);
+					ip = buf;
+					mask = buf + 256;
+					get_dns(ip,mask);
+					set_value(conf_p, lines, "inet_wlan_dns1", 1, ip);
+					set_value(conf_p, lines, "inet_wlan_dns2", 1, mask);
 				}else{
+					memset(buf,0,512);
+					ip = buf;
+					mask = buf +256;
+					extract_value(conf_p, lines, "inet_wlan_dns1", 1, ip);
+					extract_value(conf_p, lines, "inet_wlan_dns2", 1, mask);
+					if(ip[0]||mask[0]){
+						set_dns(ip, mask);
+						memset(buf,0,512);
+						sprintf(buf,"ifconfig %s down",inet_wlan_device);
+						system(buf);
+						sleep(1);
+						sprintf(buf,"ifconfig %s up",inet_wlan_device);
+						system(buf);
+						sleep(1);
+					}
 					memset(buf,0,512);
 					ip=buf+256;
 					mask = buf + 256+32;
@@ -1963,9 +2009,10 @@ int main()
 	if(built_net(check_wlan0,  check_eth0,ping_wlan , ping_eth)<0){
 		printf("the network is error , check your network \n");
 	}
-
+	threadcfg.sdcard_exist = 1;
 	ret = nand_open("/sdcard");
 	if( ret != 0 ){
+		threadcfg.sdcard_exist = 0;
 		printf("open disk error\n");
 	}
 

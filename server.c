@@ -1379,6 +1379,8 @@ static inline void write_syn_sound(int *need_video_internal_head)
 	char *buf;
 	int ret;
 	int size;
+	if(!threadcfg.sdcard_exist)
+		return 0;
 	buf = new_get_sound_data(MAX_NUM_IDS-1, & size);
 	if(buf){
 		i++;
@@ -1750,41 +1752,44 @@ int start_video_record(struct sess_ctx* sess)
 		if(need_write_internal_head){
 			//printf("write video_internal_header\n");
 			/*
-			 nand_write(&video_internal_header,sizeof(video_internal_header));
+			if(threadcfg.sdcard_exist)	
+			 	nand_write(&video_internal_header,sizeof(video_internal_header));
 			*/
 			video_internal_header.flag[0]=0;
 			need_write_internal_head = 0;
 		}
 		//printf("write video picture\n");
 retry:
-		ret = nand_write(buffer, size);
-		if( ret == 0 ){
-			i++;
-			usleep(1);
-			if( i % 1000 == 0 ){
-				dbg("write pictures: %d\n",i);
+		if(threadcfg.sdcard_exist){
+			ret = nand_write(buffer, size);
+			if( ret == 0 ){
+				i++;
+				usleep(1);
+				if( i % 1000 == 0 ){
+					dbg("write pictures: %d\n",i);
+				}
+	//			dbg("write to nand=%d\n",size);
 			}
-//			dbg("write to nand=%d\n",size);
-		}
-		else if( ret == VS_MESSAGE_NEED_START_HEADER ){
-			nand_prepare_record_header(&record_header);
-			sprintf(swidth,"%04d",width);
-			sprintf(sheight,"%04d",height);
-			sprintf(FrameRateUs,"%08llu",usec_between_image);
-			memcpy(&record_header.FrameWidth,&swidth,4);
-			memcpy(&record_header.FrameHeight,&sheight,4);
-			memcpy(&record_header.FrameRateUs,&FrameRateUs,8);
-			nand_write_start_header(&record_header);
-			goto retry;
-		}
-		
-		else if( ret == VS_MESSAGE_NEED_END_HEADER ){
-			nand_prepare_close_record_header(&record_header);
-			nand_write_end_header(&record_header);
-			goto retry;
-		}
-		else{
-			printf("write nand error\n");
+			else if( ret == VS_MESSAGE_NEED_START_HEADER ){
+				nand_prepare_record_header(&record_header);
+				sprintf(swidth,"%04d",width);
+				sprintf(sheight,"%04d",height);
+				sprintf(FrameRateUs,"%08llu",usec_between_image);
+				memcpy(&record_header.FrameWidth,&swidth,4);
+				memcpy(&record_header.FrameHeight,&sheight,4);
+				memcpy(&record_header.FrameRateUs,&FrameRateUs,8);
+				nand_write_start_header(&record_header);
+				goto retry;
+			}
+			
+			else if( ret == VS_MESSAGE_NEED_END_HEADER ){
+				nand_prepare_close_record_header(&record_header);
+				nand_write_end_header(&record_header);
+				goto retry;
+			}
+			else{
+				printf("write nand error\n");
+			}
 		}
 		free(buffer);
 		//check if it is time come to write sound data

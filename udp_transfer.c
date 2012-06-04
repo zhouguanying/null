@@ -25,6 +25,7 @@
 pthread_mutex_t ready_list_lock;
 struct mapping*ready_list=NULL;
 int ready_count=0;
+int wan_net_connet_count = 0;
 
 
 #define BASE_PORT                  5001
@@ -166,8 +167,18 @@ void del_from_ready_list(struct mapping *p)
 	if((*tmp)!=NULL){
 		*tmp=(*tmp)->next;
 		ready_count--;
+		wan_net_connet_count--;
+		if(wan_net_connet_count<=0){
+			if(!threadcfg.qvga_flag&&strncmp(threadcfg.monitor_mode,"inteligent",10)==0&&strncmp(threadcfg.record_resolution ,"vga",3)!=0){
+				restart_v4l2(640, 480);
+				memset(threadcfg.record_resolution , 0 ,sizeof(threadcfg.record_resolution));
+				sprintf(threadcfg.record_resolution , "vga");
+				memcpy(threadcfg.resolution , threadcfg.record_resolution,sizeof(threadcfg.resolution));
+			}
+		}
 	}
 	pthread_mutex_unlock(&ready_list_lock);
+	
 }
 int remove_from_ready_list(uint32_t addr,uint16_t cliport)
 {
@@ -473,13 +484,14 @@ int transfer_thread()
 						printf("video port:%d\n",ntohs(pdest->port[NAT_V_PORT]));
 						printf("audio port:%d\n",ntohs(pdest->port[NAT_A_PORT]));
 						printf("\n#########################################################\n");
-
+						/*
 						if(strncmp(threadcfg.record_resolution ,"qvga",4)!=0){
 							restart_v4l2(320, 240);
 							memset(threadcfg.record_resolution , 0 ,sizeof(threadcfg.record_resolution));
 							sprintf(threadcfg.record_resolution , "qvga");
 							memcpy(threadcfg.resolution , threadcfg.record_resolution,sizeof(threadcfg.resolution));
 						}
+						*/
 					}
 					break;
 				}
