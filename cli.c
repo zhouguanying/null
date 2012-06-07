@@ -212,9 +212,11 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 				printf("********************can't create session******************\n");
 				return NULL;
 			}
+			//dbg("################sess->id = %d#################\n",tmp->id);
 			memcpy(&tmp->from,&sess->from,sizeof(struct sockaddr_in));
 			printf("#########################new_system_session###############################\n");
 			sess->arg=tmp;
+			//dbg("################sess->id = %d#################\n",tmp->id);
 			goto done;
 		 }
 		 /*check if it is blong to the first class command*/
@@ -310,7 +312,7 @@ static int do_cli(struct cli_sess_ctx *sess)
 							rsp_len = 0;
 						}
 					}
-					//printf("sendto return ==%ddst ip==%s , port ==%d\n",ret , inet_ntoa(sess->from.sin_addr), ntohs(sess->from.sin_port));
+					//printf("sendto return ==%d dst ip==%s , port ==%d\n",ret , inet_ntoa(sess->from.sin_addr), ntohs(sess->from.sin_port));
 				}
 				else{
 					rsp_len = strlen(rsp);
@@ -551,6 +553,7 @@ static int set_transport_type(struct sess_ctx *sess, char *arg)
             dbg("error");
             return -1;
     }
+	//dbg("##############sess->id=%d################\n",sess->id);
     if (strlen(arg) == 3 && strncmp(arg, "tcp", 3) == 0) {
             /* Create data socket context */
 		if(sess->s1<0){
@@ -591,7 +594,7 @@ static int set_transport_type(struct sess_ctx *sess, char *arg)
 		
 		sess->running = 1;
 		sess->ucount=1;
-		
+		//dbg("##############sess->id=%d################\n",sess->id);
 		if (pthread_create(&sess->tid, NULL, (void *) start_video_monitor, sess) < 0) {
 			g_cli_ctx->arg=NULL;
 			free_system_session(sess);
@@ -2388,6 +2391,7 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
 	 /*the second class*/
         if (sess == NULL || cmd == NULL) return NULL;
 		//dbg("%s\n",cmd);
+	//dbg("####################sess->id = %d##################\n",((struct sess_ctx*)sess)->id);
         if (strncmp(cmd, "set_dest_addr", 13) == 0)
                 set_dest_addr(sess, param);
         else if (strncmp(cmd, "set_dest_port", 13) == 0)

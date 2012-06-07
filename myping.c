@@ -17,6 +17,7 @@
 
 #include "server.h"
 #include "vpu_server.h"
+#include "cudt.h"
 
 #define PACKET_SIZE 256
 #define MAX_WAIT_TIME 5
@@ -361,6 +362,7 @@ __retry:
 		goto __retry;
 	}
 	printf("set soft reset\n");
+	//stop_udt_lib();
 	exit(0);
 }
 

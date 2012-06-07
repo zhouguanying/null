@@ -197,6 +197,7 @@ void init_g_sess_id_mask()
 
 int get_sess_id()
 {
+	static int count = 0;
 	int i;
 	int ret;
 	ret = -1;
@@ -205,6 +206,8 @@ int get_sess_id()
 		if(g_sess_id_mask[i]==0){
 			g_sess_id_mask[i] = 1;
 			ret  = i;
+			count ++;
+			printf("######################get id index = %d count==%d#####################\n",i , count);
 			break;
 		}
 	}
@@ -214,6 +217,9 @@ int get_sess_id()
 
 void put_sess_id(int index)
 {
+	static int count = 0;
+	count ++;
+	printf("###############put id index=%d count=%d##########################\n",index ,count);
 	pthread_mutex_lock(&g_sess_id_mask_lock);
 	g_sess_id_mask[index] = 0;
 	pthread_mutex_unlock(&g_sess_id_mask_lock);
@@ -423,6 +429,7 @@ static int deinit_audio(struct sess_ctx *sess)
 int free_system_session(struct sess_ctx *sess)
 {
 	if (sess == NULL) return -1;
+	//dbg("##############sess->id=%d################\n",sess->id);
 	printf("free_system_session now\n");
 	if (sess->name != NULL)
 		free(sess->name);
@@ -520,14 +527,14 @@ struct sess_ctx *new_system_session(char *name) {
 	sess = malloc(sizeof(*sess));
 	if (sess == NULL)
 		return NULL;
-
+	memset(sess, 0, sizeof(struct sess_ctx));
 	sess->id = get_sess_id();
+	//printf("###############get sess->id = %d####################\n",sess->id);
 	if(sess->id<0){
 		printf("****************can't get session id*******************\n");
 		free(sess);
 		return NULL;
 	}
-	memset(sess, 0, sizeof(struct sess_ctx));
 	sess->s1 = -1;
 	sess->s2 = -1;
 	sess->pipe_fd =-1;
@@ -1154,12 +1161,12 @@ void  del_sess(struct sess_ctx *sess)
 		if((*p)==sess){
 			*p=(*p)->next;
 			currconnections--;
+			if(g_cli_ctx->arg==sess)
+				g_cli_ctx->arg=NULL;
 			break;
 		}
 		p=&((*p)->next);
 	}
-	if(g_cli_ctx->arg==sess)
-		g_cli_ctx->arg=NULL;
 	pthread_mutex_unlock(&global_ctx_lock);
 }
 
@@ -1202,7 +1209,7 @@ int start_video_monitor(struct sess_ctx* sess)
 	printf("Starting video monitor server\n");
        add_sess( sess);
 	take_sess_up( sess);
-	
+	//dbg("##############sess->id=%d################\n",sess->id);
 	while(1) {
 		
 		pthread_mutex_lock(&sess->sesslock);
@@ -1377,10 +1384,10 @@ static inline void write_syn_sound(int *need_video_internal_head)
 {
 	static unsigned int i = 0;
 	char *buf;
-	int ret;
+	//int ret;
 	int size;
 	if(!threadcfg.sdcard_exist)
-		return 0;
+		return ;
 	buf = new_get_sound_data(MAX_NUM_IDS-1, & size);
 	if(buf){
 		i++;

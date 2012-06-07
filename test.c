@@ -674,13 +674,19 @@ int set_dns(char  *dns1 , char *dns2)
 	fclose(dnsfp);
 	return 0;
 }
+//"ssid=%s\tsignal_level=%s\tproto=%s\tkey_mgmt=%s\tpairwise=%s\tgroup=%s\n"
+char * get_parse_scan_result( int *numssid);
 int config_wifi(struct configstruct *conf_p, int lines)
 {
 	int i;
 	char buf[256];
 	char *argv[4];
 	char network_id[32];
+	int numssid;
+	char *p;
+	char * parse_result = NULL;
 	struct stat st;
+	char *ssid,*signal_level,*proto,*key_mgmt,*pairwise , *group;
 	for(i=0;i<4;i++){
 		argv[i] = (char *)malloc(256);
 		if(!argv[i]){
@@ -689,11 +695,6 @@ int config_wifi(struct configstruct *conf_p, int lines)
 		}
 		memset(argv[i],0,256);
 	}
-	scanresult = (char *)malloc(2048);
-	if(!scanresult){
-		printf("malloc buff for scanresult error\n");
-		goto error;
-	}
 	if(stat("/data/wpa.conf",&st)<0)
 		system("cp /etc/wpa.conf  /data/wpa.conf");
 	system("mkdir /tmp/wpa_supplicant");
@@ -701,11 +702,21 @@ int config_wifi(struct configstruct *conf_p, int lines)
 	sleep(1);
 	system("wpa_supplicant -Dwext -iwlan0 -c/data/wpa.conf -B");
 	sleep(5);
-	sprintf(argv[0],"scan");
-	mywpa_cli(1,argv);
+	parse_result = get_parse_scan_result(& numssid);
+	scanresult = NULL;
+	if(!parse_result){
+		goto error;
+	}
+	scanresult = (char *)malloc(2048);
+	if(!scanresult){
+		printf("malloc buff for scanresult error\n");
+		goto error;
+	}
+	//sprintf(argv[0],"scan");
+	//mywpa_cli(1,argv);
 
-	sprintf(argv[0],"scan_results");
-	mywpa_cli(1,argv);
+	//sprintf(argv[0],"scan_results");
+	//mywpa_cli(1,argv);
 	
 	sprintf(argv[0],"remove_network");
 	sprintf(argv[1],"0");
@@ -730,8 +741,56 @@ int config_wifi(struct configstruct *conf_p, int lines)
 		printf("error ssid\n");
 		goto error;
 	}
+	//"ssid=%s\tsignal_level=%s\tproto=%s\tkey_mgmt=%s\tpairwise=%s\tgroup=%s\n"
+	p = parse_result;
+	while(*p){
+		ssid = p;
+		signal_level = ssid;
+		while(*signal_level!='\t')signal_level++;
+		*signal_level = 0;
+		signal_level++;
+		proto = signal_level;
+		while(*proto!='\t')proto++;
+		*proto = 0;
+		proto++;
+		key_mgmt = proto;
+		while(*key_mgmt!='\t')key_mgmt++;
+		*key_mgmt=0;
+		key_mgmt++;
+		pairwise = key_mgmt;
+		while(*pairwise!='\t')pairwise++;
+		*pairwise = 0;
+		pairwise++;
+		group = pairwise;
+		while(*group!='\t')group++;
+		*group = 0;
+		group++;
+		p = group;
+		while(*p!='\n')p++;
+		*p=0;
+		p++;
+		while(*ssid!='=')ssid++;
+		ssid++;
+		while(*signal_level!='=')signal_level++;
+		signal_level++;
+		while(*proto!='=')proto++;
+		proto++;
+		while(*key_mgmt!='=')key_mgmt++;
+		key_mgmt++;
+		while(*pairwise!='=')pairwise++;
+		pairwise++;
+		while(*group!='=')group++;
+		group++;
+		if(strncmp(buf,ssid,strlen(ssid))==0)
+			break;
+	}
+	if(!*ssid)
+		goto error;
+	if(strncmp(buf,ssid,strlen(ssid))!=0){
+		printf("*********error cannot scan the specify ssid***********\n");
+			goto error;
+	}
 	sprintf(argv[0],"set_network");
-	//sprintf(argv[1],"0");
 	sprintf(argv[1],"%s",network_id);
 	sprintf(argv[2],"ssid");
 	sprintf(argv[3],"\"%s\"",buf);
@@ -740,7 +799,7 @@ int config_wifi(struct configstruct *conf_p, int lines)
 	if(strncmp(scanresult,"OK",strlen("OK"))!=0){
 		goto error;
 	}
-
+	/*
 	memset(buf,0,256);
 	extract_value(conf_p, lines, "inet_wlan_mode", 1, buf);
 	printf("inet_wlan_mode = %s\n",buf);
@@ -756,35 +815,31 @@ int config_wifi(struct configstruct *conf_p, int lines)
 			goto error;
 		}
 	}
-
-	memset(buf,0,256);
-	extract_value(conf_p, lines, "inet_wlan_key_mgmt", 1, buf);
-	printf("inet_wlan_key_mgmt = %s\n",buf);
-	if(buf[0]){
-		sprintf(argv[0],"set_network");
-		//sprintf(argv[1],"0");
-		sprintf(argv[1],"%s",network_id);
-		sprintf(argv[2],"key_mgmt");
-		sprintf(argv[3],"%s",buf);
-		printf("try key_mgmt\n");
-		mywpa_cli(4,  argv );
-		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-			goto error;
-		}
-	}else{
-		printf("error key_mgmt \n");
+	*/
+	//memset(buf,0,256);
+	//extract_value(conf_p, lines, "inet_wlan_key_mgmt", 1, buf);
+	printf("inet_wlan_key_mgmt = %s\n",key_mgmt);
+	sprintf(argv[0],"set_network");
+	sprintf(argv[1],"%s",network_id);
+	sprintf(argv[2],"key_mgmt");
+	sprintf(argv[3],"%s",key_mgmt);
+	printf("try key_mgmt\n");
+	mywpa_cli(4,  argv );
+	if(strncmp(scanresult,"OK",strlen("OK"))!=0){
 		goto error;
 	}
-	if(strncmp(buf , "WPA-PSK",7)==0){
-		memset(buf,0,256);
-		extract_value(conf_p, lines, "inet_wlan_proto", 1, buf);
-		printf("inet_wlan_proto = %s\n",buf);
-		if(buf[0]){
+
+	
+	if(strncmp(key_mgmt, "WPA-PSK",7)==0){
+		//memset(buf,0,256);
+		//extract_value(conf_p, lines, "inet_wlan_proto", 1, buf);
+		printf("inet_wlan_proto = %s\n",proto);
+		if(*proto){
 			sprintf(argv[0],"set_network");
 			//sprintf(argv[1],"0");
 			sprintf(argv[1],"%s",network_id);
 			sprintf(argv[2],"proto");
-			sprintf(argv[3],"%s",buf);
+			sprintf(argv[3],"%s",proto);
 			printf("try proto\n");
 			mywpa_cli(4,  argv );
 			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
@@ -792,15 +847,15 @@ int config_wifi(struct configstruct *conf_p, int lines)
 			}
 		}
 
-		memset(buf,0,256);
-		extract_value(conf_p, lines, "inet_wlan_group", 1, buf);
-		printf("inet_wlan_group = %s\n",buf);
-		if(buf[0]){
+		//memset(buf,0,256);
+		//extract_value(conf_p, lines, "inet_wlan_group", 1, buf);
+		printf("inet_wlan_group = %s\n",group);
+		if(*group){
 			sprintf(argv[0],"set_network");
 			//sprintf(argv[1],"0");
 			sprintf(argv[1],"%s",network_id);
 			sprintf(argv[2],"group");
-			sprintf(argv[3],"%s",buf);
+			sprintf(argv[3],"%s",group);
 			printf("try group\n");
 			mywpa_cli(4,  argv );
 			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
@@ -808,16 +863,15 @@ int config_wifi(struct configstruct *conf_p, int lines)
 			}
 		}
 
-
-		memset(buf,0,256);
-		extract_value(conf_p, lines, "inet_wlan_pairwise", 1, buf);
-		printf("inet_wlan_pairwise = %s\n",buf);
-		if(buf[0]){
+	//	memset(buf,0,256);
+		//extract_value(conf_p, lines, "inet_wlan_pairwise", 1, buf);
+		printf("inet_wlan_pairwise = %s\n",pairwise);
+		if(*pairwise){
 			sprintf(argv[0],"set_network");
 			//sprintf(argv[1],"0");
 			sprintf(argv[1],"%s",network_id);
 			sprintf(argv[2],"pairwise");
-			sprintf(argv[3],"%s",buf);
+			sprintf(argv[3],"%s",pairwise);
 			printf("try pairwise\n");
 			mywpa_cli(4,  argv );
 			/*
@@ -936,12 +990,15 @@ int config_wifi(struct configstruct *conf_p, int lines)
 		goto error;
 	}
 	free(scanresult);
+	free(parse_result);
 	for(i=0;i<4;i++)
 		  free(argv[i]);
 	return 0;
 error:
 	if(scanresult)
 		free(scanresult);
+	if(parse_result)
+		free(parse_result);
 	for(i=0;i<4;i++)
 			free(argv[i]);
 	return -1;
@@ -994,7 +1051,7 @@ int get_netlink_status(const char *if_name)
 	int j;
 	char *argv[4];
 	int tryscan;
- 	scanresult = (char *)malloc(2048);
+ 	scanresult = (char *)malloc(4096);
 	if(!scanresult){
 		printf("cannot malloc buf for scanresult\n");
 		return NULL;
@@ -1066,13 +1123,13 @@ char * get_parse_scan_result( int *numssid)
 		printf("scan fail\n");
 		return NULL;
 	}
-	buf = (char *)malloc(2048);
+	buf = (char *)malloc(4096);
 	if(!buf){
 		printf("cannot malloc buf int parse scan result\n");
 		free(rawbuf);
 		return NULL;
 	}
-	memset(buf , 0 , 2048);
+	memset(buf , 0 , 4096);
 	p = rawbuf +48;
 	i+=48;
 	d = buf;

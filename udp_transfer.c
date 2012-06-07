@@ -13,6 +13,8 @@
 #include <arpa/inet.h>
 #include <netdb.h> 
 
+void restart_v4l2(int width , int height );
+
 #define CAM_ID   1
 
 #define LOCAL_ALIVE_PORT 3000
@@ -108,7 +110,6 @@ void delete_timeout_mapping(uint32_t ip,uint16_t cliport)
 	int i;
 	struct mapping ** tmp;
 	struct timeval  now;
-__retry:
 	pthread_mutex_lock(&ready_list_lock);
 	tmp=&ready_list;
 	gettimeofday(&now,NULL);
@@ -117,14 +118,27 @@ __retry:
 		if(p->ip==ip&&p->dst_port[NAT_CLI_PORT]==cliport){
 			printf("**********************in delte_timeout_mapping found addr collision*********************\n");
 			if(p->sess!=NULL){
+				del_sess(p->sess);
 				pthread_mutex_lock(&p->sess->sesslock);
 				p->sess->running = 0;
 				pthread_mutex_unlock(&p->sess->sesslock);
-				pthread_mutex_unlock(&ready_list_lock);
+				*tmp = (*tmp)->next;
+				ready_count--;
+				wan_net_connet_count--;
+				if(wan_net_connet_count<=0){
+					if(!threadcfg.qvga_flag&&strncmp(threadcfg.monitor_mode,"inteligent",10)==0&&strncmp(threadcfg.record_resolution ,"vga",3)!=0){
+						restart_v4l2(640, 480);
+						memset(threadcfg.record_resolution , 0 ,sizeof(threadcfg.record_resolution));
+						sprintf(threadcfg.record_resolution , "vga");
+						memcpy(threadcfg.resolution , threadcfg.record_resolution,sizeof(threadcfg.resolution));
+					}
+				}
+				//pthread_mutex_unlock(&ready_list_lock);
 				printf("########################wait the old thread close##############\n");
-				pthread_join(p->sess->tid,NULL);
+				//pthread_join(p->sess->tid,NULL);
+				//sleep(1);
 				printf("############################ok the old thread close now###############\n");
-				goto __retry;
+				continue;
 			}else{
 				printf("!!!!!!!!!!!!!!!!!!!!!the thread not running but the ip and port is the same!!!!!!!!!!!!!!\n");
 				*tmp=(*tmp)->next;
@@ -293,7 +307,6 @@ int build_local_sock(uint16_t port)
 	  free(s);
 	  return sockfd; 
 }
-void restart_v4l2(int width , int height );
 int transfer_thread()
 {
 	int ret;
@@ -342,12 +355,15 @@ int transfer_thread()
    	 }
 	  free(s);
 	  //pthread_mutex_lock(&threadcfg.threadcfglock);
+get_server_addr:
 	  if( (server_addr=inet_addr(threadcfg.server_addr))==INADDR_NONE)
     	{
 	        if((host=gethostbyname(threadcfg.server_addr) )==NULL) 
 	        {
-	           perror("server address gethostbyname error");
-	           return -1;
+	           herror("server address gethostbyname error ");
+		    printf("server_addr = %s\n",threadcfg.server_addr);
+	           sleep(5);
+		    goto get_server_addr;
 	        }
 	        memcpy( &server_addr,host->h_addr,host->h_length);
     	}
@@ -355,7 +371,7 @@ int transfer_thread()
 		from.sin_addr.s_addr = server_addr;
 		from.sin_family=AF_INET;
 		 from.sin_port=htons(CAMERA_WATCH_PORT);
-		 printf("convert server addr sucess ip:%s\n",inet_ntoa(from.sin_addr));
+		 printf("#################convert server addr sucess ip:%s################\n",inet_ntoa(from.sin_addr));
 		 fromlen=sizeof(struct sockaddr_in); 
 		 while(1){ 
 		 	camid=(uint32_t)threadcfg.cam_id;

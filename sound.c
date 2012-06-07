@@ -71,6 +71,15 @@ do { \
 	} \
 } while (0)
 
+#if 1
+#define dbg(fmt, args...)  \
+    do { \
+        printf(__FILE__ ": %s: " fmt, __func__, ## args); \
+    } while (0)
+#else
+#define dbg(fmt, args...)	do {} while (0)
+#endif
+
 //hw parameters
 struct audioparams{
 	snd_pcm_format_t   format;
@@ -775,6 +784,7 @@ static int test_sound_tcp_read_data(struct sess_ctx*sess){
 		printf("malloc buffer to recv amr data error\n");
 		goto __exit;
 	}
+	//dbg("##############sess->id=%d################\n",sess->id);
 	while(1){
 		r=rd;
 		data_len=0;
@@ -924,6 +934,7 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
                printf("Error listening for sound connection");
                goto __exit;
        }
+	  // dbg("##############sess->id=%d################\n",sess->id);
 	   set_syn_sound_data_clean(sess->id);
 	while(1){
 		pthread_mutex_lock(&sess->sesslock);

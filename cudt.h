@@ -6,6 +6,7 @@ extern "C"
 #endif
 int udt_sess_thread(void *arg);
 void start_udt_lib();
+void stop_udt_lib();
 #ifdef __cplusplus
 }
 #endif

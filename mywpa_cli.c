@@ -123,7 +123,7 @@ static int _wpa_ctrl_command(struct wpa_ctrl *ctrl, char *cmd, int print)
 		printf("Not connected to wpa_supplicant - command dropped.\n");
 		return -1;
 	}
-	len = 2047;
+	len = 4000;
 	ret = wpa_ctrl_request(ctrl, cmd, strlen(cmd), scanresult, &len,
 			       wpa_cli_msg_cb);
 	printf("result len ==%d\n",len);
