@@ -55,6 +55,7 @@
 #include "sound.h"
 #include "cudt.h"
 #include "udp_transfer.h"
+#include "video_cfg.h"
 //#include "monitor.h"
 
 /* Debug */
@@ -298,6 +299,7 @@ static int do_cli(struct cli_sess_ctx *sess)
 			dbg("rsp=%s\n",rsp);
 			if (rsp != NULL) { /* command ok so send response */
 			//dbg("sent rsp");
+				fromlen = sizeof(struct sockaddr_in);
 				if( rsp_len ){
 					//1  it seems never occur
 					//printf("enter seen never happen rsp_len==%d\n",rsp_len);
@@ -312,7 +314,7 @@ static int do_cli(struct cli_sess_ctx *sess)
 							rsp_len = 0;
 						}
 					}
-					//printf("sendto return ==%d dst ip==%s , port ==%d\n",ret , inet_ntoa(sess->from.sin_addr), ntohs(sess->from.sin_port));
+					printf("sendto return ==%d dst ip==%s , port ==%d\n",ret , inet_ntoa(sess->from.sin_addr), ntohs(sess->from.sin_port));
 				}
 				else{
 					rsp_len = strlen(rsp);
@@ -1517,6 +1519,8 @@ static inline char * gettimestamp()
                 curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
 	 return timestamp;
 }
+
+/*
 static int clean_video_line(char *buf)
 {
 	char *p;
@@ -1552,6 +1556,7 @@ static int clean_video_line(char *buf)
 	}
 	return 0;
 }  
+*/
 char * get_clean_video_cfg()
 {
 	char buf[256];
@@ -1577,7 +1582,7 @@ char * get_clean_video_cfg()
 	length = 0;
 	memset(buf , 0 ,256);
 	while(fgets(buf ,256 , fp)!=NULL){
-		clean_video_line( buf);
+		//clean_video_line( buf);
 		memcpy(cfg_buf+length , buf ,strlen(buf));
 		length +=strlen(buf);
 		memset(buf , 0 ,256);
@@ -1827,6 +1832,16 @@ done:
 		}
 		printf("ok recv config data len ==%d ,strlen ==%d\n",recvlen ,strlen(buf));
 		printf("%s",buf);
+		/*
+		FILE*fp;
+		fp= fopen("/sdcard/zgy.cfg","w");
+		if(!fp){
+			printf("cannot open zgy.cfg\n");
+			exit(0);
+		}
+		fwrite(buf , 1 , 4096,fp);
+		fclose(fp);
+		*/
 		set_raw_config_value(buf);
 		free(buf);
 		snd_soft_restart();

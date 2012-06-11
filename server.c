@@ -1382,6 +1382,7 @@ static inline char * gettimestamp()
 
 static inline void write_syn_sound(int *need_video_internal_head)
 {
+	return 0;
 	static unsigned int i = 0;
 	char *buf;
 	//int ret;

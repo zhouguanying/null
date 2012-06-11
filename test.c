@@ -20,6 +20,7 @@
 #include <linux/ethtool.h>
 #include <sys/msg.h>
 #include <assert.h>
+#include <string.h>
 
 
 
@@ -35,6 +36,8 @@
 #include "udp_transfer.h"
 #include "vpu_server.h"
 #include "cudt.h"
+#include "video_cfg.h"
+
 extern int check_net_thread();
 extern int mywpa_cli(int argc, char *argv[]);
 int built_net(int check_wlan0,int check_eth0 , int ping_wlan0 , int ping_eth0);
@@ -228,9 +231,8 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	if (pthread_create(&tid, NULL, (void *) grab_sound_thread, NULL) < 0) {
 		return -1;
 	} 
+	
 	sleep(1);
-
-//	sleep(2);
 	if (pthread_create(&tid, NULL, (void *) start_video_record, system_sess) < 0) {
 		free_system_session(system_sess);
 		return -1;
@@ -302,11 +304,13 @@ int do_update()
 		system("rm /data/aa -rf && cp /sdcard/aa /data/aa -rf");
 		system("rm /sdcard/aa");
 	}
+	/*kernal*/
 	if (stat("/sdcard/imx23_linux.sb", &st) == 0) {
 		ret = 0;
 		system("flashcp /sdcard/imx23_linux.sb /dev/mtd0");
 		system("rm /sdcard/imx23_linux.sb");	
 	}
+	/*system*/
 	if (stat("/sdcard/rootfs.squashfs", &st) == 0) {
 		ret = 0;
 		system("flashcp /sdcard/rootfs.squashfs /dev/mtd1");
@@ -675,6 +679,31 @@ int set_dns(char  *dns1 , char *dns2)
 	return 0;
 }
 //"ssid=%s\tsignal_level=%s\tproto=%s\tkey_mgmt=%s\tpairwise=%s\tgroup=%s\n"
+
+static int is_chareter(char a)
+{
+	if((a>='A'&&a<='Z')||(a>='a'&&a<='z'))
+		return 1;
+	else
+		return 0;
+}
+int __strncmp(char *s1 , char *s2,int n)
+{
+	int i;
+	for(i = 0; i<n;i++){
+		if(is_chareter(*s1)&&is_chareter(*s2)){
+			if(*s1-*s2!=0&&abs(*s1-*s2)!=32)
+				return (*s1-*s2);
+		}else{
+			if(*s1-*s2!=0)
+				return (*s1-*s2);
+		}
+		s1++;
+		s2++;
+	}
+	return 0;
+}
+
 char * get_parse_scan_result( int *numssid);
 int config_wifi(struct configstruct *conf_p, int lines)
 {
@@ -735,7 +764,7 @@ int config_wifi(struct configstruct *conf_p, int lines)
 	memcpy(network_id , scanresult , result_len-1);
 	
 	memset(buf,0,256);
-	extract_value(conf_p, lines, "inet_wlan_ssid", 1, buf);
+	extract_value(conf_p, lines, CFG_WLAN_SSID, 1, buf);
 	printf("inet_wlan_ssid = %s\n",buf);
 	if(!buf[0]){
 		printf("error ssid\n");
@@ -781,19 +810,20 @@ int config_wifi(struct configstruct *conf_p, int lines)
 		pairwise++;
 		while(*group!='=')group++;
 		group++;
-		if(strncmp(buf,ssid,strlen(ssid))==0)
+		if(__strncmp(buf,ssid,strlen(buf))==0){
 			break;
+		}
 	}
 	if(!*ssid)
 		goto error;
-	if(strncmp(buf,ssid,strlen(ssid))!=0){
+	if(__strncmp(buf,ssid,strlen(ssid))!=0){
 		printf("*********error cannot scan the specify ssid***********\n");
-			goto error;
+		goto error;
 	}
 	sprintf(argv[0],"set_network");
 	sprintf(argv[1],"%s",network_id);
 	sprintf(argv[2],"ssid");
-	sprintf(argv[3],"\"%s\"",buf);
+	sprintf(argv[3],"\"%s\"",ssid);
 	printf("try ssid\n");
 	mywpa_cli(4,  argv );
 	if(strncmp(scanresult,"OK",strlen("OK"))!=0){
@@ -882,7 +912,7 @@ int config_wifi(struct configstruct *conf_p, int lines)
 		}
 
 		memset(buf,0,256);
-		extract_value(conf_p, lines, "inet_wlan_psk", 1, buf);
+		extract_value(conf_p, lines, CFG_WLAN_KEY, 1, buf);
 		printf("inet_wlan_psk = %s\n",buf);
 		if(buf[0]){
 			sprintf(argv[0],"set_network");
@@ -898,7 +928,7 @@ int config_wifi(struct configstruct *conf_p, int lines)
 		}
 	}else{
 		memset(buf,0,256);
-		extract_value(conf_p, lines, "inet_wlan_wep_key0", 1, buf);
+		extract_value(conf_p, lines, CFG_WLAN_KEY, 1, buf);
 		printf("inet_wlan_wep_key0 = %s\n",buf);
 		if(buf[0]){
 			sprintf(argv[0],"set_network");
@@ -913,6 +943,7 @@ int config_wifi(struct configstruct *conf_p, int lines)
 			}
 		}
 
+		/*
 		memset(buf,0,256);
 		extract_value(conf_p, lines, "inet_wlan_wep_key1", 1, buf);
 		printf("inet_wlan_wep_key1 = %s\n",buf);
@@ -944,25 +975,28 @@ int config_wifi(struct configstruct *conf_p, int lines)
 				goto error;
 			}
 		}
-
-		memset(buf,0,256);
-		extract_value(conf_p, lines, "inet_wlan_wep_tx_keyindx", 1, buf);
-		printf("inet_wlan_wep_tx_keyindx = %s\n",buf);
-		if(!buf[0])
-			sprintf(buf,"0");
+		*/
 		if(buf[0]){
-			sprintf(argv[0],"set_network");
-			//sprintf(argv[1],"0");
-			sprintf(argv[1],"%s",network_id);
-			sprintf(argv[2],"wep_tx_keyidx");
-			sprintf(argv[3],"%s",buf);
-			printf("try wep_tx_keyidx\n");
-			mywpa_cli(4,  argv );
-			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-				goto error;
+			memset(buf,0,256);
+			extract_value(conf_p, lines, "inet_wlan_wep_tx_keyindx", 1, buf);
+			printf("inet_wlan_wep_tx_keyindx = %s\n",buf);
+			if(!buf[0])
+				sprintf(buf,"0");
+			if(buf[0]){
+				sprintf(argv[0],"set_network");
+				//sprintf(argv[1],"0");
+				sprintf(argv[1],"%s",network_id);
+				sprintf(argv[2],"wep_tx_keyidx");
+				sprintf(argv[3],"%s",buf);
+				printf("try wep_tx_keyidx\n");
+				mywpa_cli(4,  argv );
+				if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+					goto error;
+				}
 			}
 		}
 
+		/*
 		memset(buf,0,256);
 		extract_value(conf_p, lines, "inet_wlan_auth_alg", 1, buf);
 		printf("inet_wlan_auth_alg = %s\n",buf);
@@ -978,6 +1012,7 @@ int config_wifi(struct configstruct *conf_p, int lines)
 				goto error;
 			}
 		}
+		*/
 	}
 	
 	
@@ -1754,25 +1789,25 @@ int main()
 		
 		printf("cam_id = %x\n",threadcfg.cam_id);
 		
-		extract_value(conf_p, lines, "name", 1, threadcfg.name);
-		printf("name = %s\n",threadcfg.name);
+		//extract_value(conf_p, lines, "name", 1, threadcfg.name);
+		//printf("name = %s\n",threadcfg.name);
 
-		if(!(int)threadcfg.name[0])
-			sprintf(threadcfg.name,"ipcam");
+		sprintf(threadcfg.name,"ipcam");
 
-		extract_value(conf_p, lines, "password", 1, threadcfg.password);
+		extract_value(conf_p, lines, CFG_PSWD, 1, threadcfg.password);
 		printf("password = %s\n",threadcfg.password);
 
-		extract_value(conf_p, lines, "server_addr", 1, threadcfg.server_addr);
-		printf("server_addr = %s\n",threadcfg.server_addr);
+		//extract_value(conf_p, lines, "server_addr", 1, threadcfg.server_addr);
+		//printf("server_addr = %s\n",threadcfg.server_addr);
+		sprintf(threadcfg.server_addr , UDP_SERVER_ADDR);
 
-		extract_value(conf_p, lines, "monitor_mode", 1, threadcfg.monitor_mode);
+		extract_value(conf_p, lines, CFG_MONITOR_MODE , 1, threadcfg.monitor_mode);
 		printf("monitor_mode = %s\n",threadcfg.monitor_mode);
 
 		if(!(int)threadcfg.monitor_mode[0]||(strncmp(threadcfg.monitor_mode , "normal",6)!=0&&strncmp(threadcfg.monitor_mode , "inteligent",10)!=0))
 			sprintf(threadcfg.monitor_mode,"inteligent");
 
-		extract_value(conf_p, lines, "framerate", 0,(void *) &threadcfg.framerate);
+		extract_value(conf_p, lines, CFG_MONITOR_RATE, 0,(void *) &threadcfg.framerate);
 		printf("framerate= %d\n",threadcfg.framerate);
 
 		if(!threadcfg.framerate)
@@ -1783,46 +1818,46 @@ int main()
 			threadcfg.framerate = 25;
 		init_sleep_time();
 
-		extract_value(conf_p, lines, "compression", 1, threadcfg.compression);
+		extract_value(conf_p, lines, CFG_COMPRESSION, 1, threadcfg.compression);
 		printf("compression = %s\n",threadcfg.compression);
 
-		extract_value(conf_p, lines, "resolution", 1, threadcfg.resolution);
+		extract_value(conf_p, lines, CFG_MONITOR_RESOLUTION, 1, threadcfg.resolution);
 		printf("resolution = %s\n",threadcfg.resolution);
 
 		if(!(int)threadcfg.resolution[0])
 			sprintf(threadcfg.resolution,"vga");
 
-		extract_value(conf_p, lines, "gop", 0, (void *)&threadcfg.gop);
+		extract_value(conf_p, lines, CFG_GOP, 0, (void *)&threadcfg.gop);
 		printf("gop = %d\n",threadcfg.gop);
 	
-		extract_value(conf_p, lines, "rotation_angle", 0, (void *)&threadcfg.rotation_angle);
+		extract_value(conf_p, lines, CFG_ROTATION_ANGLE, 0, (void *)&threadcfg.rotation_angle);
 		printf("rotation_angle = %d\n",threadcfg.rotation_angle);
 
-		extract_value(conf_p, lines, "output_ratio", 0, (void *)&threadcfg.output_ratio);
-		printf("output_ratio = %d\n",threadcfg.output_ratio);
+		//extract_value(conf_p, lines, "output_ratio", 0, (void *)&threadcfg.output_ratio);
+		//printf("output_ratio = %d\n",threadcfg.output_ratio);
 
-		extract_value(conf_p, lines, "bitrate", 0, (void *)&threadcfg.bitrate);
+		extract_value(conf_p, lines, CFG_BITRATE, 0, (void *)&threadcfg.bitrate);
 		printf("bitrate = %d\n",threadcfg.bitrate);
 
-		extract_value(conf_p, lines, "brightness", 0, (void *)&threadcfg.brightness);
+		extract_value(conf_p, lines, CFG_BRIGHTNESS, 0, (void *)&threadcfg.brightness);
 		printf("brightness = %d\n",threadcfg.brightness);
 
-		extract_value(conf_p, lines, "contrast", 0, (void *)&threadcfg.contrast);
+		extract_value(conf_p, lines, CFG_CONTRAST, 0, (void *)&threadcfg.contrast);
 		printf("contrast = %d\n",threadcfg.contrast);
 
-		extract_value(conf_p, lines, "saturation", 0,(void *) &threadcfg.saturation);
+		extract_value(conf_p, lines, CFG_SATURATION, 0,(void *) &threadcfg.saturation);
 		printf("saturation = %d\n",threadcfg.saturation);
 
-		extract_value(conf_p, lines, "gain", 0, (void *)&threadcfg.gain);
+		extract_value(conf_p, lines, CFG_GAIN, 0, (void *)&threadcfg.gain);
 		printf("gain = %d\n",threadcfg.gain);
 
-		extract_value(conf_p, lines, "record_mode", 1, threadcfg.record_mode);
+		extract_value(conf_p, lines, CFG_RECORD_MODE, 1, threadcfg.record_mode);
 		printf("record_mode = %s\n",threadcfg.record_mode);
 
 		if(!(int)threadcfg.record_mode[0])
 			sprintf(threadcfg.record_mode,"inteligent");
 
-		extract_value(conf_p, lines, "record_resolution", 1, threadcfg.record_resolution);
+		extract_value(conf_p, lines, CFG_RECORD_RESOLUTION, 1, threadcfg.record_resolution);
 		printf("record_resolution = %s\n",threadcfg.record_resolution);
 
 		if(!(int)threadcfg.record_resolution[0])
@@ -1832,7 +1867,7 @@ int main()
 		
 		set_value(conf_p, lines, "resolution", 1, &threadcfg.resolution);
 
-		extract_value(conf_p, lines, "record_normal_speed", 0, (void *)&threadcfg.record_normal_speed);
+		extract_value(conf_p, lines, CFG_RECORD_NORMAL_SPEED, 0, (void *)&threadcfg.record_normal_speed);
 		printf("record_normal_speed= %d\n",threadcfg.record_normal_speed);
 
 		if(!threadcfg.record_normal_speed)
@@ -1842,7 +1877,7 @@ int main()
 		else if(threadcfg.record_normal_speed >25)
 			threadcfg.record_normal_speed = 25;
 
-		extract_value(conf_p, lines, "record_normal_duration", 0, (void *)&threadcfg.record_normal_duration);
+		extract_value(conf_p, lines, CFG_RECORD_NORMAL_DURATION, 0, (void *)&threadcfg.record_normal_duration);
 		printf("record_normal_duration= %d\n",threadcfg.record_normal_duration);
 
 		if(threadcfg.record_normal_duration<=0)
@@ -1852,13 +1887,13 @@ int main()
 
 
 
-		extract_value(conf_p, lines, "record_sensitivity", 0, (void *)&threadcfg.record_sensitivity);
+		extract_value(conf_p, lines, CFG_RECORD_SENSITIVITY, 0, (void *)&threadcfg.record_sensitivity);
 		printf("record_sensitivity = %d\n",threadcfg.record_sensitivity);
 
 		if(threadcfg.record_sensitivity<1||threadcfg.record_sensitivity>3)
 			threadcfg.record_sensitivity = 1;
 
-		extract_value(conf_p, lines, "record_slow_speed", 0, (void *)&threadcfg.record_slow_speed);
+		extract_value(conf_p, lines, CFG_RECORD_SLOW_SPEED, 0, (void *)&threadcfg.record_slow_speed);
 		printf("record_slow_speed = %d\n",threadcfg.record_slow_speed);
 
 		if(threadcfg.record_slow_speed<1||threadcfg.record_slow_speed>25)
@@ -1870,7 +1905,7 @@ int main()
 		if(!(int)threadcfg.record_slow_resolution[0])
 			sprintf(threadcfg.record_slow_resolution,"qvga");
 		*/
-		extract_value(conf_p, lines, "record_fast_speed", 0, (void *)&threadcfg.record_fast_speed);
+		extract_value(conf_p, lines, CFG_RECORD_FAST_SPEED, 0, (void *)&threadcfg.record_fast_speed);
 		printf("record_fast_speed = %d\n",threadcfg.record_fast_speed);
 
 		if(threadcfg.record_fast_speed<1||threadcfg.record_fast_speed>25)
@@ -1882,42 +1917,48 @@ int main()
 		if(!(int)threadcfg.record_fast_resolution[0])
 			sprintf(threadcfg.record_fast_resolution,"vga");
 		*/
-		extract_value(conf_p, lines, "record_fast_duration", 0, (void *)&threadcfg.record_fast_duration);
+		extract_value(conf_p, lines, CFG_RECORD_FAST_DURATION, 0, (void *)&threadcfg.record_fast_duration);
 		printf("record_fast_duration = %d\n",threadcfg.record_fast_duration);
 
 		if(threadcfg.record_fast_duration<1)
 			threadcfg.record_fast_duration = 3;
 
-		extract_value(conf_p, lines, "email_alarm", 0, (void *)&threadcfg.email_alarm);
+		extract_value(conf_p, lines, CFG_EMAIL_ALARM, 0, (void *)&threadcfg.email_alarm);
 		printf("email_alarm = %d\n",threadcfg.email_alarm);
 
 		if(threadcfg.email_alarm<0)
 			threadcfg.email_alarm =0;
 
-		extract_value(conf_p, lines, "mailbox", 1, threadcfg.mailbox);
+		extract_value(conf_p, lines, CFG_MAILBOX, 1, threadcfg.mailbox);
 		printf("mailbox = %s\n",threadcfg.mailbox);
 
-		extract_value(conf_p, lines, "sound_duplex", 0, (void *)&threadcfg.sound_duplex);
+		extract_value(conf_p, lines, CFG_SOUND_DUPLEX, 0, (void *)&threadcfg.sound_duplex);
 		printf("sound_duplex = %d\n",threadcfg.sound_duplex);
 
 		if(threadcfg.sound_duplex<0)
 			threadcfg.sound_duplex = 0;
 		
-		extract_value(conf_p, lines, "inet_mode", 1, threadcfg.inet_mode);
+		extract_value(conf_p, lines, CFG_NET_MODE, 1, threadcfg.inet_mode);
 		printf("inet_mode = %s\n",threadcfg.inet_mode);
 
 		if(!(int)threadcfg.inet_mode[0])
 			sprintf(threadcfg.inet_mode,"inteligent");
 
 		threadcfg.inet_udhcpc = 1;
-		extract_value(conf_p, lines, "inet_udhcpc", 0, (void *)&threadcfg.inet_udhcpc);
+		extract_value(conf_p, lines, CFG_UDHCPC, 0, (void *)&threadcfg.inet_udhcpc);
 		printf("inet_udhcpc = %d\n",threadcfg.inet_udhcpc);
 
-		extract_value(conf_p, lines, "inet_eth_device", 1, inet_eth_device);
+		extract_value(conf_p, lines, CFG_ETH_DEVICE, 1, inet_eth_device);
 		printf("inet_eth_device = %s\n",inet_eth_device);
 
-		extract_value(conf_p, lines, "inet_wlan_device", 1, inet_wlan_device);
+		if(!inet_eth_device[0])
+			sprintf(inet_eth_device , "eth0");
+		
+		extract_value(conf_p, lines, CFG_WLAN_DEVICE, 1, inet_wlan_device);
 		printf("inet_wlan_device = %s\n",inet_wlan_device);
+
+		if(!inet_wlan_device[0])
+			sprintf(inet_wlan_device, "wlan0");
 		
 		check_eth0 = 0;
 		check_wlan0 = 0;
@@ -1929,6 +1970,7 @@ int main()
 				if(ping_eth<0)
 					ping_eth = 0;
 				if(threadcfg.inet_udhcpc){
+				eth_dhcp:
 					memset(buf,0,512);
 					sprintf(buf,"udhcpc -i %s &",inet_eth_device);
 					system(buf);
@@ -1937,26 +1979,26 @@ int main()
 					memset(inet_eth_gateway,0,sizeof(inet_eth_gateway));
 					if(ping_eth>0)
 						get_gateway(inet_eth_device, inet_eth_gateway);
-					set_value(conf_p, lines, "inet_eth_gateway", 1, inet_eth_gateway);
+					set_value(conf_p, lines, CFG_ETH_GATEWAY, 1, inet_eth_gateway);
 					memset(buf,0,512);
 					ip = buf;
 					mask = buf+256;
 					if(ping_eth>0)
 						get_ip(inet_eth_device,ip,mask);
-					set_value(conf_p, lines, "inet_eth_ip", 1, ip);
-					set_value(conf_p, lines, "inet_eth_mask", 1, mask);
+					set_value(conf_p, lines, CFG_ETH_IP, 1, ip);
+					set_value(conf_p, lines, CFG_ETH_MASK, 1, mask);
 					memset(buf , 0 , 512);
 					ip = buf;
 					mask = buf + 256;
 					get_dns(ip,mask);
-					set_value(conf_p, lines, "inet_eth_dns1", 1, ip);
-					set_value(conf_p, lines, "inet_eth_dns2", 1, mask);
+					set_value(conf_p, lines, CFG_ETH_DNS1, 1, ip);
+					set_value(conf_p, lines, CFG_ETH_DNS2, 1, mask);
 				}else{
 					memset(buf,0,512);
 					ip = buf;
 					mask = buf +256;
-					extract_value(conf_p, lines, "inet_eth_dns1", 1, ip);
-					extract_value(conf_p, lines, "inet_eth_dns2", 1, mask);
+					extract_value(conf_p, lines, CFG_ETH_DNS1, 1, ip);
+					extract_value(conf_p, lines, CFG_ETH_DNS2, 1, mask);
 					if(ip[0]||mask[0]){
 						set_dns(ip, mask);
 						memset(buf,0,512);
@@ -1966,28 +2008,38 @@ int main()
 						sprintf(buf,"ifconfig %s up",inet_eth_device);
 						system(buf);
 						sleep(1);
+					}else{
+						printf("it is not dhcp mode but the dns is not set , something wrong\n");
+						goto eth_dhcp;
 					}
 					memset(buf,0,512);
 					ip=buf+256;
 					mask = buf + 256+32;
-					extract_value(conf_p, lines, "inet_eth_ip", 1, ip);
+					extract_value(conf_p, lines, CFG_ETH_IP, 1, ip);
 					printf("inet_eth_ip = %s\n",ip);
-					extract_value(conf_p, lines, "inet_eth_mask", 1, mask);
+					extract_value(conf_p, lines, CFG_ETH_MASK, 1, mask);
 					printf("inet_eth_mask = %s\n",mask);
-					sprintf(buf,"ifconfig %s %s netmask %s",inet_eth_device,ip, mask);
-					printf("before set ip and mask buf==%s\n",buf);
-					system(buf);
-					sleep(1);
-					
+					if(ip[0]&&mask[0]){
+						sprintf(buf,"ifconfig %s %s netmask %s",inet_eth_device,ip, mask);
+						printf("before set ip and mask buf==%s\n",buf);
+						system(buf);
+						sleep(1);
+					}else{
+						printf("it is not dhcp mode but the ip or mask not set , something wrong\n");
+						goto eth_dhcp;
+					}
 					memset(buf,0,512);
 					memset(inet_eth_gateway,0,sizeof(inet_eth_gateway));
-					extract_value(conf_p, lines, "inet_eth_gateway", 1, inet_eth_gateway);
+					extract_value(conf_p, lines, CFG_ETH_GATEWAY, 1, inet_eth_gateway);
 					printf("inet_eth_gateway = %s\n",inet_eth_gateway);
-					
-					sprintf(buf,"route add default   gw  %s  %s",inet_eth_gateway,inet_eth_device);
-					printf("before set gateway buf==%s\n",buf);
-					system(buf);
-					sleep(1);
+					if(!inet_eth_gateway[0]){
+						printf("it is not dhcp mode but the gateway not set\n");
+					}else{
+						sprintf(buf,"route add default   gw  %s  %s",inet_eth_gateway,inet_eth_device);
+						printf("before set gateway buf==%s\n",buf);
+						system(buf);
+						sleep(1);
+					}
 				}
 		}
 		if(strncmp(threadcfg.inet_mode,"wlan_only",strlen("wlan_only"))==0
@@ -2001,31 +2053,32 @@ int main()
 			}else{
 				ping_wlan = 1;
 				if(threadcfg.inet_udhcpc){
+				wlan_udhcpc:
 					memset(buf,0,512);
 					sprintf(buf,"udhcpc -i %s &",inet_wlan_device);
 					system(buf);
 					sleep(20);
 					memset(inet_wlan_gateway,0,sizeof(inet_wlan_gateway));
 					get_gateway(inet_wlan_device, inet_wlan_gateway);
-					set_value(conf_p, lines, "inet_wlan_gateway", 1, inet_wlan_gateway);
+					set_value(conf_p, lines, CFG_WLAN_GATEWAY, 1, inet_wlan_gateway);
 					memset(buf,0,512);
 					ip = buf;
 					mask = buf+256;
 					get_ip(inet_wlan_device,ip,mask);
-					set_value(conf_p, lines, "inet_wlan_ip", 1, ip);
-					set_value(conf_p, lines, "inet_wlan_mask", 1, mask);
+					set_value(conf_p, lines, CFG_WLAN_IP, 1, ip);
+					set_value(conf_p, lines, CFG_WLAN_MASK, 1, mask);
 					memset(buf , 0 , 512);
 					ip = buf;
 					mask = buf + 256;
 					get_dns(ip,mask);
-					set_value(conf_p, lines, "inet_wlan_dns1", 1, ip);
-					set_value(conf_p, lines, "inet_wlan_dns2", 1, mask);
+					set_value(conf_p, lines, CFG_WLAN_DNS1, 1, ip);
+					set_value(conf_p, lines, CFG_WLAN_DNS2, 1, mask);
 				}else{
 					memset(buf,0,512);
 					ip = buf;
 					mask = buf +256;
-					extract_value(conf_p, lines, "inet_wlan_dns1", 1, ip);
-					extract_value(conf_p, lines, "inet_wlan_dns2", 1, mask);
+					extract_value(conf_p, lines, CFG_WLAN_DNS1, 1, ip);
+					extract_value(conf_p, lines, CFG_WLAN_DNS2, 1, mask);
 					if(ip[0]||mask[0]){
 						set_dns(ip, mask);
 						memset(buf,0,512);
@@ -2035,22 +2088,29 @@ int main()
 						sprintf(buf,"ifconfig %s up",inet_wlan_device);
 						system(buf);
 						sleep(1);
+					}else{
+						printf("it is not dhcpc mode but the dns not set\n");
+						goto wlan_udhcpc;
 					}
 					memset(buf,0,512);
 					ip=buf+256;
 					mask = buf + 256+32;
-					extract_value(conf_p, lines, "inet_wlan_ip", 1, ip);
+					extract_value(conf_p, lines, CFG_WLAN_IP, 1, ip);
 					printf("inet_wlan_ip = %s\n",ip);
-					extract_value(conf_p, lines, "inet_wlan_mask", 1, mask);
+					extract_value(conf_p, lines, CFG_WLAN_MASK, 1, mask);
 					printf("inet_wlan_mask = %s\n",mask);
-					sprintf(buf,"ifconfig %s %s netmask %s",inet_wlan_device,ip, mask);
-					printf("before set ip and mask buf==%s\n",buf);
-					system(buf);
-					sleep(1);
-					
+					if(ip[0]&&mask[0]){
+						sprintf(buf,"ifconfig %s %s netmask %s",inet_wlan_device,ip, mask);
+						printf("before set ip and mask buf==%s\n",buf);
+						system(buf);
+						sleep(1);
+					}else{
+						printf("it is not udhcpc mode but the ip or mask not set\n");
+						goto wlan_udhcpc;
+					}
 					memset(buf,0,512);
 					memset(inet_wlan_gateway,0,sizeof(inet_wlan_gateway));
-					extract_value(conf_p, lines, "inet_wlan_gateway", 1, inet_wlan_gateway);
+					extract_value(conf_p, lines, CFG_WLAN_GATEWAY, 1, inet_wlan_gateway);
 					printf("inet_wlan_gateway = %s\n",inet_wlan_gateway);
 					
 					sprintf(buf,"route add default   gw  %s  %s",inet_wlan_gateway,inet_wlan_device);

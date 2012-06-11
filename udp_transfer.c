@@ -223,7 +223,7 @@ int remove_from_ready_list(uint32_t addr,uint16_t cliport)
 
 static inline int touch_port(int sockfd,uint32_t ip,uint16_t port)
 {
-	//int i;
+	int i;
 	int ret;
 	struct sockaddr_in from,localaddr;
 	socklen_t fromlen;
@@ -231,16 +231,16 @@ static inline int touch_port(int sockfd,uint32_t ip,uint16_t port)
 	  fromlen=sizeof(struct sockaddr_in);
 	  from.sin_addr.s_addr=ip;
 	  from.sin_port=port;
-	//  for(i = 0;i<3;i++){
-	  ret = sendto(sockfd, "    ", strlen("    "), 0,(struct sockaddr *) &from, fromlen);
-	  printf("send touch to ip:%s  ; port:%d ; return %d\n",inet_ntoa(from.sin_addr),ntohs(from.sin_port),ret);
-	  fromlen=sizeof(struct sockaddr_in);
-	   if(getsockname(sockfd,(struct sockaddr*)&localaddr,&fromlen) <0){
-			printf("cannot get sock name\n");
-			return -1;
-	  }
-	   printf("used cli ip:%s , port: %d\n",inet_ntoa(localaddr.sin_addr),ntohs(localaddr.sin_port));
-	//  }
+	  for(i = 0;i<3;i++){
+		  ret = sendto(sockfd, "    ", strlen("    "), 0,(struct sockaddr *) &from, fromlen);
+		  printf("send touch to ip:%s  ; port:%d ; return %d\n",inet_ntoa(from.sin_addr),ntohs(from.sin_port),ret);
+		  fromlen=sizeof(struct sockaddr_in);
+		   if(getsockname(sockfd,(struct sockaddr*)&localaddr,&fromlen) <0){
+				printf("cannot get sock name\n");
+				return -1;
+		  }
+		   printf("used cli ip:%s , port: %d\n",inet_ntoa(localaddr.sin_addr),ntohs(localaddr.sin_port));
+	 }
 	  return 0;
 }
 

@@ -41,11 +41,11 @@
 #define DEFAULT_FORMAT		 SND_PCM_FORMAT_S16_LE   //don't change it 
 #define DEFAULT_SPEED 		 8000  //change it if the L_PCM_USE is changed
 #define DEFAULT_CHANNELS	 2	//don't change it
-#define CHAUNK_BYTES_MAX	 (4096*4)  //change it to match your sound card
-#define PERIODS_PER_BUFFSIZE  32		//change it to match your sound card
-#define PCM_NAME			 "hw:0,0"  
+#define CHAUNK_BYTES_MAX	 (4096*100)  //change it to match your sound card
+#define PERIODS_PER_BUFFSIZE  8		//change it to match your sound card
+#define PCM_NAME			 "plughw:0,0"  
 #define SOUND_PORT			5000
-#define AMR_MODE			7      // 0-7 if it is not in this range the program will use 7 as default
+#define AMR_MODE			7     // 0-7 if it is not in this range the program will use 7 as default
 
 /*next two define just for debug */
 #define DEFAULT_IP			"192.168.1.151"
@@ -774,11 +774,11 @@ static int test_sound_tcp_read_data(struct sess_ctx*sess){
 	int i=0;
 	const ssize_t rd=(audiothreadparams.params->chunk_size+L_PCM_USE-1)/L_PCM_USE*amr_f_size[AMR_MODE];
 	int sockfd=sess->s3;
-	recvtime.tv_sec=0;
-	recvtime.tv_usec=500;
-	if(setsockopt(sockfd,SOL_SOCKET,SO_RCVTIMEO,(char *)&recvtime,sizeof(struct timeval))<0){
-		printf("set sound tcp socket recv time out error\n");
-	}
+	recvtime.tv_sec=1;
+	recvtime.tv_usec=0;
+	//if(setsockopt(sockfd,SOL_SOCKET,SO_RCVTIMEO,(char *)&recvtime,sizeof(struct timeval))<0){
+		//printf("set sound tcp socket recv time out error\n");
+	//}
 	src=malloc(rd);
 	if(!src){
 		printf("malloc buffer to recv amr data error\n");
@@ -795,38 +795,33 @@ __again:
 			goto __exit;
 		}
 		pthread_mutex_unlock(&sess->sesslock);
-		n=recv(sockfd,src+data_len,r,0);
-		/*
+		//n=recv(sockfd,src+data_len,r,0);
+		
 		while(r>0){
 			n=recv(sockfd,src+data_len,r,0);
 			if(n>0){
 				r-=n;
 				data_len+=n;
-				printf("recv sound data n==%d\n",n);
-				if(r>0){
-					ret=pcm_write((u_char *)(audiothreadparams.wrthread.audiobuf), 0);
-					if (ret<0){
-						printf("pcm write silent error something wrong!\n");
-						free(src);
-						goto __exit;
-					}
-				}
 			}else{
-				pthread_mutex_lock(&sess->sesslock);
-				if(!sess->running){
-					pthread_mutex_unlock(&sess->sesslock);
-					free(src);
-					goto __exit;
-				}
-				pthread_mutex_unlock(&sess->sesslock);
-				ret=pcm_write((u_char *)(audiothreadparams.wrthread.audiobuf), 0);
-				if (ret<0){
-					printf("pcm write silent error something wrong!\n");
-					goto __exit;
-				}
+				printf("******************recv error ********************\n");
+				goto __exit;
 			}
 		}
-		*/
+		printf("recv sound data n==%d\n",data_len);
+		r=amrdecoder(src,data_len  ,audiothreadparams.wrthread.audiobuf,&pcm_frames,2);
+		printf("after decode pcm_frames==%d\n",pcm_frames);
+		if(r>=0){
+			ret=pcm_write((u_char *)(audiothreadparams.wrthread.audiobuf), pcm_frames);
+			if (ret<0){
+				printf("pcm write silent error something wrong!\n");
+				free(src);
+				goto __exit;
+			}
+		}else{
+			printf("amr decoder error\n");
+			goto __exit;
+		}
+		/*
 		if(n<=0){
 			pthread_mutex_lock(&audiothreadparams.audiothreadlock);
 			ret=pcm_write((u_char *)(audiothreadparams.wrthread.audiobuf), 0);
@@ -844,7 +839,6 @@ __again:
 		data_len+=n;
 		if(data_len%amr_f_size[AMR_MODE]!=0){
 			if(data_len>rd){
-				/*the socket can't be controled ? I think it will never be*/
 				printf("the sound socket do not run well ,can't control it,I will exit!\n");
 				goto __exit;
 			}
@@ -876,7 +870,8 @@ __again:
 		}
 		i++;
 		//printf("recv data count==%d\n",i);
-		usleep(1);
+		*/
+		usleep(1000);
 	}
 __exit:	
 	free(src);
@@ -935,7 +930,6 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
                goto __exit;
        }
 	  // dbg("##############sess->id=%d################\n",sess->id);
-	   set_syn_sound_data_clean(sess->id);
 	while(1){
 		pthread_mutex_lock(&sess->sesslock);
 		if(!sess->running){
@@ -944,9 +938,9 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
 		}
 		pthread_mutex_unlock(&sess->sesslock);
 		printf("sound thread is running ,ready to connect\n");
-		selecttv.tv_sec = 3;
-		selecttv.tv_usec = 0;
 __tryaccept:
+		selecttv.tv_sec = 5;
+		selecttv.tv_usec = 0;
 		fromlen = sizeof(struct sockaddr_in);
 		FD_ZERO(&acceptfds);
 		FD_SET(lsockfd, &acceptfds);
@@ -980,6 +974,8 @@ __tryaccept:
 		close(lsockfd);
 		sess->s3=sockfd;
 		lsockfd=-1;
+
+		/*
 		if (pthread_create(&sess->swtid, NULL, (void *) test_sound_tcp_read_data, sess) < 0) {
 			printf("create write sound thread error\n");
 			goto __exit;
@@ -988,6 +984,10 @@ __tryaccept:
 		sess->ucount++;
 		pthread_mutex_unlock(&sess->sesslock);
 		printf("create write sound thread sucess\n");
+		*/
+		//pthread_join(sess->swtid , NULL);
+		//goto __exit;
+	       set_syn_sound_data_clean(sess->id);
 		while(1){
 			pthread_mutex_lock(&sess->sesslock);
 			if(!sess->running){
@@ -1019,8 +1019,8 @@ __tryaccept:
 				usleep(50000);
 				goto __tryget;
 			}
-			if(dst_size>128)
-				printf("tcp send sound get size==%d\n",dst_size);
+			//if(dst_size>416)
+				//printf("tcp send sound get size==%d\n",dst_size);
 			ret=dst_size;
 			s=0;
 			while(ret>0){
@@ -1184,7 +1184,7 @@ int init_and_start_sound(){
 	printf("############ok malloc syn_buf  buf size=%d###################\n",syn_buf.buffsize);
 	memset(syn_buf.buf,0,syn_buf.buffsize);
 	*/
-	audiothreadparams.ucount=2;
+	audiothreadparams.ucount=1;
 #if TEST
 	printf("TEST!\n");
 	printf(" the argument set correct now goto test\n");
@@ -1323,8 +1323,8 @@ int play_cop_sound_data(char *buffer,ssize_t length)
 		printf("we want the head is %02x , but we recv %02x\n",amr_f_head[AMR_MODE] , buffer[0]);
 		return 0;
 	}
-	if(length%SIZE_OF_AMR_PER_PERIOD){
-		printf("error recv sound data length not round to SIZE_OF_AMR_PER_PERIOD==%d\n",SIZE_OF_AMR_PER_PERIOD);
+	if(length%amr_f_size[AMR_MODE]){
+		printf("error recv sound data length not round to amr_f_size[%d]==%d\n",AMR_MODE , (int)amr_f_size[AMR_MODE]);
 		printf("the length of sound data is %d\n",length);
 		return 0;
 	}
@@ -1444,6 +1444,7 @@ static inline int new_grab_sound_data()
 		printf("BUG the compression size of amr data != SIZE_OF_AMR_PER_PERIOD\n");
 		return -1;
 	}
+	//printf("amr coder size=%d\n",size);
 	pthread_rwlock_wrlock(&syn_buf.syn_buf_lock);
 	memcpy(syn_buf.c_sound_array[syn_buf.end].buf , syn_buf.cache , SIZE_OF_AMR_PER_PERIOD);
 	memset(syn_buf.c_sound_array[syn_buf.end].sess_clean_mask, 0 ,sizeof(syn_buf.c_sound_array[syn_buf.end].sess_clean_mask));

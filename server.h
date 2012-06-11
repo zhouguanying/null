@@ -29,7 +29,6 @@ extern "C"
 //#include "vpu_server.h"
 
 #define USE_CLI
-#define VERSION 		"version=1.0.0\n"
 
 /**
  * sess_ctx - session context data structure
