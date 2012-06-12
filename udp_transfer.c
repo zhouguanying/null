@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h> 
+#include <resolv.h>
 
 void restart_v4l2(int width , int height );
 
@@ -363,6 +364,7 @@ get_server_addr:
 	           herror("server address gethostbyname error ");
 		    printf("server_addr = %s\n",threadcfg.server_addr);
 	           sleep(5);
+		    res_init();
 		    goto get_server_addr;
 	        }
 	        memcpy( &server_addr,host->h_addr,host->h_length);

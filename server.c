@@ -1353,6 +1353,7 @@ exit:
 #define RECORD_STATE_STOP 	 	0
 #define RECORD_STATE_SLOW	 	1
 #define RECORD_STATE_FAST		2
+#define RECORD_STATE_NORMAL	3
 extern struct __syn_sound_buf syn_buf;
 static nand_record_file_header record_header;
 static nand_record_file_internal_header video_internal_header={
@@ -1363,7 +1364,7 @@ static nand_record_file_internal_header audio_internal_header={
 		{0,0,0,1,0xc},
 			{0,2,0,0},
 };
-static const int sensitivity_diff_size[4] = {10000,250,350,450};
+static const int sensitivity_diff_size[4] = {10000,300,350,450};
 
 static inline char * gettimestamp()
 {
@@ -1425,6 +1426,7 @@ int start_video_record(struct sess_ctx* sess)
 	struct timeval starttime,endtime;
 	struct timeval prev_write_sound_time;
 	struct timeval alive_old_time,alive_curr_time;
+	struct timeval mail_last_time;
 	vs_ctl_message msg;
 	unsigned long long timeuse;
 	unsigned long long usec_between_image=0;
@@ -1499,7 +1501,7 @@ int start_video_record(struct sess_ctx* sess)
 		record_mode = 0;
 	else if(strncmp(threadcfg.record_mode,"normal",strlen("normal")) ==0){
 		printf("record_mode==normal\n");
-		record_mode =1;
+		record_mode =3;
 		record_normal_duration = threadcfg.record_normal_duration;
 		usec_between_image=(unsigned long long )1000000/threadcfg.record_normal_speed;
 		//memcpy(record_resolution,threadcfg.resolution,32);
@@ -1576,6 +1578,7 @@ int start_video_record(struct sess_ctx* sess)
 	printf("video_internal_header.FrameWidth==%s\n",video_internal_header.FrameWidth);
 	printf("video_internal_header.FrameHeight==%s\n",video_internal_header.FrameHeight);
 	reset_syn_buf();
+	memset(&mail_last_time , 0 ,sizeof(struct timeval));
 	gettimeofday(&starttime,NULL);
 	memcpy(&prev_write_sound_time,&starttime,sizeof(struct timeval));
 	while(1) {
@@ -1699,6 +1702,18 @@ int start_video_record(struct sess_ctx* sess)
 				}
 				break;
 			}
+			case 3:{
+				usec_between_image = (unsigned long long ) 1000000 /record_normal_speed;
+				record_last_state = RECORD_STATE_NORMAL;
+				gettimeofday(&endtime , NULL);
+				timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - starttime.tv_sec ) + endtime.tv_usec - starttime.tv_usec;
+				if(timeuse>=usec_between_image){
+					pictures_to_write = 1;
+					memcpy(&starttime , &endtime,sizeof(struct timeval));
+				}else
+					pictures_to_write = 0;
+				break;
+			}
 			default:/*something wrong*/
 				exit(0);
 		}
@@ -1713,11 +1728,15 @@ int start_video_record(struct sess_ctx* sess)
 		pictures_to_write --;
 
 		//printf("pictures to write ==%d\n", pictures_to_write);
-		if(email_alarm&&mail_alarm_tid&&pictures_to_write){
-			char *image=malloc(size);
-			if(image){
-				memcpy(image,buffer,size);
-				add_image_to_mail_attatch_list_no_block( image,  size);
+		if(email_alarm&&mail_alarm_tid&&pictures_to_write&&size>8000){
+			gettimeofday(&endtime , NULL);
+			if(endtime.tv_sec - mail_last_time.tv_sec>=1){
+				char *image=malloc(size);
+				if(image){
+					memcpy(image,buffer,size);
+					add_image_to_mail_attatch_list_no_block( image,  size);
+				}
+				memcpy(&mail_last_time , &endtime, sizeof(struct timeval));
 			}
 		}
 		
@@ -1766,7 +1785,7 @@ int start_video_record(struct sess_ctx* sess)
 			video_internal_header.flag[0]=0;
 			need_write_internal_head = 0;
 		}
-		//printf("write video picture\n");
+		//printf("write video picture size = %d\n" , size);
 retry:
 		if(threadcfg.sdcard_exist){
 			ret = nand_write(buffer, size);

@@ -585,7 +585,6 @@ static int set_transport_type(struct sess_ctx *sess, char *arg)
 				  free_system_session(sess);
                 		return -1;
             		}
-            		sess->is_tcp = 1;
             		dbg("created tcp socket\n");
 		}else{
 			printf("%s: already binded.\n", __func__);
@@ -595,6 +594,7 @@ static int set_transport_type(struct sess_ctx *sess, char *arg)
 		}
 		
 		sess->running = 1;
+		sess->is_tcp = 1;
 		sess->ucount=1;
 		//dbg("##############sess->id=%d################\n",sess->id);
 		if (pthread_create(&sess->tid, NULL, (void *) start_video_monitor, sess) < 0) {
@@ -619,6 +619,17 @@ static int set_transport_type(struct sess_ctx *sess, char *arg)
 			return -1;
 		} 
 		printf("*********************************create udt_sess_thread sucess***********************\n");
+	}else if(strlen(arg)==6&&strncmp(arg,"update",6) == 0){
+		printf("###################do update################\n");
+		sess->running = 1;
+		sess->ucount = 0;
+		if (pthread_create(&sess->tid, NULL, (void *) udt_do_update, sess) < 0) {
+			if((struct sess_ctx*)g_cli_ctx->arg==sess)
+				g_cli_ctx->arg=NULL;
+			printf("**********create udt_do_update error****************\n");
+			free_system_session(sess);
+			return -1;
+		} 
 	}else{
 		if((struct sess_ctx*)g_cli_ctx->arg==sess)
 				g_cli_ctx->arg=NULL;
@@ -694,7 +705,7 @@ static char *get_transport_type(struct sess_ctx *sess, char *arg)
         char *resp;
     
         if (sess == NULL) {
-                dbg("error");
+                dbg(" sess is null error\n");
                 return NULL;
         }
 
@@ -713,8 +724,8 @@ static char *get_transport_type(struct sess_ctx *sess, char *arg)
         } else if (sess->is_file) { 
                 if ((resp = strdup("file")) == NULL)
                         return NULL;
-        } else {
-                dbg("error");
+        }else {
+                dbg("error\n");
                 return NULL;
         }
 
@@ -1449,7 +1460,7 @@ static int Rs485Cmd(char* arg)
 	UartWrite(buffer, length);
 	return 0;
 }
-char * get_parse_scan_result( int *numssid);
+char * get_parse_scan_result( int *numssid ,char *wish_ssid);
 char *search_wifi(char *arg)
 {
 	int numssid;
@@ -1461,7 +1472,7 @@ char *search_wifi(char *arg)
 	if (!arg)
 		return NULL;
 	if(*arg=='0'){
-		buf = get_parse_scan_result(&numssid);
+		buf = get_parse_scan_result(&numssid , NULL);
 		if(!buf)
 			return NULL;
 		length = strlen(buf);
@@ -1492,7 +1503,7 @@ char *search_wifi(char *arg)
 	return NULL;
 }
 int snd_soft_restart();
-int querryfs(char *fs , long *maxsize,long * freesize)
+int querryfs(char *fs , unsigned long *maxsize,unsigned long * freesize)
 {
     struct statfs st; 
    *maxsize = 0;
@@ -1520,43 +1531,78 @@ static inline char * gettimestamp()
 	 return timestamp;
 }
 
-/*
-static int clean_video_line(char *buf)
+extern char inet_eth_device[64];
+extern char inet_wlan_device[64];
+int get_ip(char * device, char * ip, char * mask);
+int get_gateway(char * device, char * gateway);
+int get_dns(char * dns1, char * dns2);
+
+static int fix_video_line(char *buf)
 {
 	char *p;
+	char *v;
+	char ip[32];
+	char mask[32];
+	char dns1[32];
+	char dns2[32];
 	p = buf;
-	while(*p&&(*p==' '||*p=='\t'))p++;
 	if(!*p)return 0;
-	if(strncmp(p , "inet_wlan_ssid",strlen("inet_wlan_ssid"))==0||
-		strncmp(p , "inet_wlan_key_mgmt",strlen("inet_wlan_key_mgmt"))==0||
-		strncmp(p , "inet_wlan_wep_key0",strlen("inet_wlan_wep_key0"))==0||
-		strncmp(p , "inet_wlan_wep_key1",strlen("inet_wlan_wep_key1"))==0||
-		strncmp(p , "inet_wlan_wep_key2",strlen("inet_wlan_wep_key2"))==0||
-		strncmp(p , "inet_wlan_wep_tx_keyindx",strlen("inet_wlan_wep_tx_keyindx"))==0||
-		strncmp(p , "inet_wlan_auth_alg",strlen("inet_wlan_auth_alg"))==0||
-		strncmp(p , "inet_wlan_mode",strlen("inet_wlan_mode"))==0||
-		strncmp(p , "inet_wlan_proto",strlen("inet_wlan_proto"))==0||
-		strncmp(p , "inet_wlan_pairwise",strlen("inet_wlan_pairwise"))==0||
-		strncmp(p , "inet_wlan_group", strlen("inet_wlan_group"))==0||
-		strncmp(p , "inet_wlan_psk",strlen("inet_wlan_psk"))==0){
-		while(*p&&*p!='=')p++;
-		if(!*p){
-			*p='=';
-			p++;
-			*p='\n';
+	while(*p&&(*p==' '||*p=='\t'))p++;
+	v= p;
+	while(*v&&*v!='=')v++;
+	if(!*v){
+		*v='=';
+	}
+	v++;
+	if(!*v){
+		if(strncmp(p , CFG_WLAN_IP,strlen(CFG_WLAN_IP))==0){
+			memset(ip,0,32);
+			get_ip(inet_wlan_device , ip , mask);
+			memcpy(v,ip,32);
+		}else if(strncmp(p , CFG_WLAN_MASK,strlen(CFG_WLAN_MASK))==0){
+			memset(mask,0,32);
+			get_ip(inet_wlan_device , ip , mask);
+			memcpy(v,mask,32);
+		}else if(strncmp(p, CFG_WLAN_DNS1 , strlen(CFG_WLAN_DNS1)) == 0){
+			memset(dns1,0,32);
+			get_dns(dns1,dns2);
+			memcpy(v,dns1,32);
+		}else if(strncmp(p,CFG_WLAN_DNS2, strlen(CFG_WLAN_DNS2))==0){
+			memset(dns2,0,32);
+			get_dns(dns1,dns2);
+			memcpy(v,dns2,32);
+		}else if(strncmp(p,CFG_WLAN_GATEWAY , strlen(CFG_WLAN_GATEWAY))==0){
+			memset(ip , 0 ,32);
+			get_gateway(inet_wlan_device, ip);
+			memcpy(v,ip,32);
+		}else if(strncmp(p , CFG_ETH_IP,strlen(CFG_ETH_IP))==0){
+			memset(ip,0,32);
+			get_ip(inet_eth_device , ip , mask);
+			memcpy(v,ip,32);
+		}else if(strncmp(p , CFG_ETH_MASK,strlen(CFG_ETH_MASK))==0){
+			memset(mask,0,32);
+			get_ip(inet_eth_device , ip , mask);
+			memcpy(v,mask,32);
+		}else if(strncmp(p, CFG_ETH_DNS1 , strlen(CFG_ETH_DNS1)) == 0){
+			memset(dns1,0,32);
+			get_dns(dns1,dns2);
+			memcpy(v,dns1,32);
+		}else if(strncmp(p,CFG_ETH_DNS2, strlen(CFG_ETH_DNS2))==0){
+			memset(dns2,0,32);
+			get_dns(dns1,dns2);
+			memcpy(v,dns2,32);
+		}else if(strncmp(p,CFG_ETH_GATEWAY , strlen(CFG_ETH_GATEWAY))==0){
+			memset(ip , 0 ,32);
+			get_gateway(inet_eth_device, ip);
+			memcpy(v,ip,32);
+		}else{
 			return 0;
 		}
-		p++;
-		*p='\n';
-		p++;
-		while(*p){
-			*p=0;
-			p++;
-		}
+		buf[strlen(buf)] = '\n';
 	}
 	return 0;
 }  
-*/
+
 char * get_clean_video_cfg()
 {
 	char buf[256];
@@ -1582,7 +1628,7 @@ char * get_clean_video_cfg()
 	length = 0;
 	memset(buf , 0 ,256);
 	while(fgets(buf ,256 , fp)!=NULL){
-		//clean_video_line( buf);
+		//fix_video_line( buf);
 		memcpy(cfg_buf+length , buf ,strlen(buf));
 		length +=strlen(buf);
 		memset(buf , 0 ,256);
@@ -1607,8 +1653,8 @@ static char* GetConfig(char* arg , int *rsp_len)
 	char* ret = 0;
 	char *p;
 	char *s;
-	long sd_maxsize;
-	long sd_freesize;
+	unsigned long sd_maxsize;
+	unsigned long sd_freesize;
 	int size;
 	char slength[5];
 	if(!arg)
@@ -1621,7 +1667,7 @@ static char* GetConfig(char* arg , int *rsp_len)
 	p = ret+4;
 	printf("#############enter GetConfig####################\n");
 	if( ConfigType == '1' ){
-		sprintf(p,VERSION);
+		sprintf(p,APP_VERSION);
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
 		sprintf(p,"cam_id=%x\n",threadcfg.cam_id);
@@ -1641,10 +1687,10 @@ static char* GetConfig(char* arg , int *rsp_len)
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
 		querryfs("/sdcard", &sd_maxsize, &sd_freesize);
-		sprintf(p,"tfcard_maxsize=%ld\n",sd_maxsize);
+		sprintf(p,"tfcard_maxsize=%lu\n",sd_maxsize);
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
-		sprintf(p,"tfcard_freesize=%ld\n",sd_freesize);
+		sprintf(p,"tfcard_freesize=%lu\n",sd_freesize);
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
 		size = *rsp_len;

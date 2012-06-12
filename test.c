@@ -704,7 +704,7 @@ int __strncmp(char *s1 , char *s2,int n)
 	return 0;
 }
 
-char * get_parse_scan_result( int *numssid);
+char * get_parse_scan_result( int *numssid , char * wish_ssid);
 int config_wifi(struct configstruct *conf_p, int lines)
 {
 	int i;
@@ -731,46 +731,22 @@ int config_wifi(struct configstruct *conf_p, int lines)
 	sleep(1);
 	system("wpa_supplicant -Dwext -iwlan0 -c/data/wpa.conf -B");
 	sleep(5);
-	parse_result = get_parse_scan_result(& numssid);
-	scanresult = NULL;
-	if(!parse_result){
-		goto error;
-	}
-	scanresult = (char *)malloc(2048);
-	if(!scanresult){
-		printf("malloc buff for scanresult error\n");
-		goto error;
-	}
-	//sprintf(argv[0],"scan");
-	//mywpa_cli(1,argv);
 
-	//sprintf(argv[0],"scan_results");
-	//mywpa_cli(1,argv);
-	
-	sprintf(argv[0],"remove_network");
-	sprintf(argv[1],"0");
-	mywpa_cli(2,  argv);
-	
-	sprintf(argv[0],"ap_scan");
-	sprintf(argv[1],"1");
-	mywpa_cli(2,  argv);
-	
-	sprintf(argv[0],"add_network");
-	mywpa_cli(1,argv);
-	if(strncmp(scanresult,"FAIL",strlen("FAIL"))==0){
-		goto error;
-	}
-	memset(network_id , 0 ,sizeof(network_id));
-	memcpy(network_id , scanresult , result_len-1);
-	
 	memset(buf,0,256);
 	extract_value(conf_p, lines, CFG_WLAN_SSID, 1, buf);
 	printf("inet_wlan_ssid = %s\n",buf);
 	if(!buf[0]){
 		printf("error ssid\n");
+		scanresult = NULL;
 		goto error;
 	}
-	//"ssid=%s\tsignal_level=%s\tproto=%s\tkey_mgmt=%s\tpairwise=%s\tgroup=%s\n"
+	
+	parse_result = get_parse_scan_result(& numssid, buf);
+	if(!parse_result){
+		scanresult = NULL;
+		goto error;
+	}
+	
 	p = parse_result;
 	while(*p){
 		ssid = p;
@@ -814,12 +790,38 @@ int config_wifi(struct configstruct *conf_p, int lines)
 			break;
 		}
 	}
-	if(!*ssid)
-		goto error;
-	if(__strncmp(buf,ssid,strlen(ssid))!=0){
-		printf("*********error cannot scan the specify ssid***********\n");
+	if(!*ssid){
+		scanresult  = NULL;
 		goto error;
 	}
+	if(__strncmp(buf,ssid,strlen(ssid))!=0){
+		printf("*********error cannot scan the specify ssid***********\n");
+		scanresult = NULL;
+		goto error;
+	}
+
+	scanresult = (char *)malloc(2048);
+	if(!scanresult){
+		printf("malloc buff for scanresult error\n");
+		goto error;
+	}
+	
+	sprintf(argv[0],"remove_network");
+	sprintf(argv[1],"0");
+	mywpa_cli(2,  argv);
+	
+	sprintf(argv[0],"ap_scan");
+	sprintf(argv[1],"1");
+	mywpa_cli(2,  argv);
+	
+	sprintf(argv[0],"add_network");
+	mywpa_cli(1,argv);
+	if(strncmp(scanresult,"FAIL",strlen("FAIL"))==0){
+		goto error;
+	}
+	memset(network_id , 0 ,sizeof(network_id));
+	memcpy(network_id , scanresult , result_len-1);
+	
 	sprintf(argv[0],"set_network");
 	sprintf(argv[1],"%s",network_id);
 	sprintf(argv[2],"ssid");
@@ -1112,6 +1114,12 @@ int get_netlink_status(const char *if_name)
 			return NULL;
 		}
 	}
+	
+	sprintf(argv[0],"ap_scan");
+	sprintf(argv[1],"1");
+	mywpa_cli(2,  argv);
+	sleep(1);
+	
 	printf("###########begin scan###########\n");
 	tryscan = 5;
 	while(tryscan){
@@ -1134,7 +1142,8 @@ int get_netlink_status(const char *if_name)
 	return NULL;
  }
 
-char * get_parse_scan_result( int *numssid)
+#define RESERVE_SCAN_FILE		 "/data/wifi_last_scan.cfg"
+char * get_parse_scan_result( int *numssid , char *wish_ssid)
  {
  	char *rawbuf;
 	char *buf;
@@ -1151,20 +1160,38 @@ char * get_parse_scan_result( int *numssid)
 	char *p;
 	char *d;
 	int i = 0;
+	FILE *last_scan_fp;
 	int j;
 	*numssid = 0;
-	rawbuf = scan_wifi(&len);
-	if(!rawbuf){
-		printf("scan fail\n");
-		return NULL;
-	}
 	buf = (char *)malloc(4096);
 	if(!buf){
 		printf("cannot malloc buf int parse scan result\n");
-		free(rawbuf);
 		return NULL;
 	}
 	memset(buf , 0 , 4096);
+	if(wish_ssid!=NULL){
+		last_scan_fp = fopen(RESERVE_SCAN_FILE,"r");
+		if(last_scan_fp){
+			while(fgets(buf,4096,last_scan_fp)!=NULL){
+				p = buf;
+				while(*p!='=')p++;
+				p++;
+				if(__strncmp(p, wish_ssid, strlen(wish_ssid))==0){
+					fclose(last_scan_fp);
+					*numssid = 1;
+					return buf;
+				}
+				memset(buf,0,strlen(buf));
+			}
+			fclose(last_scan_fp);
+		}
+	}
+	rawbuf = scan_wifi(&len);
+	if(!rawbuf){
+		printf("scan fail\n");
+		free(buf);
+		return NULL;
+	}
 	p = rawbuf +48;
 	i+=48;
 	d = buf;
@@ -1271,6 +1298,13 @@ char * get_parse_scan_result( int *numssid)
 		//printf("%s",d);
 		d+=strlen(d);
 	}
+	last_scan_fp = fopen(RESERVE_SCAN_FILE,"w");
+	if(!last_scan_fp){
+		printf("save the scan result error :cannot open file for write\n");
+	}else{
+		fwrite(buf,1,strlen(buf),last_scan_fp);
+		fclose(last_scan_fp);
+	}
 	free(rawbuf);
 	return buf;
  }
@@ -1334,6 +1368,26 @@ int main()
 	
 	sleep(1);
 	signal(SIGINT , sig_handle);
+
+	/*
+	fd = fopen(RECORD_PAR_FILE, "r");
+	if(!fd){
+		memset(buf,0,512);
+		sprintf("cp %s %s",MONITOR_PAR_FILE , RECORD_PAR_FILE);
+		system(buf);
+	}else{
+		char *p;
+		while(fgets(buf,1,512,fd)!=NULL){
+			p=buf;
+			while(*p=' '||*p='\t')p++;
+			if(strncmp(p,CFG_VERSION,strlen(CFG_VERSION))==0){
+				break;
+			}
+		}
+		if(strncmp(p,CFG_VERSION,strlen(CFG_VERSION))==0){
+		}
+	}
+	*/
 	if( open_usbdet() != 0 ){
 		printf("open usb detect error\n");
 		return -1;
@@ -1347,84 +1401,6 @@ int main()
 		system("reboot &");
 		exit (0);
 	}
-	/*
-		{
-			FILE *config_fp;
-			char hid_r_cmd[2];
-			char hid_w_cmd[3];
-			unsigned short  data_len;
-			char *p;
-			int i;
-			int ret;
-			long sd_maxsize;
-			long sd_freesize;
-			int cmd;
-			int size;
-			char *hid_buf;
-			int numssid;
-			printf("HID_READ_VIDEO_CFG\n");
-			if(get_cam_id(&threadcfg.cam_id)<0){
-				printf("************************************************\n");
-				printf("*            get camera id error,something wrong               *\n");
-				printf("************************************************\n");
-				goto hid_fail;
-			}
-			hid_buf = (char *)malloc(4096);
-			if(!hid_buf)
-				goto hid_fail;
-			memset(hid_buf , 0,4096);
-			p=hid_buf;
-			data_len = 0;
-			sprintf(p , "cam_id=%x\n",threadcfg.cam_id);
-			data_len +=strlen(p);
-			p+=strlen(p);
-			config_fp = fopen(RECORD_PAR_FILE, "r");
-			if(!config_fp){
-				system("cp /video.cfg  /data/video.cfg");
-				usleep(100000);
-				config_fp = fopen(RECORD_PAR_FILE, "r");
-				if(!config_fp){
-					free(hid_buf);
-					goto hid_fail;
-				}
-			}
-			fseek(config_fp, 0, SEEK_END);
-			size = ftell(config_fp);
-			fseek(config_fp, 0, SEEK_SET);
-			assert(size < 4060);
-			fread(p,1,size,config_fp);
-			fclose(config_fp);
-			data_len+=size;
-			p+=(size-1);
-			if(*p=='\n'){
-				p++;
-			}else{
-				p++;
-				*p='\n';
-				p++;
-				data_len++;
-			}
-			querryfs("/sdcard", &sd_maxsize, &sd_freesize);
-			sprintf(p,"tfcard_maxsize=%ld\n",sd_maxsize);
-			data_len +=strlen(p);
-			p+=strlen(p);
-			sprintf(p,"tfcard_freesize=%ld\n",sd_freesize);
-			data_len +=strlen(p);
-			if(data_len%2)
-				data_len++;
-			printf("data_len==%d\n",(int)data_len);
-			printf("data_len base 16==%4x\n",data_len);
-			printf("#############data############\n");
-			printf("%s",hid_buf);
-			printf("##########################\n");
-			hid_w_cmd[0] = 0;
-			memcpy(hid_w_cmd+1,&data_len , 2);
-			printf("%2x %2x %2x\n",hid_w_cmd[0] , hid_w_cmd[1] , hid_w_cmd[2]);
-			free(hid_buf);
-			sleep(30);
-			exit(0);
-		}
-	*/
 	if( ioctl_usbdet_read()){
 		int hid_fd;
 		//FILE *config_fp;
@@ -1470,7 +1446,7 @@ int main()
 						memset(hid_buf , 0,4096);
 						p=hid_buf;
 						data_len = 0;
-						sprintf(p,VERSION);
+						sprintf(p,APP_VERSION);
 						data_len +=strlen(p);
 						p+=strlen(p);
 						sprintf(p , "cam_id=%x\n",threadcfg.cam_id);
@@ -1511,7 +1487,7 @@ int main()
 						break;
 					case HID_READ_SEARCH_WIFI:
 						printf("HID_READ_SEARCH_WIFI\n");
-						hid_buf = get_parse_scan_result(& numssid);
+						hid_buf = get_parse_scan_result(& numssid, NULL);
 						data_len = strlen(hid_buf);
 						if(data_len%2)
 							data_len++;
@@ -1703,7 +1679,7 @@ int main()
 	pthread_mutex_init(&(threadcfg.threadcfglock),NULL);
 	init_g_sess_id_mask();
 	//read the config data from video.cfg
-	
+read_config:	
 	fd = fopen(RECORD_PAR_FILE, "r");
 	if(fd==NULL){
 		printf("open config file error,now try to open reserve config file\n");
@@ -1779,6 +1755,18 @@ int main()
 
 		fclose(fd);
 
+		memset(buf , 0 ,512);
+		extract_value(conf_p, lines, CFG_VERSION, 1, buf);
+		if(!buf[0]||strncmp(buf,CURR_VIDEO_CFG_VERSION,strlen(CURR_VIDEO_CFG_VERSION))!=0){
+			free(conf_p);
+			printf("the video.cfg is too old try to read copy the newer one\n");
+			memset(buf,0,512);
+			sprintf(buf,"rm %s",RECORD_PAR_FILE);
+			system(buf);
+			usleep(500000);
+			goto read_config;
+		}
+		printf("cfg_v==%s\n",buf);
 		if(get_cam_id(&threadcfg.cam_id)<0){
 			printf("************************************************\n");
 			printf("*            get camera id error,something wrong               *\n");

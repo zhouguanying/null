@@ -1,11 +1,12 @@
 #ifndef __VIDEO_CFG_H__
 #define __VIDEO_CFG_H__
 
+#define CURR_VIDEO_CFG_VERSION				"1.0.0"
 
-#define VERSION 							"version=1.0.0\n"
+#define APP_VERSION 							"version=1.0.0\n"
 #define UDP_SERVER_ADDR  				"udp.iped.com.cn"
 
-
+#define CFG_VERSION						"cfg_v"
 #define CFG_CAM_ID						"id"
 #define CFG_PSWD					       "pswd"
 #define CFG_MONITOR_MODE 			       "mon_mode"

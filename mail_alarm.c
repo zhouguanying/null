@@ -20,11 +20,11 @@
 #include <netdb.h>
 
 #include "includes.h"
-
+#include "server.h"
 
 // the next code for email alarm so boring code it seen my heartbeat stop when I typing it 
 
-#define MAX_DATA_IN_LIST  		 1
+#define MAX_DATA_IN_LIST  		 3
 #define MAILSERVER 				 "smtp.163.com"
 #define RECEIVER 	 			 "linrizeng@sina.com"
 #define SENDER   	 				 "iped2010@163.com"
@@ -60,7 +60,7 @@ static char table[]=
 'w','x','y','z','0','1','2','3','4','5','6','7','8','9','+','/','='};
       
 static char mailserver[32]=MAILSERVER;
-static char receiver[32]=RECEIVER;
+static char receiver[64]=RECEIVER;
 static char sender[32]=SENDER;
 static char content[CMDBUF_LEN]=CONTENT;
 static char username[32]=USERNAME;
@@ -69,11 +69,26 @@ static char boundary[]="000XMAIL000";
 static unsigned int    mailfileno=0;
 static unsigned int    mailsubjectno=0;
 
+static inline char * gettimestamp()
+{
+	static char timestamp[32];
+	time_t t;
+	struct tm *curtm;
+	 if(time(&t)==-1){
+        	 printf("get time error\n");
+         	 exit(0);
+   	  }
+	 curtm=localtime(&t);
+	  sprintf(timestamp,"%04d-%02d-%02d-%02d-%02d-%02d",curtm->tm_year+1900,curtm->tm_mon+1,
+                curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
+	 return timestamp;
+}
+
 void init_mail_attatch_data_list(char *mailbox){
 	memset(&attach_data_list_head,0,sizeof(attach_data_list_head));
 	pthread_mutex_init(&attach_data_list_head.mail_data_lock,NULL);
-	memset(receiver,0,32);
-	memcpy(receiver,mailbox,32);
+	memset(receiver,0,64);
+	memcpy(receiver,mailbox,64);
 }
 
 int add_image_to_mail_attatch_list_no_block(char *image,int size){
@@ -183,7 +198,7 @@ static int sendtext(int sockfd,char *ptext)
 	int ret;
 	memset(ptext,0,0x400+private_list_head.maxsize*2);
 	memset(subject,0,sizeof(subject));
-	sprintf(subject,"email alarm%d",mailsubjectno);
+	sprintf(subject,"email alarm_%u_%x_%s",mailsubjectno,threadcfg.cam_id , gettimestamp());
 	mailsubjectno++;
 	p=ptext;
 	/*mail head*/
@@ -223,7 +238,7 @@ static int sendtext(int sockfd,char *ptext)
 		size=ap->size;
 		free(ap);
 		memset(filename,0,sizeof(filename));
-		sprintf(filename,"alarm%d.jpg",mailfileno);
+		sprintf(filename,"alarm_%u_%x_%s.jpg", mailfileno,threadcfg.cam_id , gettimestamp());
 		mailfileno++;
 		strcat(p,"--");
 		strcat(p,boundary);
@@ -512,8 +527,10 @@ __end:
 		attach_data_list_head.attach_data_list=NULL;
 		attach_data_list_head.data_list_tail=NULL;
 		pthread_mutex_unlock(&attach_data_list_head.mail_data_lock);
-		if(receiver[0])
+		if(receiver[0]){
+			printf("mail box =%s\n",receiver);
 			mail_alarm();
+		}
  	}
  	return 0;
  }
