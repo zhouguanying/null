@@ -1369,25 +1369,6 @@ int main()
 	sleep(1);
 	signal(SIGINT , sig_handle);
 
-	/*
-	fd = fopen(RECORD_PAR_FILE, "r");
-	if(!fd){
-		memset(buf,0,512);
-		sprintf("cp %s %s",MONITOR_PAR_FILE , RECORD_PAR_FILE);
-		system(buf);
-	}else{
-		char *p;
-		while(fgets(buf,1,512,fd)!=NULL){
-			p=buf;
-			while(*p=' '||*p='\t')p++;
-			if(strncmp(p,CFG_VERSION,strlen(CFG_VERSION))==0){
-				break;
-			}
-		}
-		if(strncmp(p,CFG_VERSION,strlen(CFG_VERSION))==0){
-		}
-	}
-	*/
 	if( open_usbdet() != 0 ){
 		printf("open usb detect error\n");
 		return -1;
@@ -1419,6 +1400,41 @@ int main()
 		int numssid;
 		
 		system("switch gadget && sleep 2");
+
+		/*check the configure file if it is the newest one*/
+		fd = fopen(RECORD_PAR_FILE, "r");
+		if(!fd){
+			memset(buf,0,512);
+			sprintf(buf , "cp %s %s",MONITOR_PAR_FILE , RECORD_PAR_FILE);
+			system(buf);
+		}else{
+			char *p;
+			while(fgets(buf,512,fd)!=NULL){
+				p=buf;
+				while(*p==' '||*p=='\t')p++;
+				if(strncmp(p,CFG_VERSION,strlen(CFG_VERSION))==0){
+					break;
+				}
+			}
+			fclose(fd);
+			usleep(500000);
+			if(strncmp(p,CFG_VERSION,strlen(CFG_VERSION))==0){
+				while(*p&&*p!='=')p++;
+				if(*p=='=')p++;
+				while(*p&&(*p==' '||*p=='\t'))p++;
+				if(!*p||strncmp(p,CURR_VIDEO_CFG_VERSION,strlen(CURR_VIDEO_CFG_VERSION))!=0){
+					memset(buf,0,512);
+					sprintf(buf ,"cp %s %s",MONITOR_PAR_FILE , RECORD_PAR_FILE);
+					system(buf);
+				}
+			}else{
+				memset(buf,0,512);
+				sprintf(buf , "cp %s %s",MONITOR_PAR_FILE , RECORD_PAR_FILE);
+				system(buf);
+			}
+		}
+
+		
 		if((hid_fd = open("/dev/hidg0", O_RDWR)) != -1 && set_fl( hid_fd, O_NONBLOCK ) != -1 ){
 			while( 1 ){
 				do{

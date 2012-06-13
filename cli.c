@@ -623,10 +623,56 @@ static int set_transport_type(struct sess_ctx *sess, char *arg)
 		printf("###################do update################\n");
 		sess->running = 1;
 		sess->ucount = 0;
-		if (pthread_create(&sess->tid, NULL, (void *) udt_do_update, sess) < 0) {
+		if (pthread_create(&sess->tid, NULL, (void *) udp_do_update, sess) < 0) {
 			if((struct sess_ctx*)g_cli_ctx->arg==sess)
 				g_cli_ctx->arg=NULL;
 			printf("**********create udt_do_update error****************\n");
+			free_system_session(sess);
+			return -1;
+		} 
+	}else if(strlen(arg)==9&&strncmp(arg,"updatetcp",9) == 0){
+		printf("###################do update tcp################\n");
+		if(sess->s1<0){
+      		       if ((sess->s1 = create_tcp_socket()) < 0) {
+                   		  printf("Error creating socket");
+				  g_cli_ctx->arg=NULL;
+				  free_system_session(sess);
+                 	         return -1;
+            		}
+		
+            /* Allow address reuse */
+            		on = 1;
+          	       if (setsockopt(sess->s1, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0){
+                    		 printf("Error enabling socket address reuse");
+            		}
+
+          	       if ((sess->myaddr = bind_tcp_socket(sess->s1, SERVER_PORT)) == NULL){
+              		  printf("Error binding socket");
+				 g_cli_ctx->arg=NULL;
+				  free_system_session(sess);
+                		  return -1;
+            		}
+
+            		if (listen(sess->s1, MAX_CONNECTIONS) < 0){
+               		 printf("Error listening for connection");
+				 g_cli_ctx->arg=NULL;
+				  free_system_session(sess);
+                		return -1;
+            		}
+            		dbg("created tcp socket\n");
+		}else{
+			printf("%s: already binded.\n", __func__);
+			g_cli_ctx->arg=NULL;
+			free_system_session(sess);
+			return -1;
+		}
+		
+		sess->running = 1;
+		sess->is_tcp = 1;
+		sess->ucount=1;
+		//dbg("##############sess->id=%d################\n",sess->id);
+		if (pthread_create(&sess->tid, NULL, (void *) tcp_do_update, sess) < 0) {
+			g_cli_ctx->arg=NULL;
 			free_system_session(sess);
 			return -1;
 		} 

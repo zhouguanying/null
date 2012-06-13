@@ -131,6 +131,15 @@ struct sess_ctx *global_ctx; // EJA
 static pthread_mutex_t     v_thread_sleep_t_lock;
 static int v_thread_sleep_time ;
 
+unsigned char checksum(unsigned char cksum, unsigned char *data, int size)
+{
+	int i;
+	
+	for (i = 0; i < size; i++)
+		cksum ^= data[i];
+
+	return cksum;
+}
 
 void init_sleep_time()
 {
@@ -1189,6 +1198,319 @@ void  del_sess(struct sess_ctx *sess)
 	}else
 		pthread_mutex_unlock(&sess->sesslock);
 }
+
+ #define KERNAL_UPDATE_FILE   	"/sdcard/kernel.update"
+#define SYSTEM_UPDATE_FILE		"/sdcard/system.update"
+#define UPDATE_FILE_HEAD_SIZE   11
+
+ int tcp_do_update(void *arg){
+ 	struct sess_ctx *sess = (struct sess_ctx *)arg;
+	socklen_t fromlen;
+	int ret;
+	struct sockaddr_in address;
+	int socket = -1;
+	char* buffer;
+	int size;
+	int tryaccpet = MAX_CONNECTIONS;
+	struct timeval timeout;
+	struct timeval selecttv;
+	fd_set acceptfds;
+	FILE * kfp = NULL;
+	FILE * sfp = NULL;
+	char __scrc;
+	char __kcrc;
+	char scrc;
+	char kcrc;
+	char buf[1024];
+	char *p;
+	char cmd;
+	int r;
+	unsigned int kernal_f_size;
+	unsigned int system_f_size;
+	unsigned int __kernal_f_size;
+	unsigned int __system_f_size;
+	
+	add_sess( sess);
+	take_sess_up( sess);
+
+	selecttv.tv_sec = 3;
+	selecttv.tv_usec = 0;
+	printf("###############tcp do update ready to connect#####################\n");
+__tryaccept:
+	fromlen = sizeof(struct sockaddr_in);
+	FD_ZERO(&acceptfds);
+	FD_SET(sess->s1, &acceptfds);
+	do{
+		ret = select(sess->s1 + 1, &acceptfds, NULL, NULL, &selecttv);
+	}while(ret == -1);
+	if(ret == 0){
+		tryaccpet --;
+		if(tryaccpet<=0){
+			close(sess->s1);
+			sess->s1 = -1;
+			goto exit;
+		}
+		goto __tryaccept;
+	}
+	
+	socket = accept(sess->s1,(struct sockaddr *) &address,&fromlen);
+	if(socket<0){
+		printf("accept erro!\n");
+		close(sess->s1);
+		sess->s1=-1;
+		goto exit;
+	}
+	if(sess->from.sin_addr.s_addr!=address.sin_addr.s_addr){
+		close(socket);
+		tryaccpet --;
+		if(tryaccpet <=0){
+			socket = -1;
+			goto exit;
+		}
+		goto __tryaccept;
+	}
+	if(socket>=0){
+		printf("##################connect ok###################\n");
+		close(sess->s1);
+		sess->s1 = -1;
+		timeout.tv_sec  = 3;
+		timeout.tv_usec = 0;
+		 if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0){
+		            printf("Error enabling socket rcv time out \n");
+		  }
+		r = recv(socket , buf,1024,0);
+		if(r!=1024){
+			printf("tcp do update recv data too small\n");
+			goto exit;
+		}
+	   p=buf;
+	   cmd = *p;
+	   p++;
+	   memcpy(&__system_f_size , p , sizeof(__system_f_size));
+	   p+=sizeof(__system_f_size);
+	   memcpy(&__kernal_f_size , p,sizeof(__kernal_f_size));
+	   p+=sizeof(__kernal_f_size);
+	   __scrc = *p;
+	   p++;
+	   __kcrc = *p;
+	   p++;
+	   kernal_f_size = 0;
+	   system_f_size = 0;
+	   scrc = 0;
+	   kcrc = 0;
+	   switch(cmd)
+	   {
+	   	case 0:
+			printf ("####################update system################\n");
+			sfp = fopen(SYSTEM_UPDATE_FILE , "w");
+			if(!sfp){
+				printf("*******************open system update file error**********\n");
+				goto exit;
+			}
+			system_f_size  = (1024-(p-buf));
+			scrc = checksum(scrc, (unsigned char *)p, system_f_size);
+			if(fwrite(p,1,system_f_size,sfp)!=system_f_size){
+				printf("**********error write system.update************\n");
+				goto exit;
+			}
+			while(system_f_size <__system_f_size){
+				r = recv(socket , buf,1024,0);
+				 if(r<0){
+				 	perror("tcp do update recvmsg error:%s\n");
+		 			 goto exit;
+				 }
+				system_f_size +=r;
+				printf("recv data=%d curr size =%d expected size = %d\n",r ,system_f_size , __system_f_size);
+				scrc = checksum(scrc, (unsigned char *)buf, r);
+				if((unsigned int )r!=fwrite(buf,1,r,sfp)){
+					printf("**********error write system.update************\n");
+					goto exit;
+				}
+			}
+			fclose(sfp);
+			sfp = NULL;
+			if(system_f_size!=__system_f_size){
+				printf("do system update error we expect file size %d but we recv %d\n",__system_f_size , system_f_size);
+				memset(buf , 0 ,1024);
+				sprintf(buf ,"rm %s",SYSTEM_UPDATE_FILE);
+				system(buf);
+				goto exit;
+			}
+			if(scrc!=__scrc){
+				printf("****************check sum error we expected %2x but the results is %2x**********\n",__scrc ,scrc);
+				goto exit;
+			}
+			memset(buf , 0 ,1024);
+			sprintf(buf , "flashcp  %s  /dev/mtd1",SYSTEM_UPDATE_FILE);
+			system(buf);
+			system("reboot &");
+			exit(0);
+			break;
+		case 1:
+			printf("#####################update kernal################\n");
+			kfp = fopen(KERNAL_UPDATE_FILE , "w");
+			if(!kfp){
+				printf("*******************open kernal update file error**********\n");
+				goto exit;
+			}
+			kernal_f_size  = (1024-(p-buf));
+			kcrc = checksum(kcrc, (unsigned char *)p, kernal_f_size);
+			if(fwrite(p,1,kernal_f_size,kfp)!=kernal_f_size){
+				printf("**********error write kernal.update************\n");
+				goto exit;
+			}
+			while(kernal_f_size <__kernal_f_size){
+				r = recv(socket , buf,1024,0);
+				 if(r<0){
+				 	perror("tcp do update recvmsg error:%s\n");
+		 			 goto exit;
+				 }
+				kernal_f_size +=r;
+				printf("recv data=%d curr size =%d expected size = %d\n",r ,kernal_f_size , __kernal_f_size);
+				kcrc = checksum(kcrc, (unsigned char *)buf , r);
+				if((unsigned int)r!=fwrite(buf,1,r,kfp)){
+					printf("**********error write kernal.update************\n");
+					goto exit;
+				}
+			}
+			fclose(kfp);
+			kfp = NULL;
+			if(kernal_f_size!=__kernal_f_size){
+				printf("do kernal update error we expect file size %d but we recv %d\n",__kernal_f_size , kernal_f_size);
+				memset(buf , 0 ,1024);
+				sprintf(buf ,"rm %s", KERNAL_UPDATE_FILE);
+				system(buf);
+				goto exit;
+			}
+			if(kcrc!=__kcrc){
+				printf("***************kernel sum error we expected %2x but the result is %2x************\n",__kcrc , kcrc);
+				goto exit;
+			}
+			memset(buf , 0 ,1024);
+			sprintf(buf , "flashcp  %s  /dev/mtd0",KERNAL_UPDATE_FILE);
+			system(buf);
+			system("reboot &");
+			exit(0);
+			break;
+		case 2:
+			printf("###############update system and kernal################\n");
+			sfp = fopen(SYSTEM_UPDATE_FILE , "w");
+			if(!sfp){
+				printf("*******************open system update file error**********\n");
+				goto exit;
+			}
+			kfp = fopen(KERNAL_UPDATE_FILE , "w");
+			if(!kfp){
+				printf("*******************open kernal update file error**********\n");
+				goto exit;
+			}
+			system_f_size  = (1024-(p-buf));
+			scrc = checksum(scrc, (unsigned char *)p, system_f_size);
+			if(fwrite(p,1,system_f_size,sfp)!=system_f_size){
+				printf("**********error write system.update************\n");
+				goto exit;
+			}
+			p=NULL;
+			while(system_f_size <__system_f_size){
+				r = recv(socket , buf,1024,0);
+				 if(r<0){
+				 	perror("udt do update recvmsg error:%s\n");
+		 			 goto exit;
+				 }
+				 if(__system_f_size - system_f_size<(unsigned int)r){
+				 	scrc = checksum(scrc, (unsigned char *)buf, __system_f_size - system_f_size);
+				 	if(fwrite(buf,1,__system_f_size - system_f_size , sfp)!=(__system_f_size - system_f_size)){
+						printf("**********error write system.update************\n");
+						goto exit;
+				 	}
+					p= buf;
+					p+=(__system_f_size - system_f_size);
+					system_f_size = __system_f_size;
+					printf("r = %d , system file size = %u we recv system update file ok\n",r , __system_f_size);
+					break;
+				 }
+				system_f_size +=r;
+				printf("recv data=%d curr size =%u expected system file size = %u\n",r ,system_f_size , __system_f_size);
+				scrc = checksum(scrc, (unsigned char *)buf, r);
+				if((unsigned int )r!=fwrite(buf,1,r,sfp)){
+					printf("**********error write system.update************\n");
+					goto exit;
+				}
+			}
+			if(system_f_size!=__system_f_size){
+				printf("do system update error we expected file size %d but we recv %d\n",__system_f_size , system_f_size);
+				goto exit;
+			}
+			kernal_f_size = 0;
+			if(p){
+				kernal_f_size =r-(p-buf);
+				kcrc = checksum(kcrc, (unsigned char *)p, kernal_f_size);
+				if(fwrite(p,1,kernal_f_size,kfp)!=kernal_f_size){
+					printf("************error write kernal.updtea*************\n");
+					goto exit;
+				}
+			}
+			while(kernal_f_size <__kernal_f_size){
+				r = recv(socket , buf,1024,0);
+				 if(r<0){
+				 	perror("tcp do update recvmsg error:%s\n");
+		 			 goto exit;
+				 }
+				kernal_f_size +=r;
+				printf("recv data=%d curr size =%d expected kernel file size = %d\n",r ,kernal_f_size , __kernal_f_size);
+				kcrc = checksum(kcrc, (unsigned char *)buf , r);
+				if((unsigned int)r!=fwrite(buf,1,r,kfp)){
+					printf("**********error write kernal.update************\n");
+					goto exit;
+				}
+			}
+			if(kernal_f_size!=__kernal_f_size){
+				printf("do kernal update error we expect file size %d but we recv %d\n",__kernal_f_size , kernal_f_size);
+				goto exit;
+			}
+			if(scrc!=__scrc||kcrc!=__kcrc){
+				printf("check sum error we expected system sum %2x  but the reslut is %2x we expected kernel sum %2x but the result is %2x\n",__scrc ,scrc,__kcrc , kcrc);
+				goto exit;
+			}
+			fclose(sfp);
+			fclose(kfp);
+			printf("####################ok try update kernal###################\n");
+			memset(buf , 0 ,1024);
+			sprintf(buf , "flashcp  %s  /dev/mtd0",KERNAL_UPDATE_FILE);
+			system(buf);
+			sleep(1);
+			printf("####################update kernal ok try update system##############\n");
+			memset(buf , 0 ,1024);
+			sprintf(buf , "flashcp  %s  /dev/mtd1",SYSTEM_UPDATE_FILE);
+			system(buf);
+			system("reboot &");
+			exit(0);
+			break;
+		default:
+			printf("*****************get unkown cmd*****************************\n");
+			goto exit;
+	   }
+	}
+exit:
+	if(sfp)
+		fclose(sfp);
+	if(kfp)
+		fclose(kfp);
+	memset(buf ,0 ,1024);
+	sprintf("rm %s",KERNAL_UPDATE_FILE);
+	system(buf);
+	memset(buf ,0 ,1024);
+	sprintf("rm %s",SYSTEM_UPDATE_FILE);
+	system(buf);
+	
+	del_sess(sess);
+	take_sess_down( sess);
+	
+	if(socket>=0){
+		close(socket);
+	}
+	return 0;
+ }
 
 int start_video_monitor(struct sess_ctx* sess)
 {

@@ -182,6 +182,7 @@ void take_sess_down(struct sess_ctx *sess);
 char * get_video_data(int *size);
 int start_video_monitor(struct sess_ctx* sess);
 int start_video_record(struct sess_ctx* sess);
+ int tcp_do_update(void *arg);
 void init_g_sess_id_mask();
 int get_sess_id();
 void put_sess_id(int index);
@@ -189,6 +190,8 @@ void put_sess_id(int index);
 void init_sleep_time();
 void increase_video_thread_sleep_time();
 void handle_video_thread();
+
+unsigned char checksum(unsigned char cksum, unsigned char *data, int size);
 #ifdef __cplusplus
 }
 #endif
