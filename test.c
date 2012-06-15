@@ -550,7 +550,9 @@ int set_raw_config_value(char * buffer)
 			s++;
 		if(strncmp(name,"system_time",strlen("system_time"))==0)
 			set_system_time(value);
-		else
+		else if(strncmp(name, CFG_PSWD ,strlen(CFG_PSWD))==0){
+			//FILE*pswdfp = fopen("
+		}else
 			set_value(conf_p,lines, name, 1,  value);
 	}
 out:

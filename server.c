@@ -1268,7 +1268,7 @@ void  del_sess(struct sess_ctx *sess)
 		dbg("tcp do update some one is doing update\n");
 		goto exit;
 	}
-	selecttv.tv_sec = 3;
+	selecttv.tv_sec = 5;
 	selecttv.tv_usec = 0;
 	printf("###############tcp do update ready to connect#####################\n");
 __tryaccept:
@@ -1352,8 +1352,8 @@ __tryaccept:
 			}
 			while(system_f_size <__system_f_size){
 				r = recv(socket , buf,1024,0);
-				 if(r<0){
-				 	perror("tcp do update recvmsg error:%s\n");
+				 if(r<=0){
+				 	herror("tcp do update recvmsg error");
 		 			 goto exit;
 				 }
 				system_f_size +=r;
@@ -1396,8 +1396,8 @@ __tryaccept:
 			}
 			while(kernal_f_size <__kernal_f_size){
 				r = recv(socket , buf,1024,0);
-				 if(r<0){
-				 	perror("tcp do update recvmsg error:%s\n");
+				 if(r<=0){
+				 	herror("tcp do update recvmsg error");
 		 			 goto exit;
 				 }
 				kernal_f_size +=r;
@@ -1446,8 +1446,8 @@ __tryaccept:
 			p=NULL;
 			while(system_f_size <__system_f_size){
 				r = recv(socket , buf,1024,0);
-				 if(r<0){
-				 	perror("udt do update recvmsg error:%s\n");
+				 if(r<=0){
+				 	herror("tcp do update recvmsg error");
 		 			 goto exit;
 				 }
 				 if(__system_f_size - system_f_size<(unsigned int)r){
@@ -1485,8 +1485,8 @@ __tryaccept:
 			}
 			while(kernal_f_size <__kernal_f_size){
 				r = recv(socket , buf,1024,0);
-				 if(r<0){
-				 	perror("tcp do update recvmsg error:%s\n");
+				 if(r<=0){
+				 	herror("tcp do update recvmsg error:%s\n");
 		 			 goto exit;
 				 }
 				kernal_f_size +=r;
@@ -1539,13 +1539,12 @@ exit:
 		system("reboot &");
 		exit(0);	
 	}
-	del_sess(sess);
-	take_sess_down( sess);
-	
 	if(socket>=0){
 		system("reboot &");
 		exit(0);
 	}
+	del_sess(sess);
+	take_sess_down( sess);
 	return 0;
  }
 

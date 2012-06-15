@@ -2036,7 +2036,12 @@ done:
 	*/
 	//return 0;	
 }
-
+/*
+static char *setpswd(char *arg)
+{
+	
+}
+*/
 static void SetTime(char* arg)
 {
 	char*p1;
