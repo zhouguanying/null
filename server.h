@@ -190,6 +190,10 @@ void put_sess_id(int index);
 void init_sleep_time();
 void increase_video_thread_sleep_time();
 void handle_video_thread();
+void set_do_update();
+int is_do_update();
+void set_msg_do_update();
+void prepare_do_update();
 
 unsigned char checksum(unsigned char cksum, unsigned char *data, int size);
 #ifdef __cplusplus

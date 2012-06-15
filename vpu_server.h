@@ -51,6 +51,10 @@
 #define   VS_MESSAGE_RECORD_ALIVE               14
 #define   VS_MESSAGE_MAIN_PROCESS_START  15
 #define   VS_MESSAGE_MAIN_PROCESS_ALIVE   16
+#define   VS_MESSAGE_DO_UPDATE			17
+
+ #define KERNAL_UPDATE_FILE   	"/tmp/kernel.update"
+#define SYSTEM_UPDATE_FILE		"/tmp/system.update"
 
 #define VS_MESSAGE_NEED_START_HEADER		7
 #define VS_MESSAGE_NEED_END_HEADER			8

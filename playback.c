@@ -6,6 +6,11 @@
 #include "utilities.h"
 #include "cli.h"
 
+#define dbg(fmt, args...)  \
+    do { \
+        printf(__FILE__ ": %s: " fmt , __func__, ## args); \
+    } while (0)
+
 static LIST_HEAD(playback_list);
 pthread_mutex_t list_lock;
 //pthread_mutex_t pb_rtp_port_lock;

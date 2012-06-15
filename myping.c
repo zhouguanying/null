@@ -355,11 +355,11 @@ int snd_soft_restart()
 	msg.msg_type = VS_MESSAGE_ID;
 	msg.msg[0] = VS_MESSAGE_SOFTRESET;
 	msg.msg[1] = 0;
-__retry:
 	ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
 	if(ret == -1){
 		printf("send daemon message error\n");
-		goto __retry;
+		system("reboot &");
+		exit(0);
 	}
 	printf("set soft reset\n");
 	//stop_udt_lib();

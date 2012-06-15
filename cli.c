@@ -289,6 +289,10 @@ static int do_cli(struct cli_sess_ctx *sess)
 		dbg("try to get cli cmd\n");
 		//memset(req,0,BUF_SZ);
         req_len = recvfrom(sess->sock, req, sizeof(req), 0, (struct sockaddr *) &from, &fromlen);
+		if(is_do_update()){
+			dbg("is do update exit now\n");
+			return 0;
+		}
 		req[req_len] = 0;
 		dbg("get cli cmd: %s ip ==%s  ,  port ==%d\n",req , inet_ntoa(from.sin_addr) , ntohs(from.sin_port));
         if (req_len <= 0) 
@@ -1493,7 +1497,20 @@ static int SetRs485BautRate(char* arg)
 	SetUartSpeed(speed);
 	return 0;
 }
-
+static inline char * gettimestamp()
+{
+	static char timestamp[15];
+	time_t t;
+	struct tm *curtm;
+	 if(time(&t)==-1){
+        	 printf("get time error\n");
+         	 exit(0);
+   	  }
+	 curtm=localtime(&t);
+	  sprintf(timestamp,"%04d%02d%02d%02d%02d%02d",curtm->tm_year+1900,curtm->tm_mon+1,
+                curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
+	 return timestamp;
+}
 static int Rs485Cmd(char* arg)
 {
 	int length;
@@ -1501,7 +1518,7 @@ static int Rs485Cmd(char* arg)
 
 	length = arg[0];
 	buffer = &arg[1];
-
+	printf("get rs485cmd time %s\n",gettimestamp());
 	//dbg("receive a cmd:%s\n", arg);
 	UartWrite(buffer, length);
 	return 0;
@@ -1561,20 +1578,6 @@ int querryfs(char *fs , unsigned long *maxsize,unsigned long * freesize)
     *maxsize = st.f_blocks*st.f_bsize;
     *freesize = st.f_bfree *st.f_bsize;
     return 0;
-}
-static inline char * gettimestamp()
-{
-	static char timestamp[15];
-	time_t t;
-	struct tm *curtm;
-	 if(time(&t)==-1){
-        	 printf("get time error\n");
-         	 exit(0);
-   	  }
-	 curtm=localtime(&t);
-	  sprintf(timestamp,"%04d%02d%02d%02d%02d%02d",curtm->tm_year+1900,curtm->tm_mon+1,
-                curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
-	 return timestamp;
 }
 
 extern char inet_eth_device[64];

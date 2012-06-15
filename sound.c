@@ -1475,6 +1475,10 @@ void set_syn_sound_data_clean(int sess_id)
 int grab_sound_thread()
 {
 	while(1){
+		if(is_do_update()){
+			dbg("is do update exit now\n");
+			return 0;
+		}
 		if(new_grab_sound_data()<0){
 			printf("grab sound data error\n");
 			exit(-1);

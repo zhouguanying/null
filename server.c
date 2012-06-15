@@ -130,7 +130,66 @@ struct sess_ctx *global_ctx; // EJA
 */
 static pthread_mutex_t     v_thread_sleep_t_lock;
 static int v_thread_sleep_time ;
+static unsigned char do_update_flag = 0;
 
+pthread_mutex_t global_ctx_lock;
+struct sess_ctx *global_ctx_running_list=NULL; //each connection have a sesction
+int 	     		     currconnections=0;
+
+struct threadconfig threadcfg;  //we use this variable to control the the speed of record thread
+int msqid= -1;
+
+/*
+*each sess have a id , we use this id to manage the buffer of audio and video
+*i think we will use it for more in future
+*/
+
+pthread_mutex_t g_sess_id_mask_lock;
+char g_sess_id_mask[MAX_NUM_IDS];
+/*
+int 			     globalsocket=-1; 
+we have wanted to  use this socket to listen,
+now we create a listen socket each set_transport_type 
+then close it after we accpet.
+not need the global listen socket now!*/
+
+int daemon_msg_queue;
+int v2ipd_shm_id;
+vs_share_mem* v2ipd_share_mem;
+
+int is_do_update()
+{
+	int update;
+	update = (int)do_update_flag;
+	return update;
+}
+void set_do_update()
+{
+	do_update_flag = 1;
+}
+
+void set_msg_do_update()
+{
+	int ret;
+	vs_ctl_message msg;
+	msg.msg_type = VS_MESSAGE_ID;
+	msg.msg[0] = VS_MESSAGE_DO_UPDATE;
+	msg.msg[1] = 0;
+	ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
+	if(ret == -1){
+		dbg("send daemon message error\n");
+		system("reboot &");
+		exit(0);
+	}
+	printf("##############send update msg ok exit now###############\n");
+	exit(0);
+}
+
+void prepare_do_update()
+{
+	set_msg_do_update();
+	//set_do_update();
+}
 unsigned char checksum(unsigned char cksum, unsigned char *data, int size)
 {
 	int i;
@@ -170,32 +229,6 @@ void handle_video_thread()
 	*/
 	usleep(v_thread_sleep_time);
 }
-
-pthread_mutex_t global_ctx_lock;
-struct sess_ctx *global_ctx_running_list=NULL; //each connection have a sesction
-int 	     		     currconnections=0;
-
-struct threadconfig threadcfg;  //we use this variable to control the the speed of record thread
-int msqid= -1;
-
-/*
-*each sess have a id , we use this id to manage the buffer of audio and video
-*i think we will use it for more in future
-*/
-
-pthread_mutex_t g_sess_id_mask_lock;
-char g_sess_id_mask[MAX_NUM_IDS];
-/*
-int 			     globalsocket=-1; 
-we have wanted to  use this socket to listen,
-now we create a listen socket each set_transport_type 
-then close it after we accpet.
-not need the global listen socket now!*/
-
-int daemon_msg_queue;
-int v2ipd_shm_id;
-vs_share_mem* v2ipd_share_mem;
-
 
 void init_g_sess_id_mask()
 {
@@ -1199,8 +1232,6 @@ void  del_sess(struct sess_ctx *sess)
 		pthread_mutex_unlock(&sess->sesslock);
 }
 
- #define KERNAL_UPDATE_FILE   	"/sdcard/kernel.update"
-#define SYSTEM_UPDATE_FILE		"/sdcard/system.update"
 #define UPDATE_FILE_HEAD_SIZE   11
 
  int tcp_do_update(void *arg){
@@ -1225,14 +1256,18 @@ void  del_sess(struct sess_ctx *sess)
 	char *p;
 	char cmd;
 	int r;
+	int reboot_flag = 0;
 	unsigned int kernal_f_size;
 	unsigned int system_f_size;
 	unsigned int __kernal_f_size;
 	unsigned int __system_f_size;
-	
+
 	add_sess( sess);
 	take_sess_up( sess);
-
+	if(is_do_update()){
+		dbg("tcp do update some one is doing update\n");
+		goto exit;
+	}
 	selecttv.tv_sec = 3;
 	selecttv.tv_usec = 0;
 	printf("###############tcp do update ready to connect#####################\n");
@@ -1273,7 +1308,7 @@ __tryaccept:
 		printf("##################connect ok###################\n");
 		close(sess->s1);
 		sess->s1 = -1;
-		timeout.tv_sec  = 3;
+		timeout.tv_sec  = 10;
 		timeout.tv_usec = 0;
 		 if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0){
 		            printf("Error enabling socket rcv time out \n");
@@ -1298,6 +1333,8 @@ __tryaccept:
 	   system_f_size = 0;
 	   scrc = 0;
 	   kcrc = 0;
+	   set_do_update();
+	   reboot_flag = 1;
 	   switch(cmd)
 	   {
 	   	case 0:
@@ -1327,19 +1364,17 @@ __tryaccept:
 					goto exit;
 				}
 			}
-			fclose(sfp);
-			sfp = NULL;
 			if(system_f_size!=__system_f_size){
 				printf("do system update error we expect file size %d but we recv %d\n",__system_f_size , system_f_size);
-				memset(buf , 0 ,1024);
-				sprintf(buf ,"rm %s",SYSTEM_UPDATE_FILE);
-				system(buf);
 				goto exit;
 			}
 			if(scrc!=__scrc){
 				printf("****************check sum error we expected %2x but the results is %2x**********\n",__scrc ,scrc);
 				goto exit;
 			}
+			fclose(sfp);
+			sfp = NULL;
+			prepare_do_update();
 			memset(buf , 0 ,1024);
 			sprintf(buf , "flashcp  %s  /dev/mtd1",SYSTEM_UPDATE_FILE);
 			system(buf);
@@ -1373,19 +1408,17 @@ __tryaccept:
 					goto exit;
 				}
 			}
-			fclose(kfp);
-			kfp = NULL;
 			if(kernal_f_size!=__kernal_f_size){
 				printf("do kernal update error we expect file size %d but we recv %d\n",__kernal_f_size , kernal_f_size);
-				memset(buf , 0 ,1024);
-				sprintf(buf ,"rm %s", KERNAL_UPDATE_FILE);
-				system(buf);
 				goto exit;
 			}
 			if(kcrc!=__kcrc){
 				printf("***************kernel sum error we expected %2x but the result is %2x************\n",__kcrc , kcrc);
 				goto exit;
 			}
+			fclose(kfp);
+			kfp = NULL;
+			prepare_do_update();
 			memset(buf , 0 ,1024);
 			sprintf(buf , "flashcp  %s  /dev/mtd0",KERNAL_UPDATE_FILE);
 			system(buf);
@@ -1426,11 +1459,11 @@ __tryaccept:
 					p= buf;
 					p+=(__system_f_size - system_f_size);
 					system_f_size = __system_f_size;
-					printf("r = %d , system file size = %u we recv system update file ok\n",r , __system_f_size);
+					//printf("r = %d , system file size = %u we recv system update file ok\n",r , __system_f_size);
 					break;
 				 }
 				system_f_size +=r;
-				printf("recv data=%d curr size =%u expected system file size = %u\n",r ,system_f_size , __system_f_size);
+				//printf("recv data=%d curr size =%u expected system file size = %u\n",r ,system_f_size , __system_f_size);
 				scrc = checksum(scrc, (unsigned char *)buf, r);
 				if((unsigned int )r!=fwrite(buf,1,r,sfp)){
 					printf("**********error write system.update************\n");
@@ -1457,7 +1490,7 @@ __tryaccept:
 		 			 goto exit;
 				 }
 				kernal_f_size +=r;
-				printf("recv data=%d curr size =%d expected kernel file size = %d\n",r ,kernal_f_size , __kernal_f_size);
+				//printf("recv data=%d curr size =%d expected kernel file size = %d\n",r ,kernal_f_size , __kernal_f_size);
 				kcrc = checksum(kcrc, (unsigned char *)buf , r);
 				if((unsigned int)r!=fwrite(buf,1,r,kfp)){
 					printf("**********error write kernal.update************\n");
@@ -1474,6 +1507,8 @@ __tryaccept:
 			}
 			fclose(sfp);
 			fclose(kfp);
+			
+			prepare_do_update();
 			printf("####################ok try update kernal###################\n");
 			memset(buf , 0 ,1024);
 			sprintf(buf , "flashcp  %s  /dev/mtd0",KERNAL_UPDATE_FILE);
@@ -1492,22 +1527,24 @@ __tryaccept:
 	   }
 	}
 exit:
-	if(sfp)
-		fclose(sfp);
-	if(kfp)
-		fclose(kfp);
-	memset(buf ,0 ,1024);
-	sprintf("rm %s",KERNAL_UPDATE_FILE);
-	system(buf);
-	memset(buf ,0 ,1024);
-	sprintf("rm %s",SYSTEM_UPDATE_FILE);
-	system(buf);
-	
+	if(reboot_flag){
+		system("reboot &");
+		exit(0);
+	}
+	if(sfp){
+		system("reboot &");
+		exit(0);
+	}
+	if(kfp){
+		system("reboot &");
+		exit(0);	
+	}
 	del_sess(sess);
 	take_sess_down( sess);
 	
 	if(socket>=0){
-		close(socket);
+		system("reboot &");
+		exit(0);
 	}
 	return 0;
  }
@@ -1527,13 +1564,13 @@ int start_video_monitor(struct sess_ctx* sess)
 	fd_set acceptfds;
 	//int setframes=0;
 
-	
+	if(is_do_update())
+		goto exit;
 	printf("Starting video monitor server\n");
        add_sess( sess);
 	take_sess_up( sess);
 	//dbg("##############sess->id=%d################\n",sess->id);
 	while(1) {
-		
 		pthread_mutex_lock(&sess->sesslock);
 		if(!sess->running){
 			pthread_mutex_unlock(&sess->sesslock);
@@ -1618,6 +1655,8 @@ __tryaccept:
 						pthread_mutex_unlock(&sess->sesslock);
 					}
 					while(1) {
+						if(is_do_update())
+							goto exit;
 						buffer = get_video_data(&size);
 						int i = 0;
 						while(size > 0 ) {
@@ -1904,13 +1943,22 @@ int start_video_record(struct sess_ctx* sess)
 	gettimeofday(&starttime,NULL);
 	memcpy(&prev_write_sound_time,&starttime,sizeof(struct timeval));
 	while(1) {
-
-		
+		if(is_do_update()){
+			close_v4l2(vdin_camera);
+			dbg("is do update return now\n");
+			goto __out;
+		}
 		gettimeofday(&alive_curr_time,NULL);
 		if(alive_curr_time.tv_sec -alive_old_time.tv_sec>=3){
 			ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
 			if(ret == -1){
 				dbg("send daemon message error\n");
+					if(is_do_update()){
+						close_v4l2(vdin_camera);
+						dbg("is do update return now\n");
+						goto __out;
+					}
+				system("reboot &");
 				exit(0);
 			}
 			memcpy(&alive_old_time,&alive_curr_time,sizeof(struct timeval));
@@ -2194,7 +2242,12 @@ retry:
 	}
 
 	dbg("Exitting record server");
-
+__out:
+	while(is_do_update())
+	{
+		ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
+		sleep(3);
+	}
 	return 0;
 }
 

@@ -280,6 +280,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 		ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
 		if(ret == -1){
 			dbg("send daemon message error\n");
+			system("reboot &");
 			exit(0);
 		}
 	}
@@ -328,7 +329,7 @@ int usb_state_monitor()
 {
 	while(1){
 		if( ioctl_usbdet_read()){
-			system("/data/aa &");
+			system("reboot &");
 			exit(0);
 		}
 		sleep(1);
