@@ -1,7 +1,14 @@
 #ifndef __VIDEO_CFG_H__
 #define __VIDEO_CFG_H__
 
-#define CURR_VIDEO_CFG_VERSION				"1.0.0"
+#define PASSWORD_FILE					"/data/pswd.cfg"
+#define PASSWORD_FAIL					"PSWD_FAIL"
+#define PASSWORD_OK					"PSWD_OK"
+#define PASSWORD_NOT_SET				"PSWD_NOT_SET"
+#define PASSWORD_SET					"PSWD_SET"
+#define PASSWORD_PART_ARG				"PSWD="
+
+#define CURR_VIDEO_CFG_VERSION		"1.0.0"
 
 #define APP_VERSION 					"version=1.1.5\n"
 #define UDP_SERVER_ADDR  				"udp.iped.com.cn"

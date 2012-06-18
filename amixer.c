@@ -1992,7 +1992,7 @@ int test_set_sound_card()
 	memset(argv[0],0,512);
 	memset(argv[1],0,512);
 	sprintf(argv[0],"numid=3,iface=MIXER,name=\'HP Playback Volume\'");
-	sprintf(argv[1],"90");
+	sprintf(argv[1],"120");
 	argv[0][strlen(argv[0])]='\0';
 	argv[1][strlen(argv[1])]='\0';
 	ret = cset(2, argv, 0, 0) ;

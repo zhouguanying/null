@@ -32,6 +32,9 @@
 #include "cli.h"
 #include "sound.h"
 
+#include "speex_echo.h"
+#include "speex_preprocess.h"
+
 #define L_PCM_8K			160
 #define L_PCM_16K			320
 
@@ -42,7 +45,7 @@
 #define DEFAULT_SPEED 		 8000  //change it if the L_PCM_USE is changed
 #define DEFAULT_CHANNELS	 2	//don't change it
 #define CHAUNK_BYTES_MAX	 (4096*100)  //change it to match your sound card
-#define PERIODS_PER_BUFFSIZE  8		//change it to match your sound card
+#define PERIODS_PER_BUFFSIZE  8//change it to match your sound card
 #define PCM_NAME			 "plughw:0,0"  
 #define SOUND_PORT			5000
 #define AMR_MODE			7     // 0-7 if it is not in this range the program will use 7 as default
@@ -1190,20 +1193,53 @@ int init_and_start_sound(){
 	printf(" the argument set correct now goto test\n");
 	printf("chunk_size==%d\n",audiothreadparams.params->chunk_size);
 	int r;
+	int not_write = 1;
 	FILE*fp;
 	FILE*fp1;
 	unsigned short*psrc;
 	unsigned short*pdst;
-	char *dst;
-	char *src;
-	char *tmp;
+	spx_int16_t *mic_buf;
+	spx_int16_t *echo_buf;
+	spx_int16_t *out_buf;
+	//char *dst;
+	//char *src;
+	//char *tmp;
 	ssize_t src_size=0;
+	SpeexEchoState *st = NULL;
+	SpeexPreprocessState *den = NULL;
+	st = speex_echo_state_init(audiothreadparams.params->chunk_size, 160*5);
+	den = speex_preprocess_state_init(audiothreadparams.params->chunk_size, 8000);
+	int tmp = 8000;
+	speex_echo_ctl(st, SPEEX_ECHO_SET_SAMPLING_RATE, &tmp);
+	speex_preprocess_ctl(den, SPEEX_PREPROCESS_SET_ECHO_STATE, st);
+	out_buf =(spx_uint16_t*)malloc(audiothreadparams.params->chunk_bytes);
+	if(!out_buf){
+		printf("malloc buf for out_buf error\n");
+		return -1;
+	}
+	pcm_frames = audiothreadparams.params->chunk_size;
 	while(1){
 		r=pcm_read((u_char*)audiothreadparams.rdthread.audiobuf,audiothreadparams.params->chunk_size);
 		if(r<0){
 			printf("grab sound data error\n");
 			return -1;
 		}
+		if(not_write){
+			not_write = 0;
+			memcpy(audiothreadparams.wrthread.audiobuf , audiothreadparams.rdthread.audiobuf ,audiothreadparams.params->chunk_bytes);
+		}else{
+			mic_buf= (spx_int16_t*)audiothreadparams.rdthread.audiobuf;
+			echo_buf=(spx_int16_t*) audiothreadparams.wrthread.audiobuf;
+		//	while(mic_buf<audiothreadparams.rdthread.audiobuf+audiothreadparams.params->chunk_bytes){
+				speex_echo_cancellation( st, mic_buf, echo_buf, out_buf);
+				speex_preprocess_run(den, out_buf);
+			//	mic_buf+=160;
+				//echo_buf+=160;
+				//out_buf+=160;
+			//}
+			memcpy(audiothreadparams.wrthread.audiobuf ,( char *)out_buf ,audiothreadparams.params->chunk_bytes);
+		}
+		/*
 		printf("read frames == %d  size==%d\n", r ,  audiothreadparams.params->chunk_bytes);
 		r=amrcoder(audiothreadparams.rdthread.audiobuf, audiothreadparams.params->chunk_bytes, audiothreadparams.cop_data_buf, & audiothreadparams.cop_data_length,AMR_MODE,2);
 		printf("after code the size is %d \n",  audiothreadparams.cop_data_length);
@@ -1213,6 +1249,7 @@ int init_and_start_sound(){
 			return -1;
 		}
 		printf("after decode pcm_frames ==%d\n",pcm_frames);
+		*/
 		r=pcm_write(audiothreadparams.wrthread.audiobuf, pcm_frames);
 		if(r<0){
 			printf("pcm write error\n");

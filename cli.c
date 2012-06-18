@@ -235,6 +235,12 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 		 	goto done;
 		 else if(strncmp(argv[0],"search_wifi",11)==0)
 		 	goto done;
+		 else if(strncmp(argv[0],"set_pswd",8)==0)
+		 	goto done;
+		 else if(strncmp(argv[0],"check_pswd",10)==0)
+		 	goto done;
+		 else if(strncmp(argv[0],"pswd_state",10)==0)
+		 	goto done;
 		 pthread_mutex_unlock(&global_ctx_lock);
 		 return NULL;
 done:
@@ -1693,7 +1699,88 @@ char * get_clean_video_cfg()
 	return cfg_buf;
 }
 
-
+static char *SetPswd(char*arg)
+{
+	FILE *fp;
+	struct stat st;
+	char buf[512];
+	int pswd_size;
+	if(!arg){
+		printf("##############SetPswd no argument#########\n");
+		return strdup(PASSWORD_FAIL);
+	}
+	if(strncmp(arg,PASSWORD_PART_ARG,strlen(PASSWORD_PART_ARG))!=0){
+		printf("##############setpswd invalide argument##############\n");
+		return strdup(PASSWORD_FAIL);
+	}
+	if(stat(PASSWORD_FILE , &st)==0){
+		memset(buf,0,512);
+		fp = fopen(PASSWORD_FILE,"r");
+		if(fp){
+			pswd_size = fread(buf,1,512,fp);
+			if(pswd_size>0){
+				if(strlen(arg)==strlen(buf)&&strncmp(arg,buf,strlen(arg))==0){
+					fclose(fp);
+					return strdup(PASSWORD_OK);
+				}
+			}
+			fclose(fp);
+		}
+		return strdup(PASSWORD_FAIL);
+	}
+	fp = fopen(PASSWORD_FILE , "w");
+	if(fp){
+		if(fwrite(arg,1,strlen(arg),fp)==strlen(arg)){
+			fclose(fp);
+			printf("################set password ok %s ############\n",arg);
+			return strdup(PASSWORD_OK);
+		}
+		else{
+			fclose(fp);
+			sprintf(buf,"rm %s",PASSWORD_FILE);
+			system(buf);
+			return strdup(PASSWORD_FAIL);
+		}
+	}
+	return strdup(PASSWORD_FAIL);
+}
+static char *CheckPswd(char *arg){
+	FILE *fp;
+	struct stat st;
+	char buf[512];
+	int pswd_size;
+	if(!arg){
+		printf("##############SetPswd no argument#########\n");
+		return strdup(PASSWORD_FAIL);
+	}
+	if(strncmp(arg,PASSWORD_PART_ARG,strlen(PASSWORD_PART_ARG))!=0){
+		printf("##############setpswd invalide argument##############\n");
+		return strdup(PASSWORD_FAIL);
+	}
+	if(stat(PASSWORD_FILE , &st)==0){
+		fp = fopen(PASSWORD_FILE,"r");
+		if(fp){
+			memset(buf,0,512);
+			pswd_size = fread(buf,1,512,fp);
+			if(pswd_size>0){
+				if(strlen(arg)==strlen(buf)&&strncmp(arg,buf,strlen(arg))==0){
+					fclose(fp);
+					return strdup(PASSWORD_OK);
+				}
+			}
+			fclose(fp);
+		}
+	}
+	return strdup(PASSWORD_FAIL);
+}
+static char *PswdState()
+{
+	struct stat st;
+	if(stat(PASSWORD_FILE , &st)==0)
+		return strdup(PASSWORD_SET);
+	else
+		return strdup(PASSWORD_NOT_SET);
+}
 static char* GetConfig(char* arg , int *rsp_len)
 {
 	char ConfigType;
@@ -1706,9 +1793,20 @@ static char* GetConfig(char* arg , int *rsp_len)
 	unsigned long sd_freesize;
 	int size;
 	char slength[5];
+	//struct stat st;
 	if(!arg)
 		return NULL;
 	ConfigType = (int)*arg;
+	/*
+	arg++;
+	if(*arg!=':'){
+		dbg("##########the argument not have password \n");
+		if(stat(PASSWORD_FILE,&st)!=0){
+		}else{
+			strdup("PSWD_FAIL")
+		}
+	}
+	*/
 	ret = malloc(4096);
 	if(!ret) return NULL;
 	memset(ret , 0 ,4096);
@@ -2503,6 +2601,13 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
         }
 	 else if(strncmp(cmd,"search_wifi",11)==0)
 	 	return search_wifi(param);
+	 else if(strncmp(cmd,"set_pswd",8)==0){
+	 	return SetPswd(param);
+	 }else if(strncmp(cmd,"check_pswd",10)==0){
+	 	return CheckPswd(param);
+	 }else if(strncmp(cmd,"pswd_state",10)==0){
+	 	return PswdState();
+	 }
 	 /*the second class*/
         if (sess == NULL || cmd == NULL) return NULL;
 		//dbg("%s\n",cmd);

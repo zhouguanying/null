@@ -550,9 +550,22 @@ int set_raw_config_value(char * buffer)
 			s++;
 		if(strncmp(name,"system_time",strlen("system_time"))==0)
 			set_system_time(value);
+		/*
 		else if(strncmp(name, CFG_PSWD ,strlen(CFG_PSWD))==0){
-			//FILE*pswdfp = fopen("
-		}else
+			printf("#################we found pswd now set it###############\n");
+			printf("############pswd=%s################\n",value);
+			if(strlen(value)!=0){
+				FILE*pswdfp = fopen(PASSWORD_FILE , "w");
+				if(pswdfp){
+					fwrite(value,1,strlen(value),pswdfp);
+					fclose(pswdfp);
+					printf("##################set pswd ok##############\n");
+				}else{
+					printf("##################set pswd fail#################\n");
+				}
+			}
+		}*/
+		else
 			set_value(conf_p,lines, name, 1,  value);
 	}
 out:
