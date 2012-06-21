@@ -13,9 +13,14 @@
 #include <arpa/inet.h>
 #include <netdb.h> 
 #include <resolv.h>
+#include "vpu_server.h"
 
 void restart_v4l2(int width , int height );
 
+#define dbg(fmt, args...)  \
+    do { \
+        printf(__FILE__ ": %s: " fmt, __func__, ## args); \
+    } while (0)
 #define CAM_ID   1
 
 #define LOCAL_ALIVE_PORT 3000
@@ -146,6 +151,7 @@ void delete_timeout_mapping(uint32_t ip,uint16_t cliport)
 				for(i=1;i<PORT_COUNT;i++)
 					close(p->udpsock[i]);
 				put_local_port(p->local_port[NAT_V_PORT]);
+				pthread_mutex_destroy(&p->mapping_lock);
 				free(p);
 				ready_count--;
 				continue;
@@ -308,6 +314,35 @@ int build_local_sock(uint16_t port)
 	  free(s);
 	  return sockfd; 
 }
+extern int msqid;
+static inline void transfer_thread_start()
+{
+	int ret;
+	vs_ctl_message msg;
+	msg.msg_type = VS_MESSAGE_ID;
+	msg.msg[0] = VS_MESSAGE_UDP_STUN_START;
+	msg.msg[1] = 0;
+	ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
+	if(ret == -1){
+		dbg("send daemon message error\n");
+		system("reboot &");
+		exit(0);
+	}
+}
+static inline void transfer_thread_alive()
+{
+	int ret;
+	vs_ctl_message msg;
+	msg.msg_type = VS_MESSAGE_ID;
+	msg.msg[0] = VS_MESSAGE_UDP_STUN_ALIVE;
+	msg.msg[1] = 0;
+	ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
+	if(ret == -1){
+		dbg("send daemon message error\n");
+		system("reboot &");
+		exit(0);
+	}
+}
 int transfer_thread()
 {
 	int ret;
@@ -356,6 +391,7 @@ int transfer_thread()
    	 }
 	  free(s);
 	  //pthread_mutex_lock(&threadcfg.threadcfglock);
+	  transfer_thread_start();
 get_server_addr:
 	  if( (server_addr=inet_addr(threadcfg.server_addr))==INADDR_NONE)
     	{
@@ -363,7 +399,8 @@ get_server_addr:
 	        {
 	           herror("server address gethostbyname error ");
 		    printf("server_addr = %s\n",threadcfg.server_addr);
-	           sleep(5);
+	           sleep(3);
+		    transfer_thread_alive();
 		    res_init();
 		    goto get_server_addr;
 	        }
@@ -391,8 +428,10 @@ get_server_addr:
 				break; 
 			}
 		//	printf("camera set alive recv error req_len==%d\n",req_len);
+			  transfer_thread_alive();
 			usleep(1000);
 		} 
+	  transfer_thread_alive();
 	gettimeofday(&oldtime,NULL);
 	printf("camera set alive ok\n");
 	while(1){
@@ -411,9 +450,18 @@ get_server_addr:
 			memcpy(&req[3],&ncamid,sizeof(ncamid));
     			sendto(sockfd, req, size+PACK_HEAD_SIZE, 0,(struct sockaddr *) &from, fromlen); 
 			req_len=recvfrom(sockfd, req, BUF_SZ, 0, (struct sockaddr *) &from, &fromlen); 
+			  transfer_thread_alive();
 			gettimeofday(&oldtime,NULL);
 		}
 		req_len=recvfrom(sockfd, req, BUF_SZ, 0, (struct sockaddr *) &from, &fromlen);
+		if(is_do_update()){
+			dbg("is do update exit now\n");
+			for(;;){
+				  transfer_thread_alive();
+				  sleep(3);
+			}
+		}
+	       transfer_thread_alive();
 		if(req_len<=0)
 			continue;
 		memcpy(&nsize,&req[1],sizeof(nsize));

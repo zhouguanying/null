@@ -24,6 +24,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/ioctl.h>
 
 #include "types.h"
 #include "sockets.h"
@@ -41,14 +42,14 @@
 /*pcm frames per 0.02s(a frame of amr),if it is change,you should change DEFAULT_SPEED to corresponding speed*/
 #define L_PCM_USE			L_PCM_8K
 
-#define DEFAULT_FORMAT		 SND_PCM_FORMAT_S16_LE   //don't change it 
-#define DEFAULT_SPEED 		 8000  //change it if the L_PCM_USE is changed
-#define DEFAULT_CHANNELS	 2	//don't change it
-#define CHAUNK_BYTES_MAX	 (4096*100)  //change it to match your sound card
-#define PERIODS_PER_BUFFSIZE  8//change it to match your sound card
+#define DEFAULT_FORMAT		 SND_PCM_FORMAT_S16_LE   /*don't change it */
+#define DEFAULT_SPEED 		 8000  /*change it if the L_PCM_USE is changed*/
+#define DEFAULT_CHANNELS	 2	/*don't change it*/
+#define CHAUNK_BYTES_MAX	 (4096*100)  /*change it to match your sound card*/
+#define PERIODS_PER_BUFFSIZE  8/*change it to match your sound card*/
 #define PCM_NAME			 "plughw:0,0"  
 #define SOUND_PORT			5000
-#define AMR_MODE			7     // 0-7 if it is not in this range the program will use 7 as default
+#define AMR_MODE			7     /* 0-7 if it is not in this range the program will use 7 as default*/
 
 /*next two define just for debug */
 #define DEFAULT_IP			"192.168.1.151"
@@ -170,6 +171,69 @@ static void signal_handler(int sig)
 /*
 * I am not sure if we need to set params at each open mode(read or write) 
 */
+
+#define IOCTL_GET_SPK_CTL   _IOR('x',0x01,int)
+#define IOCTL_SET_SPK_CTL   _IOW('x',0x02,int)
+
+static inline int turn_on_speaker()
+{
+	 int fd; 
+
+	// printf("test program\n");
+	        
+	 fd = open ("/dev/mxs-gpio", O_RDWR);
+	 if (fd<0)
+	  {   
+	       dbg ("file open error \n");
+	        return -1; 
+	  }   
+	  ioctl(fd, IOCTL_SET_SPK_CTL, 1); 
+	    
+	  dbg("speaker is %s\n",ioctl(fd, IOCTL_GET_SPK_CTL, 0)?"on":"off");
+
+	  close (fd);
+
+	   return 0;
+
+}
+static inline int turn_off_speaker()
+{
+	int fd; 
+
+	// printf("test program\n");
+	        
+	 fd = open ("/dev/mxs-gpio", O_RDWR);
+	 if (fd<0)
+	  {   
+	       dbg ("file open error \n");
+	        return -1; 
+	  }   
+	  ioctl(fd, IOCTL_SET_SPK_CTL, 0); 
+	    
+	  dbg("speaker is %s\n",ioctl(fd, IOCTL_GET_SPK_CTL, 0)?"on":"off");
+
+	  close (fd);
+
+	   return 0;
+
+}
+
+static inline int  is_speaker_on()
+{
+	int fd; 
+	int ret;
+	 fd = open ("/dev/mxs-gpio", O_RDWR);
+	 if (fd<0)
+	  {   
+	       dbg ("file open error \n");
+	        return -1; 
+	  }   
+	    
+	 ret =  ioctl(fd, IOCTL_GET_SPK_CTL, 0);
+	  close (fd);
+	  return ret;
+}
+
 static int setparams_stream(snd_pcm_t *handle,
 						  snd_pcm_hw_params_t *params,
 						  const char *id)
@@ -770,11 +834,11 @@ static int test_sound_tcp_read_data(struct sess_ctx*sess){
 	ssize_t ret;
 	ssize_t n;
 	char *src;
-	unsigned char *psrc;
+	//unsigned char *psrc;
 	ssize_t pcm_frames;
 	struct timeval recvtime;
-	int waitdata=0;  /*If we recv data length not round to a amr frame size,recv again till it be*/
-	int i=0;
+	//int waitdata=0;  /*If we recv data length not round to a amr frame size,recv again till it be*/
+	//int i=0;
 	const ssize_t rd=(audiothreadparams.params->chunk_size+L_PCM_USE-1)/L_PCM_USE*amr_f_size[AMR_MODE];
 	int sockfd=sess->s3;
 	recvtime.tv_sec=1;
@@ -791,7 +855,6 @@ static int test_sound_tcp_read_data(struct sess_ctx*sess){
 	while(1){
 		r=rd;
 		data_len=0;
-__again:
 		pthread_mutex_lock(&sess->sesslock);
 		if(!sess->running){
 			pthread_mutex_unlock(&sess->sesslock);
@@ -942,7 +1005,7 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
 		pthread_mutex_unlock(&sess->sesslock);
 		printf("sound thread is running ,ready to connect\n");
 __tryaccept:
-		selecttv.tv_sec = 5;
+		selecttv.tv_sec = 3;
 		selecttv.tv_usec = 0;
 		fromlen = sizeof(struct sockaddr_in);
 		FD_ZERO(&acceptfds);
@@ -1076,10 +1139,10 @@ int init_and_start_sound(){
 	int latency;
 	int i;
 #if TEST
-	int n=1;
-	ssize_t dst_size;
+	//int n=1;
+	//ssize_t dst_size;
 	ssize_t pcm_frames;
-	int ret;
+	//int ret;
 #endif
 	memset(&audiothreadparams,0,sizeof(audiothreadparams));
 	pthread_mutex_init(&audiothreadparams.audiothreadlock,NULL);
@@ -1126,12 +1189,22 @@ int init_and_start_sound(){
 		printf("cannot malloc rdthread buff\n");
 		goto __error;
 	}
+
+	if(is_speaker_on()==1)
+		dbg("#############speaker is on################\n");
+	else
+		dbg("#############speaker is off################\n");
+	//dbg("############try turn on speaker################\n");
+	//turn_on_speaker();
+	
 	for(i=0;i<PERIODS_PER_BUFFSIZE;i++){
      		 if (pcm_write((u_char*)(audiothreadparams.wrthread.audiobuf),(size_t)0) < 0) {
            		 printf("write error\n");
             		 goto __error;
          	 }
 	}
+	//sleep(3);
+	//turn_off_speaker();
 	if((init_amrcoder(0))<0){
 		printf("init amrcoder error\n");
 		goto __error;
@@ -1192,12 +1265,16 @@ int init_and_start_sound(){
 	printf("TEST!\n");
 	printf(" the argument set correct now goto test\n");
 	printf("chunk_size==%d\n",audiothreadparams.params->chunk_size);
+	printf("chunk_bytes=%d\n",audiothreadparams.params->chunk_bytes);
 	int r;
 	int not_write = 1;
 	FILE*fp;
 	FILE*fp1;
-	unsigned short*psrc;
-	unsigned short*pdst;
+	int dn;
+	int noiseSuppress = -25; 
+	//int i;
+	//spx_int16_t*p2cmic;
+	//spx_int16_t*p2cecho;
 	spx_int16_t *mic_buf;
 	spx_int16_t *echo_buf;
 	spx_int16_t *out_buf;
@@ -1207,13 +1284,19 @@ int init_and_start_sound(){
 	ssize_t src_size=0;
 	SpeexEchoState *st = NULL;
 	SpeexPreprocessState *den = NULL;
-	st = speex_echo_state_init(audiothreadparams.params->chunk_size, 160*5);
+	st = speex_echo_state_init_mc(audiothreadparams.params->chunk_size, 1600, 2 ,2);
 	den = speex_preprocess_state_init(audiothreadparams.params->chunk_size, 8000);
 	int tmp = 8000;
 	speex_echo_ctl(st, SPEEX_ECHO_SET_SAMPLING_RATE, &tmp);
 	speex_preprocess_ctl(den, SPEEX_PREPROCESS_SET_ECHO_STATE, st);
+	//dn = 1;
+	//speex_preprocess_ctl(den, SPEEX_PREPROCESS_SET_DENOISE, &dn);
+	//noiseSuppress = -25;  
+	//speex_preprocess_ctl(den, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noiseSuppress);
+	//mic_buf = (spx_uint16_t*)malloc(audiothreadparams.params->chunk_bytes/2);
+	//echo_buf = (spx_uint16_t*)malloc(audiothreadparams.params->chunk_bytes/2);
 	out_buf =(spx_uint16_t*)malloc(audiothreadparams.params->chunk_bytes);
-	if(!out_buf){
+	if(!out_buf/*||!mic_buf||!echo_buf*/){
 		printf("malloc buf for out_buf error\n");
 		return -1;
 	}
@@ -1228,28 +1311,29 @@ int init_and_start_sound(){
 			not_write = 0;
 			memcpy(audiothreadparams.wrthread.audiobuf , audiothreadparams.rdthread.audiobuf ,audiothreadparams.params->chunk_bytes);
 		}else{
-			mic_buf= (spx_int16_t*)audiothreadparams.rdthread.audiobuf;
-			echo_buf=(spx_int16_t*) audiothreadparams.wrthread.audiobuf;
-		//	while(mic_buf<audiothreadparams.rdthread.audiobuf+audiothreadparams.params->chunk_bytes){
-				speex_echo_cancellation( st, mic_buf, echo_buf, out_buf);
-				speex_preprocess_run(den, out_buf);
-			//	mic_buf+=160;
-				//echo_buf+=160;
-				//out_buf+=160;
-			//}
-			memcpy(audiothreadparams.wrthread.audiobuf ,( char *)out_buf ,audiothreadparams.params->chunk_bytes);
-		}
 		/*
-		printf("read frames == %d  size==%d\n", r ,  audiothreadparams.params->chunk_bytes);
-		r=amrcoder(audiothreadparams.rdthread.audiobuf, audiothreadparams.params->chunk_bytes, audiothreadparams.cop_data_buf, & audiothreadparams.cop_data_length,AMR_MODE,2);
-		printf("after code the size is %d \n",  audiothreadparams.cop_data_length);
-		if(amrdecoder(audiothreadparams.cop_data_buf, audiothreadparams.cop_data_length, audiothreadparams.wrthread.audiobuf, &pcm_frames, 2)<0){
-			printf("amrdecoder error\n");
-			//pthread_mutex_unlock(&audiothreadparams.audiothreadlock);
-			return -1;
+			p2cmic =(spx_int16_t *) audiothreadparams.rdthread.audiobuf;
+			p2cecho =(spx_int16_t*)audiothreadparams.wrthread.audiobuf;
+			for(i = 0; i<audiothreadparams.params->chunk_size;i++){
+				mic_buf[i] = p2cmic[i*2];
+				echo_buf[i] = p2cecho[i*2];
+			}
+			*/
+			mic_buf = (spx_int16_t *) audiothreadparams.rdthread.audiobuf;
+			echo_buf = (spx_int16_t*)audiothreadparams.wrthread.audiobuf;
+			speex_echo_cancellation( st, mic_buf, echo_buf, out_buf);
+			speex_preprocess_run(den, out_buf);
+			memcpy(audiothreadparams.wrthread.audiobuf, (char *)out_buf , audiothreadparams.params->chunk_bytes);
+			/*
+			p2cecho =(spx_int16_t*)audiothreadparams.wrthread.audiobuf;
+			for(i = 0; i<audiothreadparams.params->chunk_size;i++){
+				*p2cecho = out_buf[i];
+				p2cecho++;
+				*p2cecho = out_buf[i];
+				p2cecho++;
+			}
+			*/
 		}
-		printf("after decode pcm_frames ==%d\n",pcm_frames);
-		*/
 		r=pcm_write(audiothreadparams.wrthread.audiobuf, pcm_frames);
 		if(r<0){
 			printf("pcm write error\n");
@@ -1257,42 +1341,6 @@ int init_and_start_sound(){
 		}
 		usleep(1000);
 	}
-	/*
-	fp1=fopen("/sdcard/my1.amr","r");
-	if(fp1==NULL){
-		printf("cannot open fp1\n");
-		return -1;
-	}
-	test_set_sound_card();
-	*/
-	/*
-	dst=malloc(128);
-	while(fread(dst,1,128,fp1)==128){
-		ret=amrdecoder(dst,128,audiothreadparams.wrthread.audiobuf,&pcm_frames,2);
-		if(ret<0){
-			printf("amr decoder error\n");
-			//free(dst);
-			break;
-		}
-		printf("pcm_frames==%d\n",pcm_frames);
-		*/
-		//free(dst);
-		/*
-		for(r=0;r<dst_size;r++){
-			printf("%x ",(int)dst[r]);
-		}
-		*/
-		//memcpy(audiothreadparams.wrthread.audiobuf,audiothreadparams.rdthread.audiobuf,audiothreadparams.params->chunk_bytes);
-		/*
-		if((r=pcm_write(audiothreadparams.wrthread.audiobuf,pcm_frames))<0){
-			printf("pcm write error!\n");
-			break;
-		}
-		printf("write size=%d\n",r);
-		printf("test %d done\n",n++);
-	}
-	free(dst);
-	*/
 	audiothreadparams.running=0;
 	snd_pcm_close(audiothreadparams.wrthread.handle);
 	snd_pcm_close(audiothreadparams.rdthread.handle);

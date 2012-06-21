@@ -209,17 +209,17 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	vs_ctl_message msg;
 	int ret;
 
-	if( start_cli(system_sess) == NULL ){
-		printf("cli start error\n");
-		return -1;
-	}
 	printf("cli is running\n");
 	msqid = msgget(DAEMON_MESSAGE_QUEUE_KEY,0666);
 	if(msqid ==-1){
 		dbg("unable to open daemon message");
 		exit (0);
 	}
-
+	if( start_cli(system_sess) == NULL ){
+		printf("cli start error\n");
+		return -1;
+	}
+	
 	/*
 	if (pthread_create(&tid, NULL, (void *) start_video_monitor, system_sess) < 0) {
 		free_system_session(system_sess);
@@ -261,6 +261,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 #else
 	if( start_udp_transfer()<0){
 		printf("start_udp_transfer error\n");
+		exit(0);
 	}
 #endif
 
@@ -270,13 +271,14 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
 	if(ret == -1){
 		dbg("send daemon message error\n");
+		system("reboot &");
 		exit(0);
 	}
 	msg.msg_type = VS_MESSAGE_ID;
 	msg.msg[0] = VS_MESSAGE_MAIN_PROCESS_ALIVE;
 	msg.msg[1] = 0;
 	while(1) {
-		sleep(2);
+		sleep(3);
 		ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
 		if(ret == -1){
 			dbg("send daemon message error\n");
@@ -416,6 +418,21 @@ static int write_config_value(struct configstruct *allconfig,int elements)
 	fclose(fp);
 	return 0;
 }
+static inline void vs_msg_update_system_time()
+{
+	int ret;
+	vs_ctl_message msg;
+	msg.msg_type = VS_MESSAGE_ID;
+	msg.msg[0] = VS_MESSAGE_UPDATE_SYSTEM_TIME;
+	msg.msg[1] = 0;
+	ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
+	if(ret == -1){
+		dbg("send daemon message error\n");
+		system("reboot &");
+		exit(0);
+	}
+	dbg("snd update system time ok\n");
+}
 int set_system_time(char * time)
 {
 	char buf[32];
@@ -469,8 +486,12 @@ int set_system_time(char * time)
 	timep = mktime(&_tm);
 	tv.tv_sec = timep;
 	tv.tv_usec = 0;
+	vs_msg_update_system_time();
+	sleep(5);
+	tv.tv_sec+=3;
 	if(settimeofday(&tv , NULL)<0){
 		printf("settime fail\n");
+		return -1;
 	}
 	printf("set time sucess\n");
 	printf("time==%s\n",time);
@@ -549,7 +570,7 @@ int set_raw_config_value(char * buffer)
 		if(*s=='\n')
 			s++;
 		if(strncmp(name,"system_time",strlen("system_time"))==0)
-			set_system_time(value);
+			/*set_system_time(value)*/;
 		/*
 		else if(strncmp(name, CFG_PSWD ,strlen(CFG_PSWD))==0){
 			printf("#################we found pswd now set it###############\n");
@@ -1350,6 +1371,8 @@ int get_cam_id(unsigned int *id)
 #define HID_READ_VIDEO_CFG 		   1
 #define HID_WRITE_VIDEO_CFG	 	   2
 #define HID_READ_SEARCH_WIFI		   3
+#define HID_RESET_TO_DEFAULT		   4
+#define HID_SET_PSWD				   5
 
 #define HID_FAILE					   4
 
@@ -1364,6 +1387,20 @@ char * get_clean_video_cfg();
 void sig_handle(int signo)
 {
 	exit(0);
+}
+void read_pswd()
+{
+	struct stat st;
+	FILE*pswdfp;
+	memset(threadcfg.pswd,0,128);
+	if(stat(PASSWORD_FILE , &st)==0){
+		pswdfp = fopen(PASSWORD_FILE,"r");
+		fread(threadcfg.pswd,1,128,pswdfp);
+		fclose(pswdfp);
+		printf("pswd=%s\n",threadcfg.pswd);
+	}else{
+		printf("pswd not set\n");
+	}
 }
 int main()
 {
@@ -1424,7 +1461,7 @@ int main()
 			sprintf(buf , "cp %s %s",MONITOR_PAR_FILE , RECORD_PAR_FILE);
 			system(buf);
 		}else{
-			char *p;
+			p = NULL;
 			while(fgets(buf,512,fd)!=NULL){
 				p=buf;
 				while(*p==' '||*p=='\t')p++;
@@ -1434,7 +1471,7 @@ int main()
 			}
 			fclose(fd);
 			usleep(500000);
-			if(strncmp(p,CFG_VERSION,strlen(CFG_VERSION))==0){
+			if(p&&strncmp(p,CFG_VERSION,strlen(CFG_VERSION))==0){
 				while(*p&&*p!='=')p++;
 				if(*p=='=')p++;
 				while(*p&&(*p==' '||*p=='\t'))p++;
@@ -1571,6 +1608,58 @@ int main()
 						printf("##################################################\n");
 						set_raw_config_value(hid_buf);
 						free(hid_buf);
+						break;
+					case HID_RESET_TO_DEFAULT:
+						printf("HID_CFG_RESET_TO_DEFAULT\n");
+						memset(buf,0,512);
+						sprintf(buf,"rm %s",PASSWORD_FILE);
+						system(buf);
+						memset(buf , 0 ,512);
+						sprintf(buf,"cp %s %s",MONITOR_PAR_FILE , RECORD_PAR_FILE);
+						system(buf);
+						break;
+					case HID_SET_PSWD:
+						printf("HID_SET_PSWD\n");
+						do{
+							ret = read(hid_fd, hid_r_cmd, 2);
+						}while(ret!=2);
+						memcpy(&data_len , hid_r_cmd , 2);
+						memset(buf,0,512);
+						sprintf(buf,PASSWORD_PART_ARG);
+						p = buf;
+						p += strlen(buf);
+						printf("data_len=%d\n",(int)data_len);
+						for(i=0;i<data_len;i+=2){
+							do{
+								usleep(10000);
+								ret = read(hid_fd, hid_r_cmd, 2);
+								if(ret == 1)
+									printf("***********read one char****************\n");
+							}while(ret!=2);
+							*p = hid_r_cmd[0];
+							p++;
+							*p = hid_r_cmd[1];
+							p++;
+							printf("i==%d , %2x %2x \n",i , hid_r_cmd[0],hid_r_cmd[1]);
+						}
+						data_len +=strlen(PASSWORD_PART_ARG);
+						fd = fopen(PASSWORD_FILE,"w");
+						if(!fd){
+							printf("open password file fail\n");
+							goto hid_fail;
+						}
+						if(fwrite(buf,1,data_len,fd)!=data_len){
+							fflush(fd);
+							fclose(fd);
+							usleep(50000);
+							memset(buf,0,512);
+							sprintf(buf,"rm %s",PASSWORD_FILE);
+							system(buf);
+							printf("write pswd fail\n");
+							goto hid_fail;
+						}
+						printf("%s\n",buf);
+						fclose(fd);
 						break;
 					default:
 					hid_fail:
@@ -1808,14 +1897,16 @@ read_config:
 		//set_value(conf_p, lines, "cam_id", 0, &threadcfg.cam_id);
 		
 		printf("cam_id = %x\n",threadcfg.cam_id);
+
+		read_pswd();
 		
 		//extract_value(conf_p, lines, "name", 1, threadcfg.name);
 		//printf("name = %s\n",threadcfg.name);
 
 		sprintf(threadcfg.name,"ipcam");
 
-		extract_value(conf_p, lines, CFG_PSWD, 1, threadcfg.password);
-		printf("password = %s\n",threadcfg.password);
+		//extract_value(conf_p, lines, CFG_PSWD, 1, threadcfg.password);
+		//printf("password = %s\n",threadcfg.password);
 
 		//extract_value(conf_p, lines, "server_addr", 1, threadcfg.server_addr);
 		//printf("server_addr = %s\n",threadcfg.server_addr);

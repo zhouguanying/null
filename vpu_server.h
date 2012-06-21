@@ -52,6 +52,11 @@
 #define   VS_MESSAGE_MAIN_PROCESS_START  15
 #define   VS_MESSAGE_MAIN_PROCESS_ALIVE   16
 #define   VS_MESSAGE_DO_UPDATE			17
+#define   VS_MESSAGE_DO_CLI_START			18
+#define 	VS_MESSAGE_DO_CLI_ALIVE			19
+#define 	VS_MESSAGE_UDP_STUN_START		20
+#define 	VS_MESSAGE_UDP_STUN_ALIVE		21
+#define 	VS_MESSAGE_UPDATE_SYSTEM_TIME	22
 
  #define KERNAL_UPDATE_FILE   	"/tmp/kernel.update"
 #define SYSTEM_UPDATE_FILE		"/tmp/system.update"

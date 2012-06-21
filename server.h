@@ -122,10 +122,11 @@ struct sess_ctx {
  struct threadconfig
  {
 	pthread_mutex_t threadcfglock;
+	char pswd[128];
 	unsigned int 		cam_id;
 	int 		sdcard_exist;
 	char     	name[64];
-	char    	password[64];
+	//char    	password[64];
 	char 	server_addr[64];
 	char 	monitor_mode[64];
 	volatile int framerate;				//frame rate

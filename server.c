@@ -239,7 +239,7 @@ void init_g_sess_id_mask()
 
 int get_sess_id()
 {
-	static int count = 0;
+	//static int count = 0;
 	int i;
 	int ret;
 	ret = -1;
@@ -248,8 +248,8 @@ int get_sess_id()
 		if(g_sess_id_mask[i]==0){
 			g_sess_id_mask[i] = 1;
 			ret  = i;
-			count ++;
-			printf("######################get id index = %d count==%d#####################\n",i , count);
+			//count ++;
+			//printf("######################get id index = %d count==%d#####################\n",i , count);
 			break;
 		}
 	}
@@ -259,9 +259,9 @@ int get_sess_id()
 
 void put_sess_id(int index)
 {
-	static int count = 0;
-	count ++;
-	printf("###############put id index=%d count=%d##########################\n",index ,count);
+	//static int count = 0;
+	//count ++;
+	//printf("###############put id index=%d count=%d##########################\n",index ,count);
 	pthread_mutex_lock(&g_sess_id_mask_lock);
 	g_sess_id_mask[index] = 0;
 	pthread_mutex_unlock(&g_sess_id_mask_lock);
@@ -1357,7 +1357,7 @@ __tryaccept:
 		 			 goto exit;
 				 }
 				system_f_size +=r;
-				printf("recv data=%d curr size =%d expected size = %d\n",r ,system_f_size , __system_f_size);
+				//printf("recv data=%d curr size =%d expected size = %d\n",r ,system_f_size , __system_f_size);
 				scrc = checksum(scrc, (unsigned char *)buf, r);
 				if((unsigned int )r!=fwrite(buf,1,r,sfp)){
 					printf("**********error write system.update************\n");
@@ -1401,7 +1401,7 @@ __tryaccept:
 		 			 goto exit;
 				 }
 				kernal_f_size +=r;
-				printf("recv data=%d curr size =%d expected size = %d\n",r ,kernal_f_size , __kernal_f_size);
+				//printf("recv data=%d curr size =%d expected size = %d\n",r ,kernal_f_size , __kernal_f_size);
 				kcrc = checksum(kcrc, (unsigned char *)buf , r);
 				if((unsigned int)r!=fwrite(buf,1,r,kfp)){
 					printf("**********error write kernal.update************\n");
