@@ -43,6 +43,8 @@ char local_port_m[MAX_CONNECTIONS<<1];
 
 in_addr_t server_addr;
 
+uint16_t    server_interactive_port = 0;
+
 void init_local_m_data()
 {
 	pthread_mutex_init(&ready_list_lock,NULL);
@@ -268,7 +270,10 @@ static int build_nat_addr(int sockfd,int recvsock)
 
 	 from.sin_addr.s_addr = server_addr;
 	  from.sin_family=AF_INET;
-	  from.sin_port=htons(INTERACTIVE_PORT);
+	  if(server_interactive_port == 0)
+	  	from.sin_port = htons(INTERACTIVE_PORT);
+	  else
+		from.sin_port=server_interactive_port;
 	   fromlen=sizeof(struct sockaddr_in); 
 	   memset(req,0,sizeof(req));
 	   req[0]=(u8)NET_CAMERA_PORT;
@@ -467,11 +472,12 @@ get_server_addr:
 		memcpy(&nsize,&req[1],sizeof(nsize));
 		gettimeofday(&oldtime,NULL);
 		size=ntohs(nsize); 
+		dbg(" recv %s , from ip %s  port %d\n",req , inet_ntoa(from.sin_addr) , ntohs(from.sin_port));
 		if(req_len>0&&req_len==size+PACK_HEAD_SIZE){
 			printf("get command\n");
 			printf("req[0]==%d\n",req[0]);
 			printf("size==%d\n",size);
-			printf("udp_transfer size==%d\n",sizeof(struct udp_transfer));
+			//printf("udp_transfer size==%d\n",sizeof(struct udp_transfer));
 			switch(req[0]){
 				
 				case NET_CAMERA_SEND_PORTS:
@@ -544,7 +550,7 @@ get_server_addr:
 						struct in_addr inaddr;
 						inaddr.s_addr=p->ip;
 						printf("before conver ip==%x\n",pdest->ip);
-						printf("\n##########################CAMERA ###############################\n");
+						printf("\n##########################CAMERA #########################\n");
 						printf("connected in ip:%s\n",inet_ntoa(inaddr));
 						printf("cli port:%d\n",ntohs(pdest->port[NAT_CLI_PORT]));
 						printf("video port:%d\n",ntohs(pdest->port[NAT_V_PORT]));
@@ -561,6 +567,18 @@ get_server_addr:
 					}
 					break;
 				}
+				case NET_CAMERA_INTERACTIVE_PORT:
+					printf("NET_CAMERA_INTERACTIVE_PORT\n");
+					if(size != sizeof(server_interactive_port))
+						break;
+					memcpy(&server_interactive_port,&req[PACK_HEAD_SIZE],sizeof(server_interactive_port));
+					 from.sin_addr.s_addr = server_addr;
+					 from.sin_family=AF_INET;
+					 from.sin_port=server_interactive_port;
+					 fromlen=sizeof(struct sockaddr_in); 
+		    			ret = sendto(sockfd, "punch", 5, 0,(struct sockaddr *) &from, fromlen); 
+					dbg("get interactive port = %d , sendto return %d\n",ntohs(from.sin_port) , ret);
+					break;
 				default:
 					break;
 			}

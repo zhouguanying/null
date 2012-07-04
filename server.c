@@ -603,6 +603,7 @@ struct sess_ctx *new_system_session(char *name) {
 	return sess;
 
 error1:
+	put_sess_id(sess->id);
 	free(sess);
 
 	return NULL;
@@ -1565,7 +1566,7 @@ int start_video_monitor(struct sess_ctx* sess)
 
 	if(is_do_update())
 		goto exit;
-	printf("Starting video monitor server\n");
+	dbg("Starting video monitor server\n");
        add_sess( sess);
 	take_sess_up( sess);
 	//dbg("##############sess->id=%d################\n",sess->id);
@@ -1579,7 +1580,7 @@ int start_video_monitor(struct sess_ctx* sess)
 
 		
 		if (sess->is_tcp) {
-			selecttv.tv_sec = 3;
+			selecttv.tv_sec = 5;
 			selecttv.tv_usec = 0;
 			printf("ready to connect\n");
 __tryaccept:
@@ -1611,6 +1612,8 @@ __tryaccept:
 				tryaccpet --;
 				if(tryaccpet <=0){
 					socket = -1;
+					close(sess->s1);
+					sess->s1 = -1;
 					goto exit;
 				}
 				goto __tryaccept;
@@ -1639,7 +1642,7 @@ __tryaccept:
 				printf("%s: test  playback ret = %d\n", __func__, ret);
 				//conncect for playback firstly. if it fails, connect for monitor.
 				if(ret < 0){
-					timeout.tv_sec  = 3;
+					timeout.tv_sec  = 10;
 					timeout.tv_usec = 0;
 					 if (setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0){
 					            printf("Error enabling socket rcv time out \n");
@@ -1661,30 +1664,35 @@ __tryaccept:
 						while(size > 0 ) {
 							if( size >= 1000 ) {
 								ret = send(socket, buffer+i, 1000,0);
-								size -= 1000;
-								i += 1000;
+								if( ret <= 0 ) {
+									printf("sent data error,the connection may currupt!\n");
+									printf("ret==%d\n",ret);
+									printf("something wrong kill myself now\n");
+									goto exit;
+								}
+								//dbg("ret = %d\n",ret);
+								size -= ret;
+								i += ret;
 							} else {
 								ret = send(socket, buffer+i, size,0);
-								size = 0;
+								if( ret <= 0 ) {
+									printf("sent data error,the connection may currupt!\n");
+									printf("ret==%d\n",ret);
+									printf("something wrong kill myself now\n");
+									goto exit;
+								}
+								//dbg("ret = %d\n",ret);
+								size -= ret;
+								i += ret;
 							}
 						}
 						free(buffer);
-
-						
 						pthread_mutex_lock(&sess->sesslock);
 						if(!sess->running){
 							pthread_mutex_unlock(&sess->sesslock);
 							goto exit;
 						}
 						pthread_mutex_unlock(&sess->sesslock);
-
-						
-						if( ret < 0 ) {
-							printf("sent data error,the connection may currupt!\n");
-							printf("ret==%d\n",ret);
-							printf("something wrong kill myself now\n");
-							goto exit;
-						}
 						handle_video_thread();
 					}				
 				}else{
@@ -1700,6 +1708,11 @@ __tryaccept:
 	}
 exit:
 	/* Take down session */
+	pthread_mutex_lock(&sess->sesslock);
+	sess->running = 0;
+	pthread_mutex_unlock(&sess->sesslock);
+	if(sess->srtid>0)
+		pthread_join(sess->srtid,NULL);
 	del_sess(sess);
 	take_sess_down( sess);
 	
@@ -1948,7 +1961,7 @@ int start_video_record(struct sess_ctx* sess)
 			goto __out;
 		}
 		gettimeofday(&alive_curr_time,NULL);
-		if(alive_curr_time.tv_sec -alive_old_time.tv_sec>=3){
+		if(abs(alive_curr_time.tv_sec -alive_old_time.tv_sec)>=3){
 			ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
 			if(ret == -1){
 				dbg("send daemon message error\n");
@@ -2012,7 +2025,7 @@ int start_video_record(struct sess_ctx* sess)
 					if(record_normal_speed<25){
 						gettimeofday(&endtime,NULL);
 						timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - starttime.tv_sec ) + endtime.tv_usec - starttime.tv_usec;
-						if(timeuse>=usec_between_image){
+						if(abs(timeuse)>=usec_between_image){
 							memcpy(&starttime,&endtime,sizeof(struct timeval));
 						}else{
 							size0 = size;
@@ -2050,7 +2063,7 @@ int start_video_record(struct sess_ctx* sess)
 					}
 					gettimeofday(&endtime,NULL);
 					timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - starttime.tv_sec ) + endtime.tv_usec - starttime.tv_usec;
-					if(timeuse>=usec_between_image){
+					if(abs(timeuse)>=usec_between_image){
 						memcpy(&starttime,&endtime,sizeof(struct timeval));
 					}else{
 						pictures_to_write = 0;
@@ -2059,7 +2072,7 @@ int start_video_record(struct sess_ctx* sess)
 					if(record_fast_speed<25){
 						gettimeofday(&endtime,NULL);
 						timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - starttime.tv_sec ) + endtime.tv_usec - starttime.tv_usec;
-						if(timeuse>=usec_between_image){
+						if(abs(timeuse)>=usec_between_image){
 							memcpy(&starttime,&endtime,sizeof(struct timeval));
 						}else{
 							size0 = size;
@@ -2076,7 +2089,7 @@ int start_video_record(struct sess_ctx* sess)
 				record_last_state = RECORD_STATE_NORMAL;
 				gettimeofday(&endtime , NULL);
 				timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - starttime.tv_sec ) + endtime.tv_usec - starttime.tv_usec;
-				if(timeuse>=usec_between_image){
+				if(abs(timeuse)>=usec_between_image){
 					pictures_to_write = 1;
 					memcpy(&starttime , &endtime,sizeof(struct timeval));
 				}else
@@ -2099,7 +2112,7 @@ int start_video_record(struct sess_ctx* sess)
 		//printf("pictures to write ==%d\n", pictures_to_write);
 		if(email_alarm&&mail_alarm_tid&&pictures_to_write&&size>8000){
 			gettimeofday(&endtime , NULL);
-			if(endtime.tv_sec - mail_last_time.tv_sec>=1){
+			if(abs(endtime.tv_sec - mail_last_time.tv_sec)>=1){
 				char *image=malloc(size);
 				if(image){
 					memcpy(image,buffer,size);
@@ -2191,7 +2204,7 @@ retry:
 		//check if it is time come to write sound data
 		gettimeofday(&endtime,NULL);
 		timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - prev_write_sound_time.tv_sec ) + endtime.tv_usec - prev_write_sound_time.tv_usec;
-		if(timeuse>=(unsigned long long)1000000){
+		if(abs(timeuse)>=(unsigned long long)1000000){
 			write_syn_sound(&need_write_internal_head);
 			memcpy(&prev_write_sound_time,&endtime,sizeof(struct timeval));
 		}

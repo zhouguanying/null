@@ -97,7 +97,8 @@ static inline struct sockaddr_in * bind_in_socket(int sock, u16 port)
     struct ifreq ifr;
 
     if (sock < 0 || (s = create_in_addr(port)) == NULL)
-        return NULL;    
+        return NULL;
+	/*
     memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name, curr_device, IFNAMSIZ-1);
     if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, (char *)&ifr, sizeof(ifr)) == -1){
@@ -105,6 +106,7 @@ static inline struct sockaddr_in * bind_in_socket(int sock, u16 port)
 	free(s);
 	return NULL;
     }
+    */
     if (bind(sock, (struct sockaddr *) s, sizeof(*s)) < 0) {
         free(s);
         return NULL;

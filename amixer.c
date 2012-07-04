@@ -30,6 +30,7 @@
 #include <alsa/asoundlib.h>
 #include <sys/poll.h>
 #include "amixer.h"
+#include "server.h"
 
 #define LEVEL_BASIC		(1<<0)
 #define LEVEL_INACTIVE		(1<<1)
@@ -42,6 +43,8 @@ static int smixer_level = 0;
 static int ignore_error = 0;
 static struct snd_mixer_selem_regopt smixer_options;
 static char card[64] = "default";
+
+static int volume_percent = -1;
 
 static void error(const char *fmt,...)
 {
@@ -232,6 +235,11 @@ static long get_integer(char **ptr, long min, long max)
 	long val = min;
 	char *p = *ptr, *s;
 
+	if(volume_percent>=0){
+		val =(int) (max*volume_percent/100);
+		val = check_range(val, min, max);
+		return val;
+	}
 	if (*p == ':')
 		p++;
 	if (*p == '\0' || (!isdigit(*p) && *p != '-'))
@@ -1915,22 +1923,67 @@ struct sset_argv{
 	char *argv1;
 	char *argv2;
 };
-const struct sset_argv sarg[]={
-		{"\'Master\',0","50%%","unmute"},
-		{"\'PCM\',0", "80%%","unmute"},
-		{"\'Line\',0", "0%%","mute"},
-		{"\'CD\',0", "0%%", "mute"},
-		{"\'Mic\',0", "0%%", "mute"},
-		{"\'Video\',0", "0%%", "mute"},
-		{"\'Phone\',0", "0%%", "mute"},
-		{"\'PC Speaker\',0", "0%%", "mute"},
-		{"\'Aux\',0", "0%%" , "mute"},
-		{"\'Capture\',0", "50%%,0%%",NULL},
-		{"\'Mic Boost (+20dB)\',0", "1",NULL},
-		{NULL , NULL , NULL},
-};
+
+int alsa_set_volume(int value)
+{
+	int level=0;
+	int ret;
+	int i;
+	char *argv[3];
+	if(value<0||value>100)
+		return -1;
+	volume_percent = value;
+	argv[0]=malloc(256);
+	argv[1]=malloc(256);
+	argv[2]=malloc(256);
+	if(!argv[0]||!argv[1]||!argv[2]){
+		printf("error malloc buff for test set sound card\n");
+		exit(0);
+	}
+	sprintf(argv[0],"numid=9,iface=MIXER,name=\'Mic PGA Capture Volume\'");
+	sprintf(argv[1],"0");
+	argv[0][strlen(argv[0])]='\0';
+	argv[1][strlen(argv[1])]='\0';
+	ret = cset(2, argv, 0, 0) ;
+	if(ret<0){
+		printf("**********************cset1 error****************\n");
+		free(argv[0]);
+		free(argv[1]);
+		free(argv[2]);
+		volume_percent = -1;
+		return ret;
+	}
+	usleep(1000);
+	memset(argv[0],0,256);
+	memset(argv[1],0,256);
+	sprintf(argv[0],"numid=3,iface=MIXER,name=\'HP Playback Volume\'");
+	sprintf(argv[1],"0");
+	argv[0][strlen(argv[0])]='\0';
+	argv[1][strlen(argv[1])]='\0';
+	ret = cset(2, argv, 0, 0) ;
+	if(ret<0){
+		printf("**********************cset2 error****************\n");
+		free(argv[0]);
+		free(argv[1]);
+		free(argv[2]);
+		volume_percent = -1;
+		return ret;
+	}
+	printf("-----------cset sucess---------------------------\n");
+	
+	free(argv[0]);
+	free(argv[1]);
+	free(argv[2]);
+	volume_percent = -1;
+	//usleep(1000);
+	//controls(LEVEL_BASIC | level) ;
+	return 0;
+}
+
 int test_set_sound_card()
 {
+	return alsa_set_volume(threadcfg.volume);
+/*
 	int level=0;
 	int ret;
 	int i;
@@ -1942,40 +1995,6 @@ int test_set_sound_card()
 		printf("error malloc buff for test set sound card\n");
 		exit(0);
 	}
-	/*
-	memset(argv[0],0,512);
-	memset(argv[1],0,512);
-	memset(argv[2],0,512);
-	sprintf(argv[0],"\'Master\',0");
-	sprintf(argv[1],"50%%");
-	sprintf(argv[2],"unmute");
-	if(sset(3, argv, 0, 0)!=0){
-		printf("************\'Master\',0 50%% unmute  fail***************\n");
-		return -1;
-	}
-
-	memset(argv[0],0,512);
-	memset(argv[1],0,512);
-	memset(argv[2],0,512);
-	sprintf(argv[0],"\'PCM\',0");
-	sprintf(argv[1],"80%%");
-	sprintf(argv[2],"unmute");
-	if(sset(3, argv, 0, 0)!=0){
-		printf("************\'PCM\',0 80%% unmute  fail***************\n");
-		return -1;
-	}
-
-	memset(argv[0],0,512);
-	memset(argv[1],0,512);
-	memset(argv[2],0,512);
-	sprintf(argv[0],"\'Line\',0");
-	sprintf(argv[1],"0%%");
-	sprintf(argv[2],"mute");
-	if(sset(3, argv, 0, 0)!=0){
-		printf("************\'Line\',0 0%% mute  fail***************\n");
-		return -1;
-	}
-	*/
 	
 	sprintf(argv[0],"numid=9,iface=MIXER,name=\'Mic PGA Capture Volume\'");
 	sprintf(argv[1],"33");
@@ -2010,7 +2029,9 @@ int test_set_sound_card()
 	usleep(1000);
 	controls(LEVEL_BASIC | level) ;
 	return 0;
+	*/
 }
+
 
 /*
 int main(int argc, char *argv[])

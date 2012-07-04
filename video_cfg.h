@@ -8,9 +8,9 @@
 #define PASSWORD_SET					"PSWD_SET"
 #define PASSWORD_PART_ARG				"PSWD="
 
-#define CURR_VIDEO_CFG_VERSION		"1.0.0"
+#define CURR_VIDEO_CFG_VERSION		"1.0.1"
 
-#define APP_VERSION 					"version=2.0.3\n"
+#define APP_VERSION 					"version=2.1.4\n"
 #define UDP_SERVER_ADDR  				"udp.iped.com.cn"
 
 #define CFG_VERSION						"cfg_v"
@@ -28,6 +28,7 @@
 #define CFG_CONTRAST					 "contrast"
 #define CFG_SATURATION					 "saturation"
 #define CFG_GAIN						 "gain"
+#define CFG_VOLUME						 "volume"
 #define CFG_RECORD_MODE				 "r_mode"
 #define CFG_RECORD_RESOLUTION			 "r_reso"
 #define CFG_RECORD_NORMAL_SPEED		 "r_nor_speed"

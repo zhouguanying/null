@@ -32,28 +32,17 @@
 
 /*recorded files are saved in directory SAVE_FULL_PATH, looks like: RECORDXXXXXXXX.DAT*/
 #define SAVE_DISK	"/sdcard"
-#define SAVE_DIRECTORY	"ipcam_record"
-#define SAVE_FULL_PATH	"/sdcard/ipcam_record"
-#define RECORD_FILE_NAME "RECORD"
-
-
-#pragma pack(1) 
-typedef struct nand_record_file_header
-{
-	char head[5];  /*{0,0,0,1,0xc}*/
-	char PackageSequenceNumber[8];
-	char StartTimeStamp[14];
-	char LastTimeStamp[14];
-	char TotalPackageSize[8];
-	char FrameRateUs[8];
-	char FrameWidth[4];
-	char FrameHeight[4];
-}__attribute__((packed)) nand_record_file_header;
+#define SAVE_DIRECTORY	"IPCAM"
+#define SAVE_FULL_PATH	"/sdcard/IPCAM"
+#define RECORD_FILE_NAME ""
 
 #define FLAG0_TS_CHANGED_BIT   0
 #define FLAG0_FR_CHANGED_BIT   1
 #define FLAG0_FW_CHANGED_BIT  2
 #define FLAG0_FH_CHANGED_BIT   3
+
+#pragma pack(1) 
+
 typedef struct __nand_record_file_internal_header
 {
 	const char head[5]; /*{0,0,0,1,0xc}*/
@@ -63,6 +52,17 @@ typedef struct __nand_record_file_internal_header
 	char FrameWidth[4];
 	char FrameHeight[4];
 }__attribute__((packed)) nand_record_file_internal_header;
+typedef struct nand_record_file_header
+{
+	char head[5];
+	char PackageSequenceNumber[8];
+	char StartTimeStamp[14];
+	char LastTimeStamp[14];
+	char TotalPackageSize[8];
+	char FrameRateUs[8];
+	char FrameWidth[4];
+	char FrameHeight[4];
+}__attribute__((packed)) nand_record_file_header;
 #pragma pack() 
 
 struct nand_write_request

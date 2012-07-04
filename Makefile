@@ -2,11 +2,11 @@
 CC=$(CROSS_COMPILE)gcc
 LD=$(CROSS_COMPILE)g++
 CFLAGS +=-Wall -c -mcpu=arm926ej-s -O2  -I/root/ipcam/alsa/include/
-LDFLAGS += -lpthread -lencoder  -L./ -lfipop -L./ -lspc -L./ -ldecoder -L./ -L/root/ipcam/alsa/lib/ -lasound   -ludt -L./ -lstdc\+\+ -L./ -lm -L./ -laec -L./
+LDFLAGS += -lpthread    -L/root/ipcam/alsa/lib/ -lasound   -ludt -L./ -lstdc\+\+ -L./ -lm -L./  -ldecoder -L./ -lencoder -L./ -lfipop -L./ -lspc -L./ -lspeexdsp -L./
 
 SRCS = $(wildcard *.c)
 OBJS = $(patsubst %c, %o, $(SRCS))
-OBJS += nand_file.oo  udt.oo libencoder.a libfipop.a libspc.a libdecoder.a libudt.a libstdc\+\+.a libm.a libaec.a
+OBJS += nand_file.oo  udt.oo libm.a  libudt.a libstdc\+\+.a libdecoder.a libencoder.a libfipop.a libspc.a libspeexdsp.a
 TARGET = test
 
 .PHONY: all clean

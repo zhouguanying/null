@@ -330,7 +330,11 @@ int do_update()
 int usb_state_monitor()
 {
 	while(1){
+		if(is_do_update())
+			return 0;
 		if( ioctl_usbdet_read()){
+			if(is_do_update())
+				return 0;
 			system("reboot &");
 			exit(0);
 		}
@@ -486,13 +490,14 @@ int set_system_time(char * time)
 	timep = mktime(&_tm);
 	tv.tv_sec = timep;
 	tv.tv_usec = 0;
-	vs_msg_update_system_time();
-	sleep(5);
-	tv.tv_sec+=3;
+	//vs_msg_update_system_time();
+	//sleep(5);
+	//tv.tv_sec+=3;
 	if(settimeofday(&tv , NULL)<0){
 		printf("settime fail\n");
 		return -1;
 	}
+	system("hwclock -w");
 	printf("set time sucess\n");
 	printf("time==%s\n",time);
 	return 0;
@@ -1402,6 +1407,141 @@ void read_pswd()
 		printf("pswd not set\n");
 	}
 }
+
+int creat_record_file(int argc, char **argv);
+int prepare_record()
+{
+	char buf[512];
+	char block_name[64];
+	FILE *fp;
+	char *s,*e;
+	char *argv[3];
+	int i;
+	int need_format;
+	struct stat st;
+	memset(buf,0,512);
+	system("cat /proc/mounts | grep /sdcard > /tmp/sdcard_mount");
+	fp = fopen("/tmp/sdcard_mount","r");
+	if(!fp){
+		printf("open mount file fail\n");
+		return -1;
+	}
+	if(fgets(buf,512,fp)==NULL){
+		fclose(fp);
+		printf("can't find mount information\n");
+		system("rm /tmp/sdcard_mount");
+		return -1;
+	}
+	fclose(fp);
+	usleep(50000);
+	system("rm /tmp/sdcard_mount");
+	/*
+	if(stat("/sdcard/ipcam_record",&st)==0){
+		dbg("rm ipcam_record\n");
+		system("rm -rf /sdcard/ipcam_record");
+		system("sync");
+	}
+	*/
+	s=buf;
+	while(*s&&(*s==' '||*s=='\t'))s++;
+	if(!*s){
+		printf("have not info about sdcard in mount file\n");
+		return -1;
+	}
+	e = s;
+	while(*e&&*e!=' '&&*e!='\t')e++;
+	if(*e==' '||*e=='\t')
+		*e=0;
+	printf("get block name %s\n",s);
+	memset(block_name , 0 ,sizeof(block_name));
+	if(strncmp(s,"/dev",4)!=0)
+		sprintf(block_name , "/dev/%s",s);
+	else
+		sprintf(block_name , "%s",s);
+	printf("now the block name is %s\n",block_name);
+	need_format = stat("/sdcard/ipcam_record",&st);
+	system("umount /sdcard");
+	if(need_format == 0){
+		memset(buf,0,sizeof(buf));
+		sprintf(buf,"mkdosfs  %s",block_name);
+		system(buf);
+		sleep(1);
+	}
+	for(i = 0 ; i<3 ; i++){
+		argv[i] = (char *)malloc(64);
+		if(!argv[i]){
+			dbg("cannot malloc buf \n");
+			exit(0);
+		}
+	}
+	for(i=0;i<3;i++)
+		memset(argv[i],0,64);
+	sprintf(argv[0],"fatty");
+	sprintf(argv[1],"200");
+	memcpy(argv[2],block_name,64);
+	creat_record_file(3,  argv);
+	memset(buf,0,sizeof(buf));
+	sprintf(buf,"mount -t auto  %s  /sdcard/",block_name);
+	system(buf);
+	dbg("prepare record file ok\n");
+	for(i=0;i<3;i++)
+		free(argv[i]);
+	//system("mount -t auto /dev/mmcblk0p1 /sdcard/");
+	//sleep(10);
+	return 0;
+}
+
+int update_config_file_carefully()
+{
+	FILE *fp;
+	char buf[256];
+	char *old_file_buf;
+	char *p;
+	int version_flag = 0;
+	int brightness_flag = 0;
+	int contrast_flag = 0;
+	int pos;
+	dbg("try update configure file carefully , it may be slow\n");
+	fp = fopen(RECORD_PAR_FILE , "r");
+	if(!fp){
+		dbg("can not open old config file for write\n");
+		exit(0);
+	}
+	old_file_buf = (char *)malloc(2048);
+	if(!old_file_buf){
+		dbg("can not malloc buf for old configure file\n");
+		exit(0);
+	}
+	memset(buf,0,sizeof(buf));
+	memset(old_file_buf , 0 ,2048);
+	pos = 0;
+	while(fgets(buf,256,fp)!=NULL){
+		p = buf;
+		while(*p==' '||*p=='\t')p++;
+		if(!version_flag&&strncmp(p,CFG_VERSION,strlen(CFG_VERSION)) ==0){
+			version_flag = 1;
+		}else if(!contrast_flag&&strncmp(p,CFG_CONTRAST,strlen(CFG_CONTRAST))==0){
+			contrast_flag = 1;
+		}else if(!brightness_flag&&strncmp(p,CFG_BRIGHTNESS,strlen(CFG_BRIGHTNESS))==0){
+			brightness_flag = 1;
+		}else{
+			memcpy(old_file_buf+pos,p,strlen(p));
+			pos+=strlen(p);
+		}
+		memset(buf,0,sizeof(buf));
+	}
+	fclose(fp);
+	usleep(100000);
+	memset(buf,0,sizeof(buf));
+	sprintf(buf,"cp %s %s",MONITOR_PAR_FILE , RECORD_PAR_FILE);
+	system(buf);
+	system("sync");
+	usleep(100000);
+	if( set_raw_config_value(old_file_buf)<0)
+		exit(0);
+	free(old_file_buf);
+	return 0;
+}
 int main()
 {
 	int ret;
@@ -1419,16 +1559,12 @@ int main()
 	char *ip=NULL;
 	char *mask=NULL;
 	
-	sleep(1);
-	signal(SIGINT , sig_handle);
+	//sleep(1);
+	//signal(SIGINT , sig_handle);
 
 	if( open_usbdet() != 0 ){
 		printf("open usb detect error\n");
 		return -1;
-	}
-
-	for( count = 0; count < 2; count++ ){
-		report_status_normal();
 	}
 
 	if( do_update() == 0 ){
@@ -1470,15 +1606,13 @@ int main()
 				}
 			}
 			fclose(fd);
-			usleep(500000);
+			//usleep(50000);
 			if(p&&strncmp(p,CFG_VERSION,strlen(CFG_VERSION))==0){
 				while(*p&&*p!='=')p++;
 				if(*p=='=')p++;
 				while(*p&&(*p==' '||*p=='\t'))p++;
 				if(!*p||strncmp(p,CURR_VIDEO_CFG_VERSION,strlen(CURR_VIDEO_CFG_VERSION))!=0){
-					memset(buf,0,512);
-					sprintf(buf ,"cp %s %s",MONITOR_PAR_FILE , RECORD_PAR_FILE);
-					system(buf);
+					update_config_file_carefully();
 				}
 			}else{
 				memset(buf,0,512);
@@ -1702,98 +1836,17 @@ int main()
 		}
 	}
 
-/*
-	FILE * test_fp;
-	char *test_buf;
-	int test_size;
-	test_buf = malloc(4096);
-	if(!test_buf){
-		printf("malloc test buf error\n");
-		exit(0);
+	if (pthread_create(&tid, NULL, (void *) usb_state_monitor, NULL) < 0) {
+		return -1;
+	} 
+	for( count = 0; count < 2; count++ ){
+		report_status_normal();
 	}
-	memset(test_buf , 0 ,4096);
-	test_fp =  fopen(RECORD_PAR_FILE, "r");
-	if(!test_fp){
-		printf("open video.cfg error\n");
-		exit(0);
-	}
-	fread(test_buf , 1,980,test_fp);
-	fclose(test_fp);
-	printf("#################test buf##################\n");
-	printf(test_buf);
-	printf("#########################################\n");
-	set_raw_config_value(test_buf);
-	printf("!!!!!!!!!!!!!!!!!!!!set ok!!!!!!!!!!!!!!!!!!!!!!\n");
-	sleep(30);
-	exit(0);
-	*/
-	
+
 	system("switch host");
 	sleep(1);
 	system("switch host");
 	sleep(3);
-	
-	//test_printf_getConfig();
-	/*
-	int numssid;
-	char *scan_buf = get_parse_scan_result(&numssid);
-	printf("numssid == %d\n",numssid);
-	printf("###########################################\n");
-	printf("%s",scan_buf);
-	printf("#############################################\n");
-	free(scan_buf);
-	
-	return 0;
-	*/
-	/*
-	system("mkdir /tmp/wpa_supplicant");
-	system("killall wpa_supplicant");
-	sleep(1);
-	system("wpa_supplicant -Dwext -iwlan0 -c/data/wpa.conf -B");
-	sleep(5);
-	
-	for(i=0;i<4;i++)
-		argv[i]=malloc(256);
-	printf("###########begin scan###########\n");
-	scanresult = (char *)malloc(2048);
-	tryscan = 5;
-	while(tryscan){
-		sprintf(argv[0],"scan");
-		mywpa_cli(1,argv);
-		sleep(5);
-		sprintf(argv[0],"scan_results");
-		mywpa_cli(1,argv);
-		if(result_len>48)
-			break;
-		tryscan --;
-	}
-	free(scanresult);
-	scanresult = NULL;
-	printf("############end###############\n");
-	for(i= 0; i < 4; i++)
-		free(argv[i]);
-	*/
-//	system("ifconfig eth0 192.168.1.121");
-//	system("echo host > /sys/devices/platform/fsl-usb2-otg/status");
-	//sleep(3);
-	/*
-	system("route | grep default > /tmp/route");
-	FILE*routefd = fopen("/tmp/route","r");
-	if(!routefd){
-		printf("get default route error\n");
-	}
-	memset(buf,0,512);
-	if(fgets(buf,512,fd)!=NULL){
-		char *p = buf;
-		while(p!=' '||p!='\t')p++;
-		while(p==' ' || p=='\t')p++;
-	}
-	*/
-	//sprintf(__gate_way,"192.168.1.1");
-/*
-	if(built_net(check_wlan0)<0)
-		system("reboot");
-		*/
 	
 	memset(&threadcfg,0,sizeof(threadcfg));
 	pthread_mutex_init(&global_ctx_lock,NULL);
@@ -1840,6 +1893,7 @@ read_config:
 	}
 	if(fd==NULL){
 		printf("open config file erro\n");
+		exit(0);
 	}else{
 		int lines;
 		printf("try to read config file\n");
@@ -1880,11 +1934,12 @@ read_config:
 		extract_value(conf_p, lines, CFG_VERSION, 1, buf);
 		if(!buf[0]||strncmp(buf,CURR_VIDEO_CFG_VERSION,strlen(CURR_VIDEO_CFG_VERSION))!=0){
 			free(conf_p);
-			printf("the video.cfg is too old try to read copy the newer one\n");
-			memset(buf,0,512);
-			sprintf(buf,"rm %s",RECORD_PAR_FILE);
-			system(buf);
-			usleep(500000);
+			dbg("the video.cfg is too old try to read copy the newer one\n");
+			//memset(buf,0,512);
+			//sprintf(buf,"rm %s",RECORD_PAR_FILE);
+			//system(buf);
+			//usleep(500000);
+			update_config_file_carefully();
 			goto read_config;
 		}
 		printf("cfg_v==%s\n",buf);
@@ -1910,13 +1965,17 @@ read_config:
 
 		//extract_value(conf_p, lines, "server_addr", 1, threadcfg.server_addr);
 		//printf("server_addr = %s\n",threadcfg.server_addr);
+		
 		sprintf(threadcfg.server_addr , UDP_SERVER_ADDR);
-
+		
 		extract_value(conf_p, lines, CFG_MONITOR_MODE , 1, threadcfg.monitor_mode);
 		printf("monitor_mode = %s\n",threadcfg.monitor_mode);
 
-		if(!(int)threadcfg.monitor_mode[0]||(strncmp(threadcfg.monitor_mode , "normal",6)!=0&&strncmp(threadcfg.monitor_mode , "inteligent",10)!=0))
+		if(!(int)threadcfg.monitor_mode[0]||(strncmp(threadcfg.monitor_mode , "normal",6)!=0&&strncmp(threadcfg.monitor_mode , "inteligent",10)!=0)){
+			memset(threadcfg.monitor_mode,0,sizeof(threadcfg.monitor_mode));
 			sprintf(threadcfg.monitor_mode,"inteligent");
+			set_value(conf_p, lines, CFG_MONITOR_MODE , 1, threadcfg.monitor_mode);
+		}
 
 		extract_value(conf_p, lines, CFG_MONITOR_RATE, 0,(void *) &threadcfg.framerate);
 		printf("framerate= %d\n",threadcfg.framerate);
@@ -1950,6 +2009,10 @@ read_config:
 		extract_value(conf_p, lines, CFG_BITRATE, 0, (void *)&threadcfg.bitrate);
 		printf("bitrate = %d\n",threadcfg.bitrate);
 
+		//extract_value(conf_p, lines, CFG_VOLUME, 0,(void *) &threadcfg.volume);
+		threadcfg.volume = 100;
+		printf("volume = %d\n",threadcfg.volume);
+		
 		extract_value(conf_p, lines, CFG_BRIGHTNESS, 0, (void *)&threadcfg.brightness);
 		printf("brightness = %d\n",threadcfg.brightness);
 
@@ -1976,7 +2039,7 @@ read_config:
 		else
 			memcpy(threadcfg.resolution ,threadcfg.record_resolution,64);
 		
-		set_value(conf_p, lines, "resolution", 1, &threadcfg.resolution);
+		set_value(conf_p, lines, CFG_RECORD_RESOLUTION, 1, &threadcfg.resolution);
 
 		extract_value(conf_p, lines, CFG_RECORD_NORMAL_SPEED, 0, (void *)&threadcfg.record_normal_speed);
 		printf("record_normal_speed= %d\n",threadcfg.record_normal_speed);
@@ -2168,7 +2231,7 @@ read_config:
 					memset(buf,0,512);
 					sprintf(buf,"udhcpc -i %s &",inet_wlan_device);
 					system(buf);
-					sleep(20);
+					sleep(5);
 					memset(inet_wlan_gateway,0,sizeof(inet_wlan_gateway));
 					get_gateway(inet_wlan_device, inet_wlan_gateway);
 					set_value(conf_p, lines, CFG_WLAN_GATEWAY, 1, inet_wlan_gateway);
@@ -2241,15 +2304,12 @@ read_config:
 		printf("the network is error , check your network \n");
 	}
 	threadcfg.sdcard_exist = 1;
+	prepare_record();
 	ret = nand_open("/sdcard");
 	if( ret != 0 ){
 		threadcfg.sdcard_exist = 0;
 		printf("open disk error\n");
 	}
-
-if (pthread_create(&tid, NULL, (void *) usb_state_monitor, NULL) < 0) {
-	return -1;
-} 
 
 //	test_jpeg_file_write();
 //	test_cli(system_sess);

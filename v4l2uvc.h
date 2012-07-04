@@ -81,3 +81,5 @@ int v4l2ResetControl (struct vdIn *vd, int control);
 int v4l2ResetPanTilt (struct vdIn *vd, int pantilt);
 int v4L2UpDownPan (struct vdIn *vd, short inc);
 int v4L2UpDownTilt (struct vdIn *vd, short inc);
+int v4l2_contrl_brightness(struct vdIn *vd,int brightness);
+int v4l2_contrl_contrast(struct vdIn *vd,int contrast);

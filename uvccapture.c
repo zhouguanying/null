@@ -515,10 +515,12 @@ struct vdIn * init_camera(void) {
 		printf("########################v4l2 not support rotate#####################\n");
 		*/
 	if (brightness != 0) {
-		v4l2SetControl (videoIn, V4L2_CID_BRIGHTNESS, brightness);
+		//v4l2SetControl (videoIn, V4L2_CID_BRIGHTNESS, brightness);
+		v4l2_contrl_brightness(videoIn, brightness);
 	}
 	if (contrast != 0) {
-		v4l2SetControl (videoIn, V4L2_CID_CONTRAST, contrast);
+		//v4l2SetControl (videoIn, V4L2_CID_CONTRAST, contrast);
+		v4l2_contrl_contrast(videoIn, contrast);
 	}
 	if (saturation != 0) {
 		v4l2SetControl (videoIn, V4L2_CID_SATURATION, saturation);

@@ -65,6 +65,7 @@ enum
      * byte3，size-2: 远程的ip和所有端口号
      */
     NET_CAMERA_PEER_PORTS,
+    NET_CAMERA_INTERACTIVE_PORT,
 } ;
 
 #define PORT_COUNT		 3

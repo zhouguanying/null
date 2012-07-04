@@ -141,6 +141,7 @@ struct sess_ctx {
 	volatile int bitrate;
 	volatile int brightness;
 	volatile int contrast;
+	volatile int volume;
 	volatile int saturation;
 	volatile int gain;
 	char     record_mode[64];

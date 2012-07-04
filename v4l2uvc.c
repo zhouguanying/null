@@ -33,6 +33,11 @@
 #include <sys/ioctl.h>
 #include "v4l2uvc.h"
 
+#define dbg(fmt, args...)  \
+    do { \
+        printf(__FILE__ ": %s: " fmt, __func__, ## args); \
+    } while (0)
+    
 static int debug = 0;
 
 static unsigned char dht_data[DHT_SIZE] = {
@@ -594,6 +599,66 @@ v4L2UpDownTilt (struct vdIn *vd, short inc)
 	}
 	return 0;
 }
+int v4l2_contrl_brightness(struct vdIn *vd,int brightness)
+{
+	struct v4l2_control control_s;
+	struct v4l2_queryctrl queryctrl;
+	int min, max, step, val_def;
+	int err , value;
+
+	if(brightness<0||brightness>100)
+		return -1;
+	if (isv4l2Control (vd, V4L2_CID_BRIGHTNESS, &queryctrl) < 0)
+		return -1;
+	min = queryctrl.minimum;
+	max = queryctrl.maximum;
+	step = queryctrl.step;
+	val_def = queryctrl.default_value;
+	value = (int)(max*brightness/100);
+	if(value<min)
+		value=min;
+	else if(value>max)
+		value=max;
+	control_s.id = V4L2_CID_BRIGHTNESS;
+	control_s.value = value;
+	if ((err = ioctl (vd->fd, VIDIOC_S_CTRL, &control_s)) < 0) {
+		fprintf (stderr, "ioctl set control error\n");
+		return -1;
+	}
+	dbg("set brightness sucess\n");
+	return 0;
+}
+
+int v4l2_contrl_contrast(struct vdIn *vd,int contrast)
+{
+	struct v4l2_control control_s;
+	struct v4l2_queryctrl queryctrl;
+	int min, max, step, val_def;
+	int err , value;
+
+	if(contrast<0||contrast>100)
+		return -1;
+	if (isv4l2Control (vd, V4L2_CID_CONTRAST, &queryctrl) < 0)
+		return -1;
+	min = queryctrl.minimum;
+	max = queryctrl.maximum;
+	step = queryctrl.step;
+	val_def = queryctrl.default_value;
+	value = (int)(max*contrast/100);
+	if(value<min)
+		value=min;
+	else if(value>max)
+		value=max;
+	control_s.id = V4L2_CID_CONTRAST;
+	control_s.value = value;
+	if ((err = ioctl (vd->fd, VIDIOC_S_CTRL, &control_s)) < 0) {
+		fprintf (stderr, "ioctl set control error\n");
+		return -1;
+	}
+	dbg("set contrast sucess\n");
+	return 0;
+}
+
 extern struct vdIn *vdin_camera;
 void restart_v4l2(int width , int height )
 {
@@ -616,4 +681,5 @@ void restart_v4l2(int width , int height )
 	}
 	pthread_mutex_unlock(&vdin_camera->tmpbufflock);
 }
+
 

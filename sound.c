@@ -986,7 +986,7 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
        }
 
        if ((myaddr = bind_tcp_socket(lsockfd, SOUND_PORT)) == NULL){
-             	  printf("Error binding sound listen socket");
+             	  printf("Error binding sound listen socket\n");
                 goto __exit;
        }
 	  free(myaddr);
@@ -1005,7 +1005,7 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
 		pthread_mutex_unlock(&sess->sesslock);
 		printf("sound thread is running ,ready to connect\n");
 __tryaccept:
-		selecttv.tv_sec = 3;
+		selecttv.tv_sec = 5;
 		selecttv.tv_usec = 0;
 		fromlen = sizeof(struct sockaddr_in);
 		FD_ZERO(&acceptfds);
@@ -1018,7 +1018,10 @@ __tryaccept:
 			if(tryaccept<=0){
 				goto __exit;
 			}
-			goto __tryaccept;
+			if(sess->running)
+				goto __tryaccept;
+			else
+				goto __exit;
 		}
 			
 		sockfd = accept(lsockfd,(struct sockaddr *) &address,&fromlen);
@@ -1033,13 +1036,21 @@ __tryaccept:
 			if(tryaccept <=0){
 				goto __exit;
 			}
-			goto __tryaccept;
+			if(sess->running)
+				goto __tryaccept;
+			else
+				goto __exit;
 		}
 		
 		printf("sound tcp connection in, addr=0x%x, port=0x%d\n",address.sin_addr.s_addr, address.sin_port);
 		close(lsockfd);
 		sess->s3=sockfd;
 		lsockfd=-1;
+		selecttv.tv_sec  = 10;
+		selecttv.tv_usec = 0;
+		 if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &selecttv, sizeof(selecttv)) < 0){
+		            printf("Error enabling sockfd snd time out \n");
+		  }
 
 		/*
 		if (pthread_create(&sess->swtid, NULL, (void *) test_sound_tcp_read_data, sess) < 0) {
@@ -1098,7 +1109,7 @@ __tryaccept:
 				if(n>0){
 					s+=n;
 					ret-=n;
-					//printf("send sound data n==%d\n",n);
+					//dbg("send sound data n==%d\n",n);
 				}else{
 					printf("send sound data error\n");
 					free(dst);
@@ -1266,6 +1277,7 @@ int init_and_start_sound(){
 	printf(" the argument set correct now goto test\n");
 	printf("chunk_size==%d\n",audiothreadparams.params->chunk_size);
 	printf("chunk_bytes=%d\n",audiothreadparams.params->chunk_bytes);
+	turn_on_speaker();
 	int r;
 	int not_write = 1;
 	FILE*fp;
@@ -1284,13 +1296,17 @@ int init_and_start_sound(){
 	ssize_t src_size=0;
 	SpeexEchoState *st = NULL;
 	SpeexPreprocessState *den = NULL;
-	st = speex_echo_state_init_mc(audiothreadparams.params->chunk_size, 1600, 2 ,2);
+	st = speex_echo_state_init_mc(audiothreadparams.params->chunk_size, 2400, 2 ,2);
 	den = speex_preprocess_state_init(audiothreadparams.params->chunk_size, 8000);
 	int tmp = 8000;
 	speex_echo_ctl(st, SPEEX_ECHO_SET_SAMPLING_RATE, &tmp);
-	speex_preprocess_ctl(den, SPEEX_PREPROCESS_SET_ECHO_STATE, st);
-	//dn = 1;
-	//speex_preprocess_ctl(den, SPEEX_PREPROCESS_SET_DENOISE, &dn);
+	//speex_preprocess_ctl(den, SPEEX_PREPROCESS_SET_ECHO_STATE, st);
+	i = 1;
+	 speex_preprocess_ctl(den, SPEEX_PREPROCESS_SET_VAD, &i);
+	i = 1;
+	speex_preprocess_ctl(den, SPEEX_PREPROCESS_SET_AGC, &i);
+	dn = 1;
+	speex_preprocess_ctl(den, SPEEX_PREPROCESS_SET_DENOISE, &dn);
 	//noiseSuppress = -25;  
 	//speex_preprocess_ctl(den, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noiseSuppress);
 	//mic_buf = (spx_uint16_t*)malloc(audiothreadparams.params->chunk_bytes/2);

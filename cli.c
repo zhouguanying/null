@@ -56,6 +56,8 @@
 #include "cudt.h"
 #include "udp_transfer.h"
 #include "video_cfg.h"
+#include "v4l2uvc.h"
+#include "amixer.h"
 //#include "monitor.h"
 
 /* Debug */
@@ -105,7 +107,46 @@ static int free_session(struct cli_sess_ctx *sess)
 }
 
 extern char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int* rsp_len);
-
+static int save_config_value(char *name , char *value)
+{
+	FILE*fp;
+	char *buf;
+	char *p;
+	int pos;
+	fp = fopen(RECORD_PAR_FILE , "r");
+	if(!fp){
+		dbg("open config file error\n");
+		return -1;
+	}
+	buf = (char *)malloc(4096);
+	if(!buf){
+		dbg("malloc buf error\n");
+		fclose(fp);
+		return -1;
+	}
+	memset(buf,0,4096);
+	pos = 0;
+	while(fgets(buf+pos,4096-pos,fp)!=NULL){
+		p = buf+pos;
+		if(strncmp(p,name,strlen(name))==0){
+			memset(p,0,strlen(p));
+			sprintf(p,"%s=%s\n",name,value);
+		}
+		pos+=strlen(p);
+	}
+	fclose(fp);
+	usleep(1000);
+	fp = fopen(RECORD_PAR_FILE,"w");
+	if(!fp){
+		dbg("error open config file\n");
+		free(buf);
+		return -1;
+	}
+	fwrite(buf,1,pos,fp);
+	fclose(fp);
+	dbg("write config file ok\n");
+	return 0;
+}
 static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
                                  ssize_t req_len, u8 *unused, int* rsp_len,struct sockaddr_in from)
 {
@@ -138,8 +179,10 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
     memset(cmd, 0, sizeof(cmd));
 
 	// TODO:  so strange code, can it run ok before?
-    if (req[req_len - 1] != '\0');
+    if (req[req_len - 1] != '\0');{
+	dbg("##################TODO#################\n");
         req_len -= 1;
+    }
 		
     memcpy(cmd, req, req_len);
 #if 0	
@@ -176,11 +219,8 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 		if(tmp!=NULL&&tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port){
 			printf("#######################found session in cache#########################\n");
 			if (strncmp(argv[0], "set_transport_type", 18) == 0){
-					pthread_mutex_lock(&tmp->sesslock);
-					tmp->running = 0;
-					pthread_mutex_unlock(&tmp->sesslock);
 					pthread_mutex_unlock(&global_ctx_lock);
-					printf("**********************set_transport_type session already running***************************\n");
+					dbg("set_transport_type session already running\n");
 					return 0;
 			}
 			goto done;
@@ -189,11 +229,8 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 		while(tmp!=NULL){
 			if(tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port){
 				if (strncmp(argv[0], "set_transport_type", 18) == 0){
-					pthread_mutex_lock(&tmp->sesslock);
-					tmp->running = 0;
-					pthread_mutex_unlock(&tmp->sesslock);
 					pthread_mutex_unlock(&global_ctx_lock);
-					printf("**********************set_transport_type session already running***************************\n");
+					dbg("set_transport_type session already running\n");
 					return 0;
 				}
 				sess->arg=tmp;
@@ -210,6 +247,7 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 		//	printf("before new_system_session\n");
 		 	tmp= new_system_session("ipcam");
 			if(!tmp){
+				pthread_mutex_unlock(&global_ctx_lock);
 				printf("********************can't create session******************\n");
 				return NULL;
 			}
@@ -346,7 +384,7 @@ try_get_cmd:
 			}
 		}
 		gettimeofday(&currtime, NULL);
-		if(currtime.tv_sec - old_snd_alive_time.tv_sec>=3){
+		if(abs(currtime.tv_sec - old_snd_alive_time.tv_sec)>=3){
 			do_cli_alive();
 			memcpy(&old_snd_alive_time , &currtime , sizeof(struct timeval));
 		}
@@ -690,7 +728,7 @@ static char * set_transport_type(struct sess_ctx *sess, char *arg)
 			free_system_session(sess);
 			return NULL;
 		} 
-		printf("**********************************start_video_monitor run now******************************\n");
+		dbg("start_video_monitor run now\n");
 	} 
 	else if(strlen(arg) == 3 && strncmp(arg, "rtp", 3) == 0){
 		printf("********************rtp type*****************\n");
@@ -1767,8 +1805,8 @@ char * get_clean_video_cfg()
 	length = 0;
 	memset(buf , 0 ,256);
 	while(fgets(buf ,256 , fp)!=NULL){
-		if(fix_video_line( buf)==0)
-			write_back = 1;
+		//if(fix_video_line( buf)==0)
+			//write_back = 1;
 		memcpy(cfg_buf+length , buf ,strlen(buf));
 		length +=strlen(buf);
 		memset(buf , 0 ,256);
@@ -2295,6 +2333,61 @@ static void SetTime(char* arg)
 	return;	
 }
 
+extern struct vdIn *vdin_camera;
+
+static void set_brightness(char *arg)
+{
+	char buf[32];
+	int value;
+	if(!arg)
+		return;
+	memset(buf,0,32);
+	memcpy(buf,arg,strlen(arg));
+	if(sscanf(buf,"%d",&value)!=1){
+		dbg("error brightness\n");
+		return;
+	}
+	if(v4l2_contrl_brightness(vdin_camera,value)==0){
+		threadcfg.brightness = value;
+		save_config_value(CFG_BRIGHTNESS , buf);
+	}
+}
+
+static void set_contrast(char *arg)
+{
+	char buf[32];
+	int value;
+	if(!arg)
+		return;
+	memset(buf,0,32);
+	memcpy(buf,arg,strlen(arg));
+	if(sscanf(buf,"%d",&value)!=1){
+		dbg("error contrast\n");
+		return;
+	}
+	if(v4l2_contrl_contrast(vdin_camera,value)==0){
+		threadcfg.contrast = value;
+		save_config_value(CFG_CONTRAST, buf);
+	}
+}
+
+static void set_volume(char *arg)
+{
+	char buf[32];
+	int value;
+	if(!arg)
+		return;
+	memset(buf,0,32);
+	memcpy(buf,arg,strlen(arg));
+	if(sscanf(buf,"%d",&value)!=1){
+		dbg("error volume\n");
+		return;
+	}
+	if(alsa_set_volume(value)==0){
+		threadcfg.volume = value;
+		save_config_value(CFG_VOLUME, buf);
+	}
+}
 static char* GetTime(char* arg)
 {
 	char* buffer;
@@ -2751,7 +2844,13 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
         if (sess == NULL || cmd == NULL) return NULL;
 		//dbg("%s\n",cmd);
 	//dbg("####################sess->id = %d##################\n",((struct sess_ctx*)sess)->id);
-        if (strncmp(cmd, "set_dest_addr", 13) == 0)
+	if(strncmp(cmd,"set_brightness",14)==0)
+		set_brightness(param);
+	else if(strncmp(cmd,"set_contrast",12)==0)
+		set_contrast(param);
+	else  if(strncmp(cmd,"set_volume",10)==0)
+		set_volume(param);
+        else if (strncmp(cmd, "set_dest_addr", 13) == 0)
                 set_dest_addr(sess, param);
         else if (strncmp(cmd, "set_dest_port", 13) == 0)
                 set_dest_port(sess, param);
@@ -2839,7 +2938,8 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
                 resp = DeleteAllFiles(sess, param);
         else if (strncmp(cmd, "DeleteFile", 10) == 0)
                 resp = DeleteFile(sess, param);
-        else printf("cmd = %s*************************not supported\n%s", param,cli_cmds);
+        else
+		dbg("cmd = %s**not supported\n", cmd);
     
         return resp;
 }
