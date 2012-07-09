@@ -472,7 +472,7 @@ get_server_addr:
 		memcpy(&nsize,&req[1],sizeof(nsize));
 		gettimeofday(&oldtime,NULL);
 		size=ntohs(nsize); 
-		dbg(" recv %s , from ip %s  port %d\n",req , inet_ntoa(from.sin_addr) , ntohs(from.sin_port));
+		//dbg(" recv %s , from ip %s  port %d\n",req , inet_ntoa(from.sin_addr) , ntohs(from.sin_port));
 		if(req_len>0&&req_len==size+PACK_HEAD_SIZE){
 			printf("get command\n");
 			printf("req[0]==%d\n",req[0]);

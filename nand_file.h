@@ -29,6 +29,10 @@
 #define VS_MESSAGE_NEED_START_HEADER		7
 #define VS_MESSAGE_NEED_END_HEADER			8
 
+#define INDEX_TABLE_SIZE		(32*1024)
+// the location is from the end of file
+#define END_HEADER_LOCATION		(INDEX_TABLE_SIZE/512+1)
+#define INDEX_TABLE_LOCATION	(INDEX_TABLE_SIZE/512)
 
 /*recorded files are saved in directory SAVE_FULL_PATH, looks like: RECORDXXXXXXXX.DAT*/
 #define SAVE_DISK	"/sdcard"
@@ -41,17 +45,22 @@
 #define FLAG0_FW_CHANGED_BIT  2
 #define FLAG0_FH_CHANGED_BIT   3
 
-#pragma pack(1) 
 
+
+#pragma pack(1) 
 typedef struct __nand_record_file_internal_header
 {
-	const char head[5]; /*{0,0,0,1,0xc}*/
+	char head[5]; /*{0,0,0,1,0xc}*/
 	char flag[4];
 	char StartTimeStamp[14];
 	char FrameRateUs[8];
 	char FrameWidth[4];
 	char FrameHeight[4];
 }__attribute__((packed)) nand_record_file_internal_header;
+typedef struct __index_table_item
+{
+	unsigned int location;
+}__attribute__((packed)) index_table_item_t;
 typedef struct nand_record_file_header
 {
 	char head[5];
@@ -86,11 +95,13 @@ int nand_read(char* buf, int size);
 int nand_flush();
 int nand_get_size();
 long long nand_seekto(long long position);
-long long nand_get_position();
+unsigned int nand_get_position();
 int nand_close();
 
 int nand_write_start_header(nand_record_file_header* header);
 int nand_write_end_header(nand_record_file_header* header);
+int nand_write_index_table(char* index_table);
+
 
 //下面的API是为回放而设计的
 int nand_open_simple(char* name);

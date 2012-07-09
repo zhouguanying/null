@@ -1241,8 +1241,8 @@ void  del_sess(struct sess_ctx *sess)
 	int ret;
 	struct sockaddr_in address;
 	int socket = -1;
-	char* buffer;
-	int size;
+	//char* buffer;
+	//int size;
 	int tryaccpet = MAX_CONNECTIONS;
 	struct timeval timeout;
 	struct timeval selecttv;
@@ -1800,6 +1800,7 @@ int start_video_record(struct sess_ctx* sess)
 	struct timeval prev_write_sound_time;
 	struct timeval alive_old_time,alive_curr_time;
 	struct timeval mail_last_time;
+	struct timeval index_table_15sec_last_time;
 	vs_ctl_message msg;
 	unsigned long long timeuse;
 	unsigned long long usec_between_image=0;
@@ -1833,6 +1834,17 @@ int start_video_record(struct sess_ctx* sess)
 	int record_mode = 0;
 	int need_write_internal_head=0;
 	//int write_internal_head=0;
+	char *attr_table;
+	char *time_15sec_table;
+	char * attr_pos ;
+	char * record_15sec_pos ;
+	unsigned int *attr_table_size;
+	unsigned int *record_15sec_table_size;
+	index_table_item_t	  table_item;
+	char *audio_internal_header_p;
+	char *video_internal_header_p;
+
+	//unsigned int * value;
 
 	dbg("Starting video record\n");
 	
@@ -1849,7 +1861,22 @@ int start_video_record(struct sess_ctx* sess)
 		else
 			sigignore(i);
 	}
-
+	
+	if(threadcfg.sdcard_exist){
+		attr_table = (char *)malloc(INDEX_TABLE_SIZE);
+		time_15sec_table = (char *)malloc(INDEX_TABLE_SIZE);
+		if(!attr_table||!time_15sec_table){
+			printf("error malloc buffer for index table\n");
+			exit(0);
+		}
+		memset(attr_table ,0 ,INDEX_TABLE_SIZE);
+		memset(time_15sec_table , 0 ,INDEX_TABLE_SIZE);
+		attr_table_size = (unsigned int *)attr_table;
+		record_15sec_table_size = attr_table_size+1;
+		attr_pos =(char *)(record_15sec_table_size+1);
+		record_15sec_pos = time_15sec_table;
+	}
+	
 	i = 0;
 	width = vdin_camera->width;
 	height = vdin_camera->height;
@@ -1951,9 +1978,18 @@ int start_video_record(struct sess_ctx* sess)
 	printf("video_internal_header.FrameWidth==%s\n",video_internal_header.FrameWidth);
 	printf("video_internal_header.FrameHeight==%s\n",video_internal_header.FrameHeight);
 	reset_syn_buf();
+
+
+	table_item.location = 0;
+	memcpy(record_15sec_pos,&table_item ,sizeof(index_table_item_t));
+	(*record_15sec_table_size) +=sizeof(index_table_item_t);
+	//dbg("write 15sec location  pos = %u , write in %p , 15sec table size = %u\n",table_item.location , record_15sec_pos,*record_15sec_table_size);
+	record_15sec_pos +=sizeof(index_table_item_t);
+	
 	memset(&mail_last_time , 0 ,sizeof(struct timeval));
 	gettimeofday(&starttime,NULL);
 	memcpy(&prev_write_sound_time,&starttime,sizeof(struct timeval));
+	memcpy(&index_table_15sec_last_time , &starttime , sizeof(struct timeval));
 	while(1) {
 		if(is_do_update()){
 			close_v4l2(vdin_camera);
@@ -1985,8 +2021,20 @@ int start_video_record(struct sess_ctx* sess)
 			num_pic_to_ignore --;
 		}
 		*/
+		if(threadcfg.sdcard_exist){
+			gettimeofday(&endtime,NULL);
+			if(abs(endtime.tv_sec - index_table_15sec_last_time.tv_sec)>=15){
+				table_item.location =nand_get_position();
+				if(*record_15sec_table_size + *attr_table_size +sizeof(index_table_item_t) + 8 <=INDEX_TABLE_SIZE){
+					memcpy(record_15sec_pos,&table_item ,sizeof(index_table_item_t));
+					(*record_15sec_table_size) +=sizeof(index_table_item_t);
+					memcpy(&index_table_15sec_last_time ,&endtime,sizeof(struct timeval));
+					//dbg("write 15sec location  pos = %u , write in %p , 15sec table size = %u\n",table_item.location , record_15sec_pos,*record_15sec_table_size);
+					record_15sec_pos +=sizeof(index_table_item_t);
+				}
+			}
+		}
 
-		
 		if(pictures_to_write>0&&abs(size-size0)>sensitivity_diff_size[sensitivity_index]){
 			if(record_mode == 2)
 				pictures_to_write = record_fast_speed * record_fast_duration;
@@ -2121,7 +2169,17 @@ int start_video_record(struct sess_ctx* sess)
 				memcpy(&mail_last_time , &endtime, sizeof(struct timeval));
 			}
 		}
+
 		
+		video_internal_header_p = video_internal_header.StartTimeStamp;
+		audio_internal_header_p = audio_internal_header.StartTimeStamp;
+
+		/*add this for convenience*/
+		if(timestamp_change||frameratechange||prev_width!=width||prev_height!=height){
+			timestamp_change = frameratechange = 1;
+			prev_width = 0;
+			prev_height = 0;
+		}
 		if(timestamp_change){
 			//printf("timestamp_change\n");
 			timestamp = gettimestamp();
@@ -2129,8 +2187,10 @@ int start_video_record(struct sess_ctx* sess)
 			timestamp_change = 0;
 			video_internal_header.flag[0]|=(1<<FLAG0_TS_CHANGED_BIT);
 			audio_internal_header.flag[0]|=(1<<FLAG0_TS_CHANGED_BIT);
-			memcpy(video_internal_header.StartTimeStamp,timestamp,sizeof(video_internal_header.StartTimeStamp));
-			memcpy(audio_internal_header.StartTimeStamp,timestamp,sizeof(audio_internal_header.StartTimeStamp));
+			memcpy(video_internal_header_p,timestamp,sizeof(video_internal_header.StartTimeStamp));
+			memcpy(audio_internal_header_p,timestamp,sizeof(audio_internal_header.StartTimeStamp));
+			video_internal_header_p+=sizeof(video_internal_header.StartTimeStamp);
+			audio_internal_header_p+=sizeof(audio_internal_header.StartTimeStamp);
 			need_write_internal_head = 1;
 		}
 		if(frameratechange){
@@ -2138,32 +2198,44 @@ int start_video_record(struct sess_ctx* sess)
 			frameratechange = 0;
 			video_internal_header.flag[0]|=(1<<FLAG0_FR_CHANGED_BIT);
 			sprintf(FrameRateUs,"%08llu",usec_between_image);
-			memcpy(video_internal_header.FrameRateUs,FrameRateUs,sizeof(video_internal_header.FrameRateUs));
+			memcpy(video_internal_header_p,FrameRateUs,sizeof(video_internal_header.FrameRateUs));
+			video_internal_header_p += sizeof(video_internal_header.FrameRateUs);
 			//printf("%s\n",FrameRateUs);
 			need_write_internal_head = 1;
 		}
 		if(prev_width!=width){
-			printf("picture width change\n");
+			//printf("picture width change\n");
 			prev_width = width;
 			video_internal_header.flag[0]|=(1<<FLAG0_FW_CHANGED_BIT);
 			sprintf(swidth,"%04d",width);
-			memcpy(video_internal_header.FrameWidth,swidth,sizeof(video_internal_header.FrameWidth));
+			memcpy(video_internal_header_p,swidth,sizeof(video_internal_header.FrameWidth));
+			video_internal_header_p += sizeof(video_internal_header.FrameWidth);
 			need_write_internal_head = 1;
 		}
 		if(prev_height!=height){
-			printf("picture height change\n");
+			//printf("picture height change\n");
 			prev_height = height;
 			video_internal_header.flag[0]|=(1<<FLAG0_FH_CHANGED_BIT);
 			sprintf(sheight,"%04d",height);
-			memcpy(video_internal_header.FrameHeight,sheight,sizeof(video_internal_header.FrameHeight));
+			memcpy(video_internal_header_p,sheight,sizeof(video_internal_header.FrameHeight));
+			video_internal_header_p += sizeof(video_internal_header.FrameHeight);
 			need_write_internal_head = 1;
 		}
 		if(need_write_internal_head){
 			//printf("write video_internal_header\n");
-			/*
-			if(threadcfg.sdcard_exist)	
-			 	nand_write(&video_internal_header,sizeof(video_internal_header));
-			*/
+			
+			if(threadcfg.sdcard_exist){	
+				table_item.location = nand_get_position();
+				if(*record_15sec_table_size + *attr_table_size +sizeof(index_table_item_t) + 8 <=INDEX_TABLE_SIZE){
+				 	if(nand_write(&video_internal_header,video_internal_header_p -(char *) &video_internal_header)==0){
+						memcpy(attr_pos,&table_item ,sizeof(index_table_item_t));
+						(*attr_table_size)+=sizeof(index_table_item_t);
+						//dbg("write attr location  pos = %u,write in %p , attr table size = %u struct size = %d\n",table_item.location , attr_pos, *attr_table_size , video_internal_header_p -(char *) &video_internal_header);
+						attr_pos +=sizeof(index_table_item_t);
+				 	}
+				}
+			}
+			
 			video_internal_header.flag[0]=0;
 			need_write_internal_head = 0;
 		}
@@ -2192,8 +2264,25 @@ retry:
 			}
 			
 			else if( ret == VS_MESSAGE_NEED_END_HEADER ){
+				memcpy(attr_pos , time_15sec_table , *record_15sec_table_size);
+				nand_write_index_table( attr_table);
 				nand_prepare_close_record_header(&record_header);
 				nand_write_end_header(&record_header);
+				
+				memset(attr_table ,0 ,INDEX_TABLE_SIZE);
+				memset(time_15sec_table , 0 ,INDEX_TABLE_SIZE);
+				attr_table_size = (unsigned int *)attr_table;
+				record_15sec_table_size = attr_table_size+1;
+				attr_pos =record_15sec_table_size+1;
+				record_15sec_pos = time_15sec_table;
+				gettimeofday(&index_table_15sec_last_time , NULL);
+				
+				table_item.location = 0;
+				memcpy(record_15sec_pos,&table_item ,sizeof(index_table_item_t));
+				(*record_15sec_table_size) +=sizeof(index_table_item_t);
+				dbg("write 15sec location  pos = %u , write in %p , 15sec table size = %u\n",table_item.location , record_15sec_pos,*record_15sec_table_size);
+				record_15sec_pos +=sizeof(index_table_item_t);
+				//dbg("#######################nand file write index table###############\n");
 				goto retry;
 			}
 			else{
@@ -2208,49 +2297,6 @@ retry:
 			write_syn_sound(&need_write_internal_head);
 			memcpy(&prev_write_sound_time,&endtime,sizeof(struct timeval));
 		}
-
-		/*
-		if(strncmp(record_resolution,"qvga",4) ==0){
-			change_resolution = 0;
-			width = 320;
-			height = 240;
-		}
-		else if(strncmp(record_resolution,"vga",3) ==0){
-			change_resolution =1;
-			width = 640;
-			height = 480;
-		}
-		else {
-			change_resolution =2;
-			width = 1280;
-			height = 720;
-		}
-		if(curr_resolution!=change_resolution){
-			big_to_small  = curr_resolution - change_resolution;
-			printf("ok change resolusion width ==%d , height ==%d\n",width,height);
-			printf("big_to_small ==%d\n",big_to_small);
-			
-			pthread_mutex_lock(&vdin_camera->tmpbufflock);
-			usleep(1000);
-			gettimeofday(&stop_time,NULL);
-			close_v4l2 (vdin_camera);
-			if (init_videoIn(vdin_camera, (char *) videodevice, width, height, format, grabmethod) < 0) {
-				printf("init camera device error\n");
-				return (struct vdIn *) 0;
-			}
-			while(uvcGrab (vdin_camera) < 0) {
-				printf("Error grabbing\n");
-				usleep(100000);
-			}
-			gettimeofday(&open_time,NULL);
-			pthread_mutex_unlock(&vdin_camera->tmpbufflock);
-			
-			un_cpture_time =(unsigned long long)1000000 *abs ( open_time.tv_sec - stop_time.tv_sec ) + open_time.tv_usec -stop_time.tv_usec;
-			printf("un_cpture_time == %llu\n",un_cpture_time);
-			num_pic_to_ignore = 125;
-			curr_resolution = change_resolution;
-		}
-		*/
 	}
 
 	dbg("Exitting record server");

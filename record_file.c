@@ -14,6 +14,11 @@
 #include "record_file.h"
 #include "utilities.h"
 
+#define dbg(fmt, args...)  \
+    do { \
+        printf(__FILE__ ": %s: " fmt, __func__, ## args); \
+    } while (0)
+
 record_file_t* record_file_open(int start_sector)
 {
 	record_file_t* file;
@@ -52,7 +57,7 @@ record_file_t* record_file_open(int start_sector)
 	if( end_sector >= partition_sector_num ){
 		end_sector = partition_sector_num;
 	}
-	end_sector -= 512/512;
+	end_sector -= END_HEADER_LOCATION*512/512;
 
 	req.buf = buffer;
 	req.start = end_sector;
@@ -64,22 +69,27 @@ record_file_t* record_file_open(int start_sector)
 	if( header.head[0]!=0 || header.head[1]!=0 || header.head[2]!=0 || header.head[3]!=1 || header.head[4] != 0xc ){
 		printf("-----------------can't find sequence at START sector:%d\n", start_sector);
 		sequence_start = -1;
+		memset(file->StartTimeStamp,0xff,sizeof(file->StartTimeStamp));
 	}
 	else{
 		sequence_start = hex_string_to_int(header.PackageSequenceNumber, 8);
+		memcpy(file->StartTimeStamp,header.StartTimeStamp,sizeof(file->StartTimeStamp));
 	}
 	if( end.head[0]!=0 || end.head[1]!=0 || end.head[2]!=0 || end.head[3]!=1 || end.head[4] != 0xc ){
 		printf("-----------------can't find sequence at END sector:%d\n", start_sector);
+		memset(file->LastTimeStamp,0xff,sizeof(file->LastTimeStamp));
 		sequence_end = -1;
 	}
 	else{
 		sequence_end = hex_string_to_int(end.PackageSequenceNumber, 8);
+		memcpy(file->LastTimeStamp,end.LastTimeStamp,sizeof(file->LastTimeStamp));
 	}
 	if( sequence_start == sequence_end && sequence_start != -1 ){
 		file->real_size= hex_string_to_int(end.TotalPackageSize, 8);
 		file->sequence = sequence_start;
 		file->start_sector = start_sector;
 		file->cur_sector = 0;
+		file->index_table_pos = (NAND_RECORD_FILE_SECTOR_SIZE - INDEX_TABLE_LOCATION) * 512;
 		printf("--------%s: a good file, start_sector=%d, length=%d\n",
 				__func__, start_sector, file->real_size);
 	}
@@ -89,6 +99,7 @@ record_file_t* record_file_open(int start_sector)
 		file->sequence = sequence_start;
 		file->start_sector = start_sector;
 		file->cur_sector = 0;
+		file->index_table_pos = 0xffffffff;
 	}
 	else{
 		printf("%s: a bad file\n", __func__);
@@ -146,10 +157,11 @@ int record_file_seekto(record_file_t* file, unsigned int percent)
 	int ret = 0;
 	unsigned int sector;
 
-	sector = (file->real_size*percent/100 + 511)/512;
+	sector = percent/512;
 
 	if(sector > (file->real_size+511)/512){
 		ret = -1;
+		dbg("seek error\n");
 	}else{
 		file->cur_sector = sector;
 	}

@@ -1,9 +1,11 @@
 #ifndef RECORD_FILE_H_
 #define RECORD_FILE_H_
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
 #include "nand_file.h"
 
 typedef struct record_file
@@ -14,9 +16,11 @@ typedef struct record_file
 	int real_size; //file size in byte
 	//int frame_width;
 	//int frame_height;
-
 	unsigned int cur_sector;//for file read or write
 	int fd;
+	unsigned int index_table_pos;
+	char StartTimeStamp[14];
+	char LastTimeStamp[14];
 }record_file_t;
 
 record_file_t* record_file_open(int start_sector);
@@ -41,6 +45,7 @@ int record_file_close(record_file_t* file);
 
 
 //todo: record_file_write
+
 #ifdef __cplusplus
 }
 #endif

@@ -1094,6 +1094,12 @@ __tryaccept:
 			if(!dst){
 				//printf("sound data not prepare\n");
 				usleep(50000);
+				pthread_mutex_lock(&sess->sesslock);
+				if(!sess->running){
+					pthread_mutex_unlock(&sess->sesslock);
+					goto __exit;
+				}
+				pthread_mutex_unlock(&sess->sesslock);
 				goto __tryget;
 			}
 			//if(dst_size>416)

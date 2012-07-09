@@ -59,6 +59,7 @@ int playback_seekto(struct sockaddr_in address, int percent);
 void playback_remove_dead();
 int playback_get_status(playback_t * pb);
 int playback_set_status(playback_t * pb, int status);
+int cmd_playback_set_status(struct sockaddr_in address ,  int status , void *value);
 #ifdef __cplusplus
 }
 #endif

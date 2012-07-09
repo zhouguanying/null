@@ -227,10 +227,11 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	} 
 	*/
 	
-	
+	/*
 	if (pthread_create(&tid, NULL, (void *) grab_sound_thread, NULL) < 0) {
 		return -1;
 	} 
+	*/
 	
 	sleep(1);
 	if (pthread_create(&tid, NULL, (void *) start_video_record, system_sess) < 0) {
@@ -625,9 +626,11 @@ int get_gateway(char * device ,char *gateway){
 			src++;
 		}
 	}else{
+		fclose(routefp);
 		system("rm /tmp/route");
 		return -1;
 	}
+	fclose(routefp);
 	printf("%s gateway==%s\n",device,gateway);
 	system("rm /tmp/route");
 	return 0;

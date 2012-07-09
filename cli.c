@@ -667,7 +667,7 @@ int stop_vid(struct sess_ctx *sess, char *arg)
  * @arg: optional argument
  * Returns 0 on success or -1 on error
  */
-static char * set_transport_type(struct sess_ctx *sess, char *arg)
+static char * set_transport_type(struct sess_ctx *sess, char *arg , int *rsp_len)
 {
     int on;
     char *r;
@@ -729,6 +729,14 @@ static char * set_transport_type(struct sess_ctx *sess, char *arg)
 			return NULL;
 		} 
 		dbg("start_video_monitor run now\n");
+		r = (char *)malloc(6);
+		if(!r)return NULL;
+		sprintf(r,"tcp");
+		r[3] = (char)threadcfg.brightness;
+		r[4] = (char)threadcfg.contrast;
+		r[5] = (char)threadcfg.volume;
+		*rsp_len = 6;
+		return r;
 	} 
 	else if(strlen(arg) == 3 && strncmp(arg, "rtp", 3) == 0){
 		printf("********************rtp type*****************\n");
@@ -744,7 +752,15 @@ static char * set_transport_type(struct sess_ctx *sess, char *arg)
 			free_system_session(sess);
 			return NULL;
 		} 
-		printf("*********************************create udt_sess_thread sucess***********************\n");
+		dbg("create udt_sess_thread sucess\n");
+		r = (char *)malloc(6);
+		if(!r)return NULL;
+		sprintf(r,"rtp");
+		r[3] = (char)threadcfg.brightness;
+		r[4] = (char)threadcfg.contrast;
+		r[5] = (char)threadcfg.volume;
+		*rsp_len = 6;
+		return r;
 	}else if(strlen(arg)==6&&strncmp(arg,"update",6) == 0){
 		printf("###################do update################\n");
 		sess->running = 1;
@@ -1930,6 +1946,34 @@ static char *PswdState()
 	else
 		return strdup(PASSWORD_NOT_SET);
 }
+
+static char *cli_playback_set_status(struct sess_ctx *sess, char *arg)
+{
+	int status,value;
+	char *rsp = NULL;
+	char buf[32];
+	if(!sess||!arg)
+		return NULL;
+	if(strncmp(arg,"SEEK",4)==0){
+		arg+=4;
+		if(*arg!=':')
+			return NULL;
+		arg++;
+		memset(buf,0,32);
+		memcpy(buf,arg,strlen(arg));
+		if(sscanf(buf,"%d",&value)!=1)
+			return NULL;
+		cmd_playback_set_status(sess->from, PLAYBACK_STATUS_SEEK, &value);
+		rsp = strdup("SEEK");
+	}else if(strncmp(arg,"PAUSED",6)==0){
+		cmd_playback_set_status(sess->from, PLAYBACK_STATUS_PAUSED, NULL);
+		rsp = strdup("PAUSED");
+	}else if(strncmp(arg,"RUNNING",7)==0){
+		cmd_playback_set_status(sess->from, PLAYBACK_STATUS_RUNNING, NULL);
+		rsp = strdup("RUNNING");
+	}
+	return rsp;
+}
 static char* GetConfig(char* arg , int *rsp_len)
 {
 	char ConfigType;
@@ -2349,7 +2393,7 @@ static void set_brightness(char *arg)
 	}
 	if(v4l2_contrl_brightness(vdin_camera,value)==0){
 		threadcfg.brightness = value;
-		save_config_value(CFG_BRIGHTNESS , buf);
+		//save_config_value(CFG_BRIGHTNESS , buf);
 	}
 }
 
@@ -2367,7 +2411,7 @@ static void set_contrast(char *arg)
 	}
 	if(v4l2_contrl_contrast(vdin_camera,value)==0){
 		threadcfg.contrast = value;
-		save_config_value(CFG_CONTRAST, buf);
+		//save_config_value(CFG_CONTRAST, buf);
 	}
 }
 
@@ -2385,7 +2429,7 @@ static void set_volume(char *arg)
 	}
 	if(alsa_set_volume(value)==0){
 		threadcfg.volume = value;
-		save_config_value(CFG_VOLUME, buf);
+		//save_config_value(CFG_VOLUME, buf);
 	}
 }
 static char* GetTime(char* arg)
@@ -2865,7 +2909,7 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
         else if (strncmp(cmd, "stop_audio", 10) == 0)
                 stop_aud(sess, NULL);    
         else if (strncmp(cmd, "set_transport_type", 18) == 0)
-               return  set_transport_type(sess, param);
+               return  set_transport_type(sess, param , rsp_len);
         else if (strncmp(cmd, "set_gopsize", 11) == 0)
                 set_gopsize(sess, param);
         else if (strncmp(cmd, "set_bitrate", 11) == 0)
@@ -2938,6 +2982,8 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
                 resp = DeleteAllFiles(sess, param);
         else if (strncmp(cmd, "DeleteFile", 10) == 0)
                 resp = DeleteFile(sess, param);
+	else if(strncmp(cmd,"pb_set_status",13)==0)
+		resp = cli_playback_set_status( sess, param);
         else
 		dbg("cmd = %s**not supported\n", cmd);
     
