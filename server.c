@@ -1979,12 +1979,13 @@ int start_video_record(struct sess_ctx* sess)
 	printf("video_internal_header.FrameHeight==%s\n",video_internal_header.FrameHeight);
 	reset_syn_buf();
 
-
-	table_item.location = 0;
-	memcpy(record_15sec_pos,&table_item ,sizeof(index_table_item_t));
-	(*record_15sec_table_size) +=sizeof(index_table_item_t);
-	//dbg("write 15sec location  pos = %u , write in %p , 15sec table size = %u\n",table_item.location , record_15sec_pos,*record_15sec_table_size);
-	record_15sec_pos +=sizeof(index_table_item_t);
+	if(threadcfg.sdcard_exist){
+		table_item.location = 0;
+		memcpy(record_15sec_pos,&table_item ,sizeof(index_table_item_t));
+		(*record_15sec_table_size) +=sizeof(index_table_item_t);
+		//dbg("write 15sec location  pos = %u , write in %p , 15sec table size = %u\n",table_item.location , record_15sec_pos,*record_15sec_table_size);
+		record_15sec_pos +=sizeof(index_table_item_t);
+	}
 	
 	memset(&mail_last_time , 0 ,sizeof(struct timeval));
 	gettimeofday(&starttime,NULL);

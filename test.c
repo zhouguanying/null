@@ -227,11 +227,11 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	} 
 	*/
 	
-	/*
+	
 	if (pthread_create(&tid, NULL, (void *) grab_sound_thread, NULL) < 0) {
 		return -1;
 	} 
-	*/
+	
 	
 	sleep(1);
 	if (pthread_create(&tid, NULL, (void *) start_video_record, system_sess) < 0) {
@@ -1545,6 +1545,7 @@ int update_config_file_carefully()
 	free(old_file_buf);
 	return 0;
 }
+#define HID_RDWR_UNIT		63
 int main()
 {
 	int ret;
@@ -1577,8 +1578,7 @@ int main()
 	if( ioctl_usbdet_read()){
 		int hid_fd;
 		//FILE *config_fp;
-		char hid_r_cmd[2];
-		char hid_w_cmd[2];
+		char hid_unit_buf[HID_RDWR_UNIT];
 		unsigned short  data_len;
 		char *p;
 		char *s;
@@ -1587,7 +1587,7 @@ int main()
 		long sd_maxsize;
 		long sd_freesize;
 		int cmd;
-		//int size;
+		int size;
 		char *hid_buf;
 		int numssid;
 		
@@ -1627,19 +1627,26 @@ int main()
 		
 		if((hid_fd = open("/dev/hidg0", O_RDWR)) != -1 && set_fl( hid_fd, O_NONBLOCK ) != -1 ){
 			while( 1 ){
+				dbg("try get hid cmd\n");
+				size = 0;
 				do{
 					if(!( ioctl_usbdet_read())){
 						system("reboot &");
 						exit(0);
 					}
-					ret = read(hid_fd, hid_r_cmd, 2);
-				}while(ret!=2);
-				cmd=(int)hid_r_cmd[1];
+					ret = read(hid_fd, hid_unit_buf + size, HID_RDWR_UNIT - size);
+					if(ret <=0)
+						continue;
+					size  += ret;
+					dbg("get cmd size = %d\n",size);
+				}while(size <HID_RDWR_UNIT);
+				
+				cmd=(int)hid_unit_buf[1];
+				dbg("ok begin to excute cmd\n");
 				switch(cmd)
 				{
 					case HID_READ_VIDEO_CFG:
 						printf("HID_READ_VIDEO_CFG\n");
-						//sleep(60);
 						if(get_cam_id(&threadcfg.cam_id)<0){
 							printf("************************************************\n");
 							printf("*            get camera id error,something wrong               *\n");
@@ -1673,23 +1680,28 @@ int main()
 						p+=strlen(p);
 						sprintf(p,"tfcard_freesize=%ld\n",sd_freesize);
 						data_len +=strlen(p);
-						if(data_len%2)
-							data_len++;
-						ret = write(hid_fd, (char *)&data_len , 2);
+						
+						memcpy(hid_unit_buf,&data_len,sizeof(data_len));
+						ret = write(hid_fd, hid_unit_buf, HID_RDWR_UNIT);
 						p = (char *)&data_len;
 						printf("data_len==%d  %2x %2x\n",(int)data_len,*p ,*(p+1));
 						printf("ret ==%d\n" , ret);
 						printf("##########################\n");
 						sleep(2);
-						for(i = 0; i<data_len; i+=2)
+						for(i = 0; i<(int)data_len; i+=HID_RDWR_UNIT)
 						{
 							do{
 								usleep(20000);
-								ret = write(hid_fd , hid_buf+i ,2);
-								//printf("write ret==%d , i==%d\n",ret , i);
-							}while(ret != 2);
+								ret = write(hid_fd , hid_buf+i ,HID_RDWR_UNIT);
+							}while(ret != HID_RDWR_UNIT);
 						}
+						
+						/*clean garbage*/
+						usleep(10000);
+						read(hid_fd , hid_buf,4096);
+						
 						free(hid_buf);
+						dbg("send configure file sucess\n");
 						break;
 					case HID_READ_SEARCH_WIFI:
 						printf("HID_READ_SEARCH_WIFI\n");
@@ -1711,6 +1723,11 @@ int main()
 								ret = write(hid_fd , hid_buf+i ,2);
 							}while(ret != 2);
 						}
+						
+						/*clean garbage*/
+						usleep(10000);
+						read(hid_fd , hid_buf,4096);
+						
 						free(hid_buf);
 						break;
 					case HID_WRITE_VIDEO_CFG:
@@ -1719,31 +1736,34 @@ int main()
 						if(!hid_buf)
 							exit(0);
 						memset(hid_buf , 0 ,4096);
+						size = 0;
 						do{
-							ret = read(hid_fd, hid_r_cmd, 2);
-						}while(ret!=2);
-						memcpy(&data_len , hid_r_cmd , 2);
-						if(data_len%2)
-							data_len++;
+							ret = read(hid_fd, hid_unit_buf+size, HID_RDWR_UNIT -size);
+							if(ret <=0)
+								continue;
+							size +=ret;
+						}while(size <HID_RDWR_UNIT);
+						memcpy(&data_len , hid_unit_buf, 2);
 						printf("data_len==%d\n",(int)data_len);
-						p = hid_buf;
-						for(i=0;i<data_len;i+=2){
+						size = 0;
+						while(size <(int)data_len){
 							do{
-								usleep(10000);
-								ret = read(hid_fd, hid_r_cmd, 2);
-								if(ret == 1)
-									printf("***********read one char****************\n");
-							}while(ret!=2);
-							*p = hid_r_cmd[0];
-							p++;
-							*p = hid_r_cmd[1];
-							p++;
-							printf("i==%d , %2x %2x \n",i , hid_r_cmd[0],hid_r_cmd[1]);
+								ret = read(hid_fd , hid_buf+size, (int)data_len - size);
+								if(!( ioctl_usbdet_read())){
+									system("reboot &");
+									exit(0);
+								}
+							}while(ret <=0);
+							size +=ret;
 						}
 						printf("####################GET VIDEO_CFG###################\n");
 						printf("%s",hid_buf);
 						printf("##################################################\n");
 						set_raw_config_value(hid_buf);
+						
+						/*clean garbage*/
+						read(hid_fd , hid_buf,4096);
+						
 						free(hid_buf);
 						break;
 					case HID_RESET_TO_DEFAULT:
@@ -1757,27 +1777,29 @@ int main()
 						break;
 					case HID_SET_PSWD:
 						printf("HID_SET_PSWD\n");
+						size = 0;
 						do{
-							ret = read(hid_fd, hid_r_cmd, 2);
-						}while(ret!=2);
-						memcpy(&data_len , hid_r_cmd , 2);
+							ret = read(hid_fd, hid_unit_buf+size, HID_RDWR_UNIT -size);
+							if(ret <=0)
+								continue;
+							size +=ret;
+						}while(size <HID_RDWR_UNIT);
+						memcpy(&data_len , hid_unit_buf, 2);
 						memset(buf,0,512);
 						sprintf(buf,PASSWORD_PART_ARG);
 						p = buf;
 						p += strlen(buf);
 						printf("data_len=%d\n",(int)data_len);
-						for(i=0;i<data_len;i+=2){
+						size = 0;
+						while(size <(int)data_len){
 							do{
-								usleep(10000);
-								ret = read(hid_fd, hid_r_cmd, 2);
-								if(ret == 1)
-									printf("***********read one char****************\n");
-							}while(ret!=2);
-							*p = hid_r_cmd[0];
-							p++;
-							*p = hid_r_cmd[1];
-							p++;
-							printf("i==%d , %2x %2x \n",i , hid_r_cmd[0],hid_r_cmd[1]);
+								ret = read(hid_fd , p+size, (int)data_len - size);
+								if(!( ioctl_usbdet_read())){
+									system("reboot &");
+									exit(0);
+								}
+							}while(ret <=0);
+							size +=ret;
 						}
 						data_len +=strlen(PASSWORD_PART_ARG);
 						fd = fopen(PASSWORD_FILE,"w");
@@ -1796,45 +1818,16 @@ int main()
 							goto hid_fail;
 						}
 						printf("%s\n",buf);
+						
+						/*clear garbage*/
+						read(hid_fd , buf,512);
+						
 						fclose(fd);
 						break;
 					default:
 					hid_fail:
-						hid_w_cmd[0] = 0;
-						hid_w_cmd[1] = 0;
-						write(hid_fd, hid_w_cmd , 2);
+						break;
 				}	
-				/*
-				printf("size==%d\n",size);
-				data_len=size;
-				i=0;
-				ip=buf;
-				while(data_len>0){
-					ret = read(hid_fd, &hid_r_cmd, 2);
-					if(ret!=2){
-						continue;
-					}
-					buf[i]=hid_r_cmd[0];
-					printf("%c",buf[i]);
-					if(buf[i]=='\n'){
-						data_len--;
-						printf("\ndata_len==%d\n",data_len);
-					}
-					i++;
-					buf[i]=hid_r_cmd[1];
-					printf("%c",buf[i]);
-					if(buf[i]=='\n'){
-						data_len--;
-						printf("\ndata_len==%d\n",data_len);
-						
-					}
-					i++;
-				}
-				fwrite(buf,1,i,netconfig_fd);
-				fflush(netconfig_fd);
-				fclose(netconfig_fd);
-				printf("\n####################ok################\n");
-				*/
 			}
 		}
 	}

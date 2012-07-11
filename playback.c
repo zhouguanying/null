@@ -490,6 +490,7 @@ void* playback_thread(void * arg)
 	unsigned int seek;
 	unsigned int old_real_size;
 	char *s,*e;
+	unsigned int reserve_seek;
 //	struct timeval old_send_time , currtime;
 //	unsigned long long timeuse;
 //	unsigned int snd_size;
@@ -688,6 +689,7 @@ void* playback_thread(void * arg)
 			case PLAYBACK_STATUS_SEEK:
 				dbg("playback seek , pb->seek=%d\n",pb->seek);
 				playback_set_status(pb, PLAYBACK_STATUS_RUNNING);
+				reserve_seek = file->cur_sector *512;
 				if(!table_buf)
 					break;
 				seek = 0;
@@ -756,7 +758,8 @@ void* playback_thread(void * arg)
 							dbg("ok we find internal header\n");
 						else{
 							dbg("we not found internal header error\n");
-							exit(0);
+							record_file_seekto( file, reserve_seek);
+							goto __seek_out;
 						}
 						e = s;
 						ret =0;
@@ -764,8 +767,8 @@ void* playback_thread(void * arg)
 							ret ++;
 							if(ret>sizeof(nand_record_file_internal_header)+1){
 								dbg("we not found the next jpeg header\n");
-								dbg("location = %u\n",seek);
-								exit(0);
+								record_file_seekto( file, reserve_seek);
+								goto __seek_out;
 							}
 							e++;
 						}
@@ -793,6 +796,7 @@ void* playback_thread(void * arg)
 				if(ret <= 0){
 					running = 0;
 				}
+			__seek_out:
 				break;	
 			case PLAYBACK_STATUS_PAUSED:
 			default:
