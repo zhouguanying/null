@@ -38,6 +38,9 @@
 #include "cudt.h"
 #include "video_cfg.h"
 
+/*for debug malloc*/
+//#include "dbg_malloc.h"
+
 extern int check_net_thread();
 extern int mywpa_cli(int argc, char *argv[]);
 int built_net(int check_wlan0,int check_eth0 , int ping_wlan0 , int ping_eth0);
@@ -1565,6 +1568,8 @@ int main()
 	
 	//sleep(1);
 	//signal(SIGINT , sig_handle);
+	/*dbg malloc*/
+	//init_mem_hook();
 
 	if( open_usbdet() != 0 ){
 		printf("open usb detect error\n");
