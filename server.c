@@ -1782,6 +1782,10 @@ static inline void write_syn_sound(int *need_video_internal_head)
 		dbg("sound data not prepare\n");
 	}
 }
+char pause_record = 0;
+char force_close_file = 0;
+//#define RECORD_SOUND
+#undef RECORD_SOUND
 int start_video_record(struct sess_ctx* sess)
 {
 	//const char *videodevice = "/dev/video0";
@@ -1843,6 +1847,10 @@ int start_video_record(struct sess_ctx* sess)
 	index_table_item_t	  table_item;
 	char *audio_internal_header_p;
 	char *video_internal_header_p;
+#ifdef RECORD_SOUND
+	char *sound_buf;
+ 	int sound_size;
+#endif
 
 	//unsigned int * value;
 
@@ -1865,6 +1873,7 @@ int start_video_record(struct sess_ctx* sess)
 	if(threadcfg.sdcard_exist){
 		attr_table = (char *)malloc(INDEX_TABLE_SIZE);
 		time_15sec_table = (char *)malloc(INDEX_TABLE_SIZE);
+		
 		if(!attr_table||!time_15sec_table){
 			printf("error malloc buffer for index table\n");
 			exit(0);
@@ -1875,6 +1884,14 @@ int start_video_record(struct sess_ctx* sess)
 		record_15sec_table_size = attr_table_size+1;
 		attr_pos =(char *)(record_15sec_table_size+1);
 		record_15sec_pos = time_15sec_table;
+#ifdef RECORD_SOUND
+		sound_buf = (char *)malloc(32 * 1024); /*15 sec sound data about 32*50*15*/
+		if(!sound_buf){
+			printf("##################error malloc buf for record sound###############\n");
+			exit(0);
+		}
+		sound_size = 0;
+#endif
 	}
 	
 	i = 0;
@@ -1899,14 +1916,7 @@ int start_video_record(struct sess_ctx* sess)
 	usec_between_image = 0;
 	if(strncmp(threadcfg.record_mode,"no_record",strlen("no_record")) ==0)
 		record_mode = 0;
-	else if(strncmp(threadcfg.record_mode,"normal",strlen("normal")) ==0){
-		printf("record_mode==normal\n");
-		record_mode =3;
-		record_normal_duration = threadcfg.record_normal_duration;
-		usec_between_image=(unsigned long long )1000000/threadcfg.record_normal_speed;
-		//memcpy(record_resolution,threadcfg.resolution,32);
-	}
-	else {
+	else if(strncmp(threadcfg.record_mode,"inteligent",strlen("inteligent")) ==0){
 		printf("record_mode ==inteligent\n");
 		record_mode = 2;
 		record_fast_duration = threadcfg.record_fast_duration;
@@ -1915,6 +1925,13 @@ int start_video_record(struct sess_ctx* sess)
 		usec_between_image = (unsigned long long )1000000/record_fast_speed;
 		//memcpy(record_slow_resolution,threadcfg.record_slow_resolution,32);
 		//memcpy(record_fast_resolution,threadcfg.record_fast_resolution,32);
+	}
+	else {
+		printf("record_mode==normal\n");
+		record_mode =3;
+		record_normal_duration = threadcfg.record_normal_duration;
+		usec_between_image=(unsigned long long )1000000/threadcfg.record_normal_speed;
+		//memcpy(record_resolution,threadcfg.resolution,32);
 	}
 	record_normal_speed = threadcfg.record_normal_speed;
 	email_alarm = threadcfg.email_alarm;
@@ -2025,6 +2042,17 @@ int start_video_record(struct sess_ctx* sess)
 		if(threadcfg.sdcard_exist){
 			gettimeofday(&endtime,NULL);
 			if(abs(endtime.tv_sec - index_table_15sec_last_time.tv_sec)>=15){
+#ifdef RECORD_SOUND
+				if(sound_size>0){
+					timestamp = gettimestamp();
+					memcpy(audio_internal_header.StartTimeStamp,timestamp , sizeof(audio_internal_header.StartTimeStamp));
+					audio_internal_header.flag[0] = (1<<FLAG0_TS_CHANGED_BIT |1<<FLAG0_FR_CHANGED_BIT |1<<FLAG0_FW_CHANGED_BIT |1 <<FLAG0_FH_CHANGED_BIT);
+					nand_write(&audio_internal_header, sizeof(audio_internal_header));
+					nand_write(sound_buf, sound_size);
+					sound_size = 0;
+					need_write_internal_head = 1;
+				}
+#endif
 				table_item.location =nand_get_position();
 				if(*record_15sec_table_size + *attr_table_size +sizeof(index_table_item_t) + 8 <=INDEX_TABLE_SIZE){
 					memcpy(record_15sec_pos,&table_item ,sizeof(index_table_item_t));
@@ -2066,7 +2094,17 @@ int start_video_record(struct sess_ctx* sess)
 					}else{
 						pictures_to_write= 0;
 						if(record_last_state == RECORD_STATE_FAST){
-							write_syn_sound(&need_write_internal_head);
+#ifdef RECORD_SOUND
+						if(threadcfg.sdcard_exist&&sound_size>0){
+							timestamp = gettimestamp();
+							memcpy(audio_internal_header.StartTimeStamp,timestamp , sizeof(audio_internal_header.StartTimeStamp));
+							audio_internal_header.flag[0] = (1<<FLAG0_TS_CHANGED_BIT |1<<FLAG0_FR_CHANGED_BIT |1<<FLAG0_FW_CHANGED_BIT |1 <<FLAG0_FH_CHANGED_BIT);
+							nand_write(&audio_internal_header, sizeof(audio_internal_header));
+							nand_write(sound_buf, sound_size);
+							sound_size = 0;
+							need_write_internal_head = 1;
+						}
+#endif
 							record_last_state = RECORD_STATE_STOP;
 						}
 					}
@@ -2176,7 +2214,7 @@ int start_video_record(struct sess_ctx* sess)
 		audio_internal_header_p = audio_internal_header.StartTimeStamp;
 
 		/*add this for convenience*/
-		if(timestamp_change||frameratechange||prev_width!=width||prev_height!=height){
+		if(need_write_internal_head||timestamp_change||frameratechange||prev_width!=width||prev_height!=height){
 			timestamp_change = frameratechange = 1;
 			prev_width = 0;
 			prev_height = 0;
@@ -2244,6 +2282,18 @@ int start_video_record(struct sess_ctx* sess)
 retry:
 		if(threadcfg.sdcard_exist){
 			ret = nand_write(buffer, size);
+#ifdef RECORD_SOUND
+			if(ret == 0 || ret ==VS_MESSAGE_NEED_START_HEADER){
+				char *sound_data;
+				int 	data_size;
+				sound_data = new_get_sound_data(MAX_NUM_IDS - 1 , &data_size);
+				if(sound_data){
+					memcpy(sound_buf + sound_size , sound_data , data_size);
+					sound_size += data_size;
+					free(sound_data);
+				}
+			}
+#endif
 			if( ret == 0 ){
 				i++;
 				usleep(1);
@@ -2265,6 +2315,8 @@ retry:
 			}
 			
 			else if( ret == VS_MESSAGE_NEED_END_HEADER ){
+				while(pause_record)
+					usleep(10000);
 				memcpy(attr_pos , time_15sec_table , *record_15sec_table_size);
 				nand_write_index_table( attr_table);
 				nand_prepare_close_record_header(&record_header);
@@ -2284,6 +2336,9 @@ retry:
 				dbg("write 15sec location  pos = %u , write in %p , 15sec table size = %u\n",table_item.location , record_15sec_pos,*record_15sec_table_size);
 				record_15sec_pos +=sizeof(index_table_item_t);
 				//dbg("#######################nand file write index table###############\n");
+#ifdef   RECORD_SOUND
+				sound_size = 0;
+#endif
 				goto retry;
 			}
 			else{
@@ -2292,12 +2347,6 @@ retry:
 		}
 		free(buffer);
 		//check if it is time come to write sound data
-		gettimeofday(&endtime,NULL);
-		timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - prev_write_sound_time.tv_sec ) + endtime.tv_usec - prev_write_sound_time.tv_usec;
-		if(abs(timeuse)>=(unsigned long long)1000000){
-			write_syn_sound(&need_write_internal_head);
-			memcpy(&prev_write_sound_time,&endtime,sizeof(struct timeval));
-		}
 	}
 
 	dbg("Exitting record server");

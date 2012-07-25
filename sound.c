@@ -32,6 +32,7 @@
 #include "amr.h"
 #include "cli.h"
 #include "sound.h"
+#include "amrnb_encode.h"
 
 #include "speex_echo.h"
 #include "speex_preprocess.h"
@@ -874,7 +875,7 @@ static int test_sound_tcp_read_data(struct sess_ctx*sess){
 			}
 		}
 		printf("recv sound data n==%d\n",data_len);
-		r=amrdecoder(src,data_len  ,audiothreadparams.wrthread.audiobuf,&pcm_frames,2);
+		//r=amrdecoder(src,data_len  ,audiothreadparams.wrthread.audiobuf,&pcm_frames,2);
 		printf("after decode pcm_frames==%d\n",pcm_frames);
 		if(r>=0){
 			ret=pcm_write((u_char *)(audiothreadparams.wrthread.audiobuf), pcm_frames);
@@ -965,8 +966,9 @@ int test_sound_tcp_transport(struct sess_ctx* sess){
 	struct timeval selecttv;
 	fd_set acceptfds;
 	int tryaccept = MAX_CONNECTIONS;
-	char *dst;
-	ssize_t dst_size;
+	char *buf;
+	ssize_t size;
+	char *start_buf;
 	if ((lsockfd= create_tcp_socket()) < 0) {
              printf("Error creating sound listen socket");
 		pthread_mutex_lock(&sess->sesslock);
@@ -1064,7 +1066,42 @@ __tryaccept:
 		*/
 		//pthread_join(sess->swtid , NULL);
 		//goto __exit;
+		start_buf = (char *)malloc(BOOT_SOUND_STORE_SIZE *2);
+		if(!start_buf){
+			printf("error malloc sound cache before send\n");
+			goto __exit;
+		}
 	       set_syn_sound_data_clean(sess->id);
+		 /*prepare 3sec sound data before send*/
+		 s = 0;
+		 while(s<BOOT_SOUND_STORE_SIZE){
+		 	buf=new_get_sound_data(sess->id,&size);
+			if(!buf){
+				usleep(50000);
+				continue;
+			}
+			memcpy(start_buf + s , buf , size);
+			s += size;
+			free(buf);
+		 }
+		 size = s;
+		 s = 0;
+		 while(size > 0){
+		 	if(size > 1024){
+				n=send(sockfd,start_buf+s,1024,0);
+			}else{
+				n=send(sockfd,start_buf+s,size,0);
+			}
+			if(n <=0){
+				printf("send 3s sound data error\n");
+				free(start_buf);
+				goto __exit;
+			}
+			size -=n;
+			s +=n;
+		 }
+		 free(start_buf);
+		 /*send sound data in normal*/
 		while(1){
 			pthread_mutex_lock(&sess->sesslock);
 			if(!sess->running){
@@ -1077,21 +1114,21 @@ __tryaccept:
 				printf("pcm read error\n");
 				goto __exit;
 			}
-			dst=malloc ((audiothreadparams.params->chunk_size+L_PCM_USE-1)/L_PCM_USE*amr_f_size[AMR_MODE]);
-			if(!dst){
+			buf=malloc ((audiothreadparams.params->chunk_size+L_PCM_USE-1)/L_PCM_USE*amr_f_size[AMR_MODE]);
+			if(!buf){
 				printf("malloc buffer for amr coder fail\n");
 				goto __exit;
 			}
-			ret=amrcoder(audiothreadparams.rdthread.audiobuf, audiothreadparams.params->chunk_bytes, dst, & dst_size,AMR_MODE,2);
+			ret=amrcoder(audiothreadparams.rdthread.audiobuf, audiothreadparams.params->chunk_bytes, buf, & size,AMR_MODE,2);
 			if(ret<0){
 				printf("amr coder error\n");
-				free(dst);
+				free(buf);
 				goto __exit;
 			}
 			*/
 	__tryget:
-			dst=new_get_sound_data(sess->id,&dst_size);
-			if(!dst){
+			buf=new_get_sound_data(sess->id,&size);
+			if(!buf){
 				//printf("sound data not prepare\n");
 				usleep(50000);
 				pthread_mutex_lock(&sess->sesslock);
@@ -1102,27 +1139,26 @@ __tryaccept:
 				pthread_mutex_unlock(&sess->sesslock);
 				goto __tryget;
 			}
-			//if(dst_size>416)
-				//printf("tcp send sound get size==%d\n",dst_size);
-			ret=dst_size;
+			//if(size>416)
+				//printf("tcp send sound get size==%d\n",size);
 			s=0;
-			while(ret>0){
-				if(ret>1024){
-					n=send(sockfd,dst+s,1024,0);
+			while(size>0){
+				if(size>1024){
+					n=send(sockfd,buf+s,1024,0);
 				}else{
-					n=send(sockfd,dst+s,ret,0);
+					n=send(sockfd,buf+s,size,0);
 				}
 				if(n>0){
 					s+=n;
-					ret-=n;
+					size-=n;
 					//dbg("send sound data n==%d\n",n);
 				}else{
 					printf("send sound data error\n");
-					free(dst);
+					free(buf);
 					goto __exit;
 				}
 			}
-			free(dst);
+			free(buf);
 			//printf("send sound data count==%d\n",i);
 			usleep(1000);
 		}
@@ -1222,6 +1258,7 @@ int init_and_start_sound(){
 	}
 	//sleep(3);
 	//turn_off_speaker();
+	/*
 	if((init_amrcoder(0))<0){
 		printf("init amrcoder error\n");
 		goto __error;
@@ -1230,6 +1267,7 @@ int init_and_start_sound(){
 		printf("init amrdecoder error\n");
 		goto __error;
 	}
+	*/
 	audiothreadparams.cop_buf_size = ((audiothreadparams.params->chunk_size+L_PCM_USE-1)/L_PCM_USE*amr_f_size[AMR_MODE]);
 	audiothreadparams.cop_data_buf=malloc(audiothreadparams.cop_buf_size);
 	if(!audiothreadparams.cop_data_buf){
@@ -1390,6 +1428,7 @@ __error:
 		free(audiothreadparams.params);
 	return -1;
 }
+/*
 char* get_cop_sound_data(ssize_t *size)
 {
 	char *buffer;
@@ -1420,8 +1459,9 @@ __readed:
 	usleep(50);
 	goto __retry;
 }
+*/
 int play_cop_sound_data(char *buffer,ssize_t length)
-{
+{/*
 	ssize_t r=0;
 	ssize_t pcm_frames;
 	int p;
@@ -1462,8 +1502,10 @@ int play_cop_sound_data(char *buffer,ssize_t length)
 		printf("pcm write error\n");
 		return -1;
 	}
+	*/
 	return 0;
 }
+/*
 int grab_sound_data()
 {
 	int r;
@@ -1472,24 +1514,15 @@ int grab_sound_data()
 		printf("grab sound data error\n");
 		return -1;
 	}
-	//pthread_mutex_lock(&syn_buf.syn_buf_lock);
 	pthread_mutex_lock(&audiothreadparams.cop_data_lock);
 	r=amrcoder(audiothreadparams.rdthread.audiobuf, audiothreadparams.params->chunk_bytes, audiothreadparams.cop_data_buf, & audiothreadparams.cop_data_length,AMR_MODE,2);
-	//memcpy(syn_buf.buf+syn_buf.end,audiothreadparams.cop_data_buf,STEP);
 	memset(audiothreadparams.readed_t,0,sizeof(audiothreadparams.readed_t));
 	pthread_mutex_unlock(&audiothreadparams.cop_data_lock);
-	/*
-	syn_buf.end=(syn_buf.end+STEP)%syn_buf.buffsize;
-	if(syn_buf.end==syn_buf.start){
-		syn_buf.start=(syn_buf.start+STEP)%syn_buf.buffsize;
-		printf("the video get the sound data too slow\n");
-	}
-	*/
-	//pthread_mutex_unlock(&syn_buf.syn_buf_lock);
 	if(r<0)
 		return -1;
 	return 0;
 }
+*/
 char *new_get_sound_data(int sess_id , int *size)
 {
 	int us_pos;
@@ -1537,20 +1570,41 @@ char *new_get_sound_data(int sess_id , int *size)
 	pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
 	return buf;
 }
-static inline int new_grab_sound_data()
+//FILE *amr_fp;
+//#define AMR_MAGIC_NUMBER "#!AMR\n"
+static inline int new_grab_sound_data(CHP_U32 bl_handle , CHP_AUD_ENC_DATA_T *p_enc_data )
 {
-	int r;
+	int r , i;
 	int size;
+	unsigned short *s , *d;
+	CHP_RTN_T error_flag;
 	r=pcm_read((u_char*)audiothreadparams.rdthread.audiobuf,audiothreadparams.params->chunk_size);
 	if(r<0){
 		printf("grab sound data error\n");
 		return -1;
 	}
+	s =(unsigned short *) audiothreadparams.rdthread.audiobuf;
+	d =(unsigned short *)p_enc_data->p_in_buf;
+	for(i = 0 , r = 0 ; r <audiothreadparams.params->chunk_bytes/2 ; i++ , r+=2)
+	{
+		d[i] = s[r];
+	}
+	error_flag = amrnb_encode(bl_handle, p_enc_data);
+	if(error_flag == CHP_RTN_AUD_ENC_FAIL || error_flag == CHP_RTN_AUD_ENC_NEED_MORE_DATA){
+		printf("###########amr encode fail##################\n");
+		return -1;
+	}
+	//fwrite(syn_buf.cache , 1 , SIZE_OF_AMR_PER_PERIOD , amr_fp);
+	//printf("p_enc_data->used_size = %u\n" , p_enc_data->used_size);
+	p_enc_data->used_size = 0;
+	//printf("p_enc_data->enc_data_len = %u\n" , p_enc_data->enc_data_len);
+	/*
 	r=amrcoder(audiothreadparams.rdthread.audiobuf, audiothreadparams.params->chunk_bytes, syn_buf.cache, &size,AMR_MODE,2);
 	if(size!=SIZE_OF_AMR_PER_PERIOD){
 		printf("BUG the compression size of amr data != SIZE_OF_AMR_PER_PERIOD\n");
 		return -1;
 	}
+	*/
 	//printf("amr coder size=%d\n",size);
 	pthread_rwlock_wrlock(&syn_buf.syn_buf_lock);
 	memcpy(syn_buf.c_sound_array[syn_buf.end].buf , syn_buf.cache , SIZE_OF_AMR_PER_PERIOD);
@@ -1581,12 +1635,50 @@ void set_syn_sound_data_clean(int sess_id)
 }
 int grab_sound_thread()
 {
+	CHP_MEM_FUNC_T mem_func;
+	CHP_AUD_ENC_INFO_T audio_info;
+	CHP_AUD_ENC_DATA_T enc_data;
+	CHP_U32 bl_handle;
+	CHP_RTN_T error_flag;
+	mem_func.chp_malloc = (CHP_MALLOC_FUNC)malloc;
+	mem_func.chp_free = (CHP_FREE_FUNC)free;
+	mem_func.chp_memset = (CHP_MEMSET)memset;
+	mem_func.chp_memcpy = (CHP_MEMCPY)memcpy;
+	audio_info.audio_type = CHP_DRI_CODEC_AMRNB;
+	audio_info.bit_rate = 12200;
+	//audio_info.sample_rate = 8000;
+	//audio_info.sample_size = 16;
+	//audio_info.channel_mode = 1;
+	error_flag = amrnb_encoder_init( &mem_func, &audio_info, & bl_handle);
+	if(error_flag!=CHP_RTN_SUCCESS){
+		printf("error init new amr encoder\n");
+		return -1;
+	}
+	enc_data.p_in_buf = malloc(audiothreadparams.params->chunk_bytes/2);
+	if(!enc_data.p_in_buf){
+		printf("error malloc buff for new encoder\n");
+		return -1;
+	}
+	enc_data.p_out_buf = syn_buf.cache;
+	enc_data.frame_cnt = SIZE_OF_AMR_PER_PERIOD /32;
+	enc_data.in_buf_len = audiothreadparams.params->chunk_bytes/2;
+	enc_data.out_buf_len = SIZE_OF_AMR_PER_PERIOD;
+	enc_data.used_size = 0;
+	enc_data.enc_data_len = 0;
+	/*
+	amr_fp = fopen("/sdcard/linrizeng.amr", "w");
+	if(!amr_fp){
+		printf("error open amr file\n");
+		exit(0);
+	}
+	fwrite(AMR_MAGIC_NUMBER , 1 , strlen(AMR_MAGIC_NUMBER),amr_fp);
+	*/
 	while(1){
 		if(is_do_update()){
 			dbg("is do update exit now\n");
 			return 0;
 		}
-		if(new_grab_sound_data()<0){
+		if(new_grab_sound_data(bl_handle , &enc_data)<0){
 			printf("grab sound data error\n");
 			exit(-1);
 		}

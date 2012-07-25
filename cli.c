@@ -283,6 +283,10 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
               	goto done;
        	 else if (strncmp(argv[0], "GetTime", 7) == 0)
            		goto done;
+		  else if (strncmp(argv[0], "DeleteAllFiles", 14) == 0)
+                	goto done;
+       	 else if (strncmp(argv[0], "DeleteFile", 10) == 0)
+                	goto done;
 		 pthread_mutex_unlock(&global_ctx_lock);
 		 return NULL;
 done:
@@ -2756,9 +2760,9 @@ static char* DeleteAllFiles(struct sess_ctx *sess,char* arg)
 	char * ret;
 	ret = malloc(20);
 	ret = "DeleteAllFilesOK";
-	v2ipd_disable_write_nand();
+	//v2ipd_disable_write_nand();
 	nand_clean();
-	v2ipd_reboot_system();
+	//v2ipd_reboot_system();
 	return ret;
 }
 
@@ -2776,11 +2780,11 @@ static char* DeleteFile(struct sess_ctx *sess,char* arg)
 		return ret;
 	}
 	sprintf(ret,"DeleteFile%08xOK",file_id);
-	v2ipd_disable_write_nand();
-	sleep(2);
+	//v2ipd_disable_write_nand();
+	//sleep(2);
 	nand_invalid_file(file_id,file_end_id);
 	system("/nand-flush /dev/nand-user");
-	v2ipd_restart_all();
+	//v2ipd_restart_all();
 	return ret;
 }
 
@@ -2884,6 +2888,10 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
 	 }
         else if (strncmp(cmd, "GetTime", 7) == 0)
              return   GetTime(param);
+	 else if (strncmp(cmd, "DeleteAllFiles", 14) == 0)
+                return DeleteAllFiles(sess, param);
+        else if (strncmp(cmd, "DeleteFile", 10) == 0)
+                return DeleteFile(sess, param);
 	 /*the second class*/
         if (sess == NULL || cmd == NULL) return NULL;
 		//dbg("%s\n",cmd);
@@ -2978,10 +2986,6 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
                 SetRecordStatue(param);
         else if (strncmp(cmd, "SetIpAddress", 12) == 0)
                 SetIpAddress(param);
-        else if (strncmp(cmd, "DeleteAllFiles", 14) == 0)
-                resp = DeleteAllFiles(sess, param);
-        else if (strncmp(cmd, "DeleteFile", 10) == 0)
-                resp = DeleteFile(sess, param);
 	else if(strncmp(cmd,"pb_set_status",13)==0)
 		resp = cli_playback_set_status( sess, param);
         else

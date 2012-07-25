@@ -1629,15 +1629,21 @@ int main()
 			}
 		}
 
-		
+	open_hid:	
 		if((hid_fd = open("/dev/hidg0", O_RDWR)) != -1 && set_fl( hid_fd, O_NONBLOCK ) != -1 ){
 			while( 1 ){
 				dbg("try get hid cmd\n");
 				size = 0;
 				do{
 					if(!( ioctl_usbdet_read())){
-						system("reboot &");
-						exit(0);
+						sleep(3);
+						if(!( ioctl_usbdet_read())){
+							system("reboot &");
+							exit(0);
+						}else{
+							close(hid_fd);
+							goto open_hid;
+						}
 					}
 					ret = read(hid_fd, hid_unit_buf + size, HID_RDWR_UNIT - size);
 					if(ret <=0)
@@ -1995,7 +2001,7 @@ read_config:
 		extract_value(conf_p, lines, CFG_MONITOR_RESOLUTION, 1, threadcfg.resolution);
 		printf("resolution = %s\n",threadcfg.resolution);
 
-		if(!(int)threadcfg.resolution[0])
+		if(strncmp(threadcfg.resolution , "vga",3)!=0||strncmp(threadcfg.resolution , "qvga",4)!=0)
 			sprintf(threadcfg.resolution,"vga");
 
 		extract_value(conf_p, lines, CFG_GOP, 0, (void *)&threadcfg.gop);
@@ -2029,24 +2035,28 @@ read_config:
 		extract_value(conf_p, lines, CFG_RECORD_MODE, 1, threadcfg.record_mode);
 		printf("record_mode = %s\n",threadcfg.record_mode);
 
-		if(!(int)threadcfg.record_mode[0])
-			sprintf(threadcfg.record_mode,"inteligent");
+		if(strncmp(threadcfg.record_mode , "normal",6)!=0||strncmp(threadcfg.record_mode , "inteligent",10)!=0||
+			strncmp(threadcfg.record_mode , "no_record",9)!=0){
+			sprintf(threadcfg.record_mode,"normal");
+			set_value(conf_p, lines, CFG_RECORD_MODE, 1, (void *)threadcfg.record_mode);
+		}
 
-		extract_value(conf_p, lines, CFG_RECORD_RESOLUTION, 1, threadcfg.record_resolution);
+		extract_value(conf_p, lines, CFG_RECORD_RESOLUTION, 1,(void *) threadcfg.record_resolution);
 		printf("record_resolution = %s\n",threadcfg.record_resolution);
 
-		if(!(int)threadcfg.record_resolution[0])
+		if(strncmp(threadcfg.record_resolution , "vga",3)!=0||strncmp(threadcfg.record_resolution , "qvga",4)!=0)
 			memcpy(threadcfg.record_resolution , threadcfg.resolution , 64);
 		else
 			memcpy(threadcfg.resolution ,threadcfg.record_resolution,64);
 		
-		set_value(conf_p, lines, CFG_RECORD_RESOLUTION, 1, &threadcfg.resolution);
+		set_value(conf_p, lines, CFG_RECORD_RESOLUTION, 1, (void *)&threadcfg.resolution);
+		set_value(conf_p, lines, CFG_MONITOR_RESOLUTION, 1, (void *)&threadcfg.resolution);
 
 		extract_value(conf_p, lines, CFG_RECORD_NORMAL_SPEED, 0, (void *)&threadcfg.record_normal_speed);
 		printf("record_normal_speed= %d\n",threadcfg.record_normal_speed);
 
 		if(!threadcfg.record_normal_speed)
-			threadcfg.record_normal_speed = 25;
+			threadcfg.record_normal_speed = 1;
 		else if(threadcfg.record_normal_speed<1)
 			threadcfg.record_normal_speed = 1;
 		else if(threadcfg.record_normal_speed >25)
@@ -2057,8 +2067,8 @@ read_config:
 
 		if(threadcfg.record_normal_duration<=0)
 			threadcfg.record_normal_duration =1;
-		else if(threadcfg.record_normal_duration>25)
-			threadcfg.record_normal_duration = 25;
+		else if(threadcfg.record_normal_duration>3)
+			threadcfg.record_normal_duration = 3;
 
 
 
@@ -2095,7 +2105,7 @@ read_config:
 		extract_value(conf_p, lines, CFG_RECORD_FAST_DURATION, 0, (void *)&threadcfg.record_fast_duration);
 		printf("record_fast_duration = %d\n",threadcfg.record_fast_duration);
 
-		if(threadcfg.record_fast_duration<1)
+		if(threadcfg.record_fast_duration<1||threadcfg.record_fast_duration>3)
 			threadcfg.record_fast_duration = 3;
 
 		extract_value(conf_p, lines, CFG_EMAIL_ALARM, 0, (void *)&threadcfg.email_alarm);
@@ -2111,12 +2121,13 @@ read_config:
 		printf("sound_duplex = %d\n",threadcfg.sound_duplex);
 
 		if(threadcfg.sound_duplex<0)
-			threadcfg.sound_duplex = 0;
+			threadcfg.sound_duplex = 1;
 		
 		extract_value(conf_p, lines, CFG_NET_MODE, 1, threadcfg.inet_mode);
 		printf("inet_mode = %s\n",threadcfg.inet_mode);
 
-		if(!(int)threadcfg.inet_mode[0])
+		if(strncmp(threadcfg.inet_mode , "eth_only",8)!=0||strncmp(threadcfg.inet_mode , "wlan_only",9)!=0||
+			strncmp(threadcfg.inet_mode , "inteligent",10)!=0)
 			sprintf(threadcfg.inet_mode,"inteligent");
 
 		threadcfg.inet_udhcpc = 1;

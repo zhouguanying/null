@@ -13,6 +13,10 @@ extern "C"
 #define NUM_BUFFERS           	10
 #define  SIZE_OF_AMR_PER_PERIOD  416
 #define STEP  128  /*the unit size write to buf each time*/
+
+/*before we send data we store sound data in 3 sec at first*/
+#define BOOT_SOUND_STORE_SIZE 8000
+
 typedef struct __sound_buf{
 	char sess_clean_mask[MAX_NUM_IDS];
 	char *buf;
