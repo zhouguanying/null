@@ -763,7 +763,7 @@ int config_wifi(struct configstruct *conf_p, int lines)
 	char *p;
 	char * parse_result = NULL;
 	struct stat st;
-	char *ssid,*signal_level,*proto,*key_mgmt,*pairwise , *group;
+	char *ssid = NULL,*signal_level= NULL,*proto= NULL,*key_mgmt= NULL,*pairwise= NULL , *group= NULL;
 	for(i=0;i<4;i++){
 		argv[i] = (char *)malloc(256);
 		if(!argv[i]){
@@ -2001,7 +2001,7 @@ read_config:
 		extract_value(conf_p, lines, CFG_MONITOR_RESOLUTION, 1, threadcfg.resolution);
 		printf("resolution = %s\n",threadcfg.resolution);
 
-		if(strncmp(threadcfg.resolution , "vga",3)!=0||strncmp(threadcfg.resolution , "qvga",4)!=0)
+		if(strncmp(threadcfg.resolution , "vga",3)!=0&&strncmp(threadcfg.resolution , "qvga",4)!=0)
 			sprintf(threadcfg.resolution,"vga");
 
 		extract_value(conf_p, lines, CFG_GOP, 0, (void *)&threadcfg.gop);
@@ -2035,7 +2035,7 @@ read_config:
 		extract_value(conf_p, lines, CFG_RECORD_MODE, 1, threadcfg.record_mode);
 		printf("record_mode = %s\n",threadcfg.record_mode);
 
-		if(strncmp(threadcfg.record_mode , "normal",6)!=0||strncmp(threadcfg.record_mode , "inteligent",10)!=0||
+		if(strncmp(threadcfg.record_mode , "normal",6)!=0&&strncmp(threadcfg.record_mode , "inteligent",10)!=0&&
 			strncmp(threadcfg.record_mode , "no_record",9)!=0){
 			sprintf(threadcfg.record_mode,"normal");
 			set_value(conf_p, lines, CFG_RECORD_MODE, 1, (void *)threadcfg.record_mode);
@@ -2044,7 +2044,7 @@ read_config:
 		extract_value(conf_p, lines, CFG_RECORD_RESOLUTION, 1,(void *) threadcfg.record_resolution);
 		printf("record_resolution = %s\n",threadcfg.record_resolution);
 
-		if(strncmp(threadcfg.record_resolution , "vga",3)!=0||strncmp(threadcfg.record_resolution , "qvga",4)!=0)
+		if(strncmp(threadcfg.record_resolution , "vga",3)!=0&&strncmp(threadcfg.record_resolution , "qvga",4)!=0)
 			memcpy(threadcfg.record_resolution , threadcfg.resolution , 64);
 		else
 			memcpy(threadcfg.resolution ,threadcfg.record_resolution,64);
@@ -2126,7 +2126,7 @@ read_config:
 		extract_value(conf_p, lines, CFG_NET_MODE, 1, threadcfg.inet_mode);
 		printf("inet_mode = %s\n",threadcfg.inet_mode);
 
-		if(strncmp(threadcfg.inet_mode , "eth_only",8)!=0||strncmp(threadcfg.inet_mode , "wlan_only",9)!=0||
+		if(strncmp(threadcfg.inet_mode , "eth_only",8)!=0&&strncmp(threadcfg.inet_mode , "wlan_only",9)!=0&&
 			strncmp(threadcfg.inet_mode , "inteligent",10)!=0)
 			sprintf(threadcfg.inet_mode,"inteligent");
 
@@ -2137,14 +2137,18 @@ read_config:
 		extract_value(conf_p, lines, CFG_ETH_DEVICE, 1, inet_eth_device);
 		printf("inet_eth_device = %s\n",inet_eth_device);
 
-		if(!inet_eth_device[0])
+		if(strncmp(inet_eth_device , "eth0",4)!=0){
+			memset(inet_eth_device , 0 ,sizeof(inet_eth_device));
 			sprintf(inet_eth_device , "eth0");
+		}
 		
 		extract_value(conf_p, lines, CFG_WLAN_DEVICE, 1, inet_wlan_device);
 		printf("inet_wlan_device = %s\n",inet_wlan_device);
 
-		if(!inet_wlan_device[0])
+		if(strncmp(inet_wlan_device , "wlan0",5)!=0){
+			memset(inet_wlan_device , 0 , sizeof(inet_wlan_device));
 			sprintf(inet_wlan_device, "wlan0");
+		}
 		
 		check_eth0 = 0;
 		check_wlan0 = 0;
