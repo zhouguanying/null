@@ -1708,7 +1708,7 @@ char *search_wifi(char *arg)
 	return NULL;
 }
 int snd_soft_restart();
-int querryfs(char *fs , unsigned long *maxsize,unsigned long * freesize)
+int querryfs(char *fs , unsigned long long*maxsize,unsigned long long* freesize)
 {
     struct statfs st; 
    *maxsize = 0;
@@ -1986,8 +1986,8 @@ static char* GetConfig(char* arg , int *rsp_len)
 	char* ret = 0;
 	char *p;
 	char *s;
-	unsigned long sd_maxsize;
-	unsigned long sd_freesize;
+	unsigned long long sd_maxsize;
+	unsigned long long sd_freesize;
 	int size;
 	char slength[5];
 	//struct stat st;
@@ -2033,10 +2033,10 @@ static char* GetConfig(char* arg , int *rsp_len)
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
 		querryfs("/sdcard", &sd_maxsize, &sd_freesize);
-		sprintf(p,"tfcard_maxsize=%lu\n",sd_maxsize);
+		sprintf(p,"tfcard_maxsize=%u\n",(unsigned int)(sd_maxsize>>20));
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
-		sprintf(p,"tfcard_freesize=%lu\n",sd_freesize);
+		sprintf(p,"tfcard_freesize=%u\n",(unsigned int)(sd_freesize >>20));
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
 		size = *rsp_len;

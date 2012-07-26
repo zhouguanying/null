@@ -1393,7 +1393,7 @@ int get_cam_id(unsigned int *id)
 #define HIDCMD_SET_NETWORK_ADDRESS	3
 #define HIDCMD_GET_NETWORK_ADDRESS	4
 int test_printf_getConfig();
-int querryfs(char *fs , long *maxsize,long * freesize);
+int querryfs(char *fs , unsigned long long*maxsize,unsigned long long* freesize);
 char * get_clean_video_cfg();
 void sig_handle(int signo)
 {
@@ -1589,8 +1589,8 @@ int main()
 		char *s;
 		int i;
 		int ret;
-		long sd_maxsize;
-		long sd_freesize;
+		unsigned long long sd_maxsize;
+		unsigned long long sd_freesize;
 		int cmd;
 		int size;
 		char *hid_buf;
@@ -1686,10 +1686,10 @@ int main()
 						p+=strlen(s);
 						free(s);
 						querryfs("/sdcard", &sd_maxsize, &sd_freesize);
-						sprintf(p,"tfcard_maxsize=%ld\n",sd_maxsize);
+						sprintf(p,"tfcard_maxsize=%u\n",(unsigned int)(sd_maxsize>>20));
 						data_len +=strlen(p);
 						p+=strlen(p);
-						sprintf(p,"tfcard_freesize=%ld\n",sd_freesize);
+						sprintf(p,"tfcard_freesize=%u\n",(unsigned int)(sd_freesize>>20));
 						data_len +=strlen(p);
 						
 						memcpy(hid_unit_buf,&data_len,sizeof(data_len));
