@@ -32,6 +32,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include "v4l2uvc.h"
+#include "picture_info.h"
 
 #define dbg(fmt, args...)  \
     do { \
@@ -281,11 +282,30 @@ video_disable (struct vdIn *vd)
 	return 0;
 }
 
+static inline char * gettimestamp()
+{
+	static char timestamp[15];
+	time_t t;
+	struct tm *curtm;
+	 if(time(&t)==-1){
+        	 printf("get time error\n");
+         	 exit(0);
+   	  }
+	 curtm=localtime(&t);
+	  sprintf(timestamp,"%04d%02d%02d%02d%02d%02d",curtm->tm_year+1900,curtm->tm_mon+1,
+                curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
+	 return timestamp;
+}
+
+static picture_info_t p_info = {
+		{0,0,0,1,0xc},
+};
+
 int uvcGrab (struct vdIn *vd)
 {
 #define HEADERFRAME1 0xaf
 	int ret;
-
+	char *time;
 	if (!vd->isstreaming)
 		if (video_enable (vd))
 			goto err;
@@ -299,9 +319,12 @@ int uvcGrab (struct vdIn *vd)
 	}
 	switch (vd->formatIn) {
 	case V4L2_PIX_FMT_MJPEG:
-		memcpy (vd->tmpbuffer, vd->mem[vd->buf.index], HEADERFRAME1);
-		memcpy (vd->tmpbuffer + HEADERFRAME1, dht_data, DHT_SIZE);
-		memcpy (vd->tmpbuffer + HEADERFRAME1 + DHT_SIZE,
+		time = gettimestamp();
+		memcpy(p_info.TimeStamp , time , sizeof(p_info.TimeStamp));
+		memcpy(vd->tmpbuffer , &p_info ,sizeof(picture_info_t));		
+		memcpy (vd->tmpbuffer + sizeof(picture_info_t), vd->mem[vd->buf.index], HEADERFRAME1);
+		memcpy (vd->tmpbuffer + sizeof(picture_info_t)+ HEADERFRAME1, dht_data, DHT_SIZE);
+		memcpy (vd->tmpbuffer+ sizeof(picture_info_t) + HEADERFRAME1 + DHT_SIZE,
 				vd->mem[vd->buf.index] + HEADERFRAME1,
 				(vd->buf.bytesused - HEADERFRAME1));
 		if (debug)

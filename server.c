@@ -55,6 +55,7 @@
 //#include "monitor.h"
 #include "v4l2uvc.h"
 #include "sound.h"
+#include "picture_info.h"
 
 /* Process ID file name */
 #define PID_FILE    "/var/run/v2ipd.pid"
@@ -1128,16 +1129,16 @@ try_again:
 			goto have_readed;
 		}
 	}
-	buff=malloc(vdin_camera->buf.bytesused+DHT_SIZE);
+	buff=malloc(vdin_camera->buf.bytesused+DHT_SIZE + sizeof(picture_info_t));
 	if(!buff){
 		printf("malloc buf error\n");
 		pthread_mutex_unlock(&vdin_camera->tmpbufflock);
 		*size=0;
 		return 0;
 	}
-	memcpy(buff,vdin_camera->tmpbuffer,vdin_camera->buf.bytesused+DHT_SIZE);
+	memcpy(buff,vdin_camera->tmpbuffer,vdin_camera->buf.bytesused+DHT_SIZE + sizeof(picture_info_t));
 	vdin_camera->hrb_tid[canuse]=self_tid;
-	*size=vdin_camera->buf.bytesused+DHT_SIZE;
+	*size=vdin_camera->buf.bytesused+DHT_SIZE + sizeof(picture_info_t);
 	pthread_mutex_unlock(&vdin_camera->tmpbufflock);
 	//printf("read tmpbuffer sucess size=%d\n",*size);
 	return buff;
@@ -1178,7 +1179,7 @@ retry:
 		return 0;
 	}
 	//pthread_mutex_lock(&vdin_camera->tmpbufflock);
-	memcpy(buf, vdin_camera->tmpbuffer, vdin_camera->buf.bytesused + DHT_SIZE );
+	memcpy(buf, vdin_camera->tmpbuffer + sizeof(picture_info_t), vdin_camera->buf.bytesused + DHT_SIZE );
 	*size = vdin_camera->buf.bytesused + DHT_SIZE;
 	*width = vdin_camera->width;
 	*height = vdin_camera->height;
