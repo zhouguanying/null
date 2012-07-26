@@ -2048,6 +2048,8 @@ read_config:
 			memcpy(threadcfg.record_resolution , threadcfg.resolution , 64);
 		else
 			memcpy(threadcfg.resolution ,threadcfg.record_resolution,64);
+
+		memcpy(threadcfg.original_resolution , threadcfg.record_resolution , sizeof(threadcfg.original_resolution));
 		
 		set_value(conf_p, lines, CFG_RECORD_RESOLUTION, 1, (void *)&threadcfg.resolution);
 		set_value(conf_p, lines, CFG_MONITOR_RESOLUTION, 1, (void *)&threadcfg.resolution);

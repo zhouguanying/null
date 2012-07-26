@@ -33,7 +33,7 @@ void restart_v4l2(int width , int height );
 pthread_mutex_t ready_list_lock;
 struct mapping*ready_list=NULL;
 int ready_count=0;
-int wan_net_connet_count = 0;
+//int wan_net_connet_count = 0;
 
 
 #define BASE_PORT                  5001
@@ -124,7 +124,7 @@ void delete_timeout_mapping(uint32_t ip,uint16_t cliport)
 	while((*tmp)!=NULL){
 		p=(*tmp);
 		if(p->ip==ip&&p->dst_port[NAT_CLI_PORT]==cliport){
-			printf("**********************in delte_timeout_mapping found addr collision*********************\n");
+			printf("###############in delte_timeout_mapping found addr collision#############\n");
 			if(p->sess!=NULL){
 				del_sess(p->sess);
 				pthread_mutex_lock(&p->sess->sesslock);
@@ -132,6 +132,7 @@ void delete_timeout_mapping(uint32_t ip,uint16_t cliport)
 				pthread_mutex_unlock(&p->sess->sesslock);
 				*tmp = (*tmp)->next;
 				ready_count--;
+				/*
 				wan_net_connet_count--;
 				if(wan_net_connet_count<=0){
 					if(!threadcfg.qvga_flag&&strncmp(threadcfg.monitor_mode,"inteligent",10)==0&&strncmp(threadcfg.record_resolution ,"vga",3)!=0){
@@ -141,11 +142,12 @@ void delete_timeout_mapping(uint32_t ip,uint16_t cliport)
 						memcpy(threadcfg.resolution , threadcfg.record_resolution,sizeof(threadcfg.resolution));
 					}
 				}
+				*/
 				//pthread_mutex_unlock(&ready_list_lock);
-				printf("########################wait the old thread close##############\n");
+				//printf("########################wait the old thread close##############\n");
 				//pthread_join(p->sess->tid,NULL);
 				//sleep(1);
-				printf("############################ok the old thread close now###############\n");
+				//printf("############################ok the old thread close now###############\n");
 				continue;
 			}else{
 				printf("!!!!!!!!!!!!!!!!!!!!!the thread not running but the ip and port is the same!!!!!!!!!!!!!!\n");
@@ -190,6 +192,7 @@ void del_from_ready_list(struct mapping *p)
 	if((*tmp)!=NULL){
 		*tmp=(*tmp)->next;
 		ready_count--;
+		/*
 		wan_net_connet_count--;
 		if(wan_net_connet_count<=0){
 			if(!threadcfg.qvga_flag&&strncmp(threadcfg.monitor_mode,"inteligent",10)==0&&strncmp(threadcfg.record_resolution ,"vga",3)!=0){
@@ -199,6 +202,7 @@ void del_from_ready_list(struct mapping *p)
 				memcpy(threadcfg.resolution , threadcfg.record_resolution,sizeof(threadcfg.resolution));
 			}
 		}
+		*/
 	}
 	pthread_mutex_unlock(&ready_list_lock);
 	

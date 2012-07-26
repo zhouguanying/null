@@ -1187,12 +1187,52 @@ retry:
 }
 #endif
 
+/*智能监控模式
+*如果第一个是通过内网进来的则切成VGA
+*如果第一个是通过外网进来的则切成QVGA
+*如果不是第一个进来的，则不能切换
+*如果退出的是最后一个连接的会话则恢复原来分辨率
+*/
+void restart_v4l2(int width , int height );
+void change_camera_status(struct sess_ctx *sess , int sess_in)
+{
+	if(strncmp(threadcfg.monitor_mode , "inteligent",10)!=0)
+		return;
+	if(sess_in){
+		if(sess->is_tcp){			
+			if(strncmp(threadcfg.record_resolution,"vga",3)!=0){
+				memset(threadcfg.record_resolution , 0 ,sizeof(threadcfg.record_resolution));
+				sprintf(threadcfg.record_resolution , "vga");
+				memcpy(threadcfg.resolution ,threadcfg.record_resolution , sizeof(threadcfg.resolution));
+				restart_v4l2(640, 480);
+			}
+		}else if(sess->is_rtp){
+			if(strncmp(threadcfg.record_resolution,"qvga",4)!=0){
+				memset(threadcfg.record_resolution , 0 ,sizeof(threadcfg.record_resolution));
+				sprintf(threadcfg.record_resolution , "qvga");
+				memcpy(threadcfg.resolution ,threadcfg.record_resolution , sizeof(threadcfg.resolution));
+				restart_v4l2(320, 240);
+			}
+		}
+	}else{
+		if(strncmp(threadcfg.record_resolution,threadcfg.original_resolution,strlen(threadcfg.original_resolution))!=0){
+			memcpy(threadcfg.record_resolution , threadcfg.original_resolution , sizeof(threadcfg.original_resolution));
+			memcpy(threadcfg.resolution , threadcfg.original_resolution , sizeof(threadcfg.original_resolution));
+			if(strncmp(threadcfg.original_resolution,"vga",3) ==0)
+				restart_v4l2(640,480);
+			else
+				restart_v4l2(320,240);
+		}
+	}
+}
  void  add_sess(struct sess_ctx *sess)
 {
 	pthread_mutex_lock(&global_ctx_lock);
 	sess->next = global_ctx_running_list;
 	global_ctx_running_list = sess;
 	currconnections ++;
+	if(currconnections == 1)
+		change_camera_status( sess, 1);
 	pthread_mutex_unlock(&global_ctx_lock);
 }
 void  del_sess(struct sess_ctx *sess)
@@ -1206,6 +1246,8 @@ void  del_sess(struct sess_ctx *sess)
 			currconnections--;
 			if(g_cli_ctx->arg==sess)
 				g_cli_ctx->arg=NULL;
+			if(currconnections == 0)
+				change_camera_status(sess, 0);
 			break;
 		}
 		p=&((*p)->next);

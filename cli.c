@@ -814,7 +814,7 @@ static char * set_transport_type(struct sess_ctx *sess, char *arg , int *rsp_len
 		}
 		
 		sess->running = 1;
-		sess->is_tcp = 1;
+		//sess->is_tcp = 1;
 		sess->ucount=1;
 		//dbg("##############sess->id=%d################\n",sess->id);
 		if (pthread_create(&sess->tid, NULL, (void *) tcp_do_update, sess) < 0) {
