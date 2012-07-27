@@ -147,6 +147,34 @@ static int save_config_value(char *name , char *value)
 	dbg("write config file ok\n");
 	return 0;
 }
+
+char *set_transport_type_rsp(struct sess_ctx * sess ,int *size)
+{
+	char *buf;
+	if(!sess)
+		return NULL;
+	buf = (char *)malloc(6);
+	if(!buf)
+		return NULL;
+	if(sess->is_tcp)
+	{
+		sprintf(buf , "tcp");
+	}
+	else if(sess->is_rtp)
+	{
+		sprintf(buf , "rtp");
+	}
+	else
+	{
+		free(buf);
+		return NULL;
+	}
+	buf[3] = (char)threadcfg.brightness;
+	buf[4] = (char)threadcfg.contrast;
+	buf[5] = (char)threadcfg.volume;
+	*size = 6;
+	return buf;
+}
 static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
                                  ssize_t req_len, u8 *unused, int* rsp_len,struct sockaddr_in from)
 {
@@ -221,7 +249,7 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 			if (strncmp(argv[0], "set_transport_type", 18) == 0){
 					pthread_mutex_unlock(&global_ctx_lock);
 					dbg("set_transport_type session already running\n");
-					return 0;
+					return set_transport_type_rsp(tmp, rsp_len);
 			}
 			goto done;
 		}
@@ -231,7 +259,7 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 				if (strncmp(argv[0], "set_transport_type", 18) == 0){
 					pthread_mutex_unlock(&global_ctx_lock);
 					dbg("set_transport_type session already running\n");
-					return 0;
+					return set_transport_type_rsp(tmp, rsp_len);
 				}
 				sess->arg=tmp;
 				printf("###############ok find runnig sess,now go to do cmd#########################\n");

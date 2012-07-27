@@ -1993,6 +1993,8 @@ read_config:
 			threadcfg.framerate = 1;
 		else if(threadcfg.framerate >25)
 			threadcfg.framerate = 25;
+		if(strncmp(threadcfg.monitor_mode , "inteligent",10)==0)
+			threadcfg.framerate = 25;
 		init_sleep_time();
 
 		extract_value(conf_p, lines, CFG_COMPRESSION, 1, threadcfg.compression);
