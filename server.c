@@ -1695,6 +1695,7 @@ __tryaccept:
 							printf("create sound thread error\n");
 							goto exit;
 						} 
+						printf("create sound thread sucess  id = %lu\n",sess->srtid);
 						pthread_mutex_lock(&sess->sesslock);
 						sess->ucount++;
 						pthread_mutex_unlock(&sess->sesslock);
@@ -1754,8 +1755,10 @@ exit:
 	pthread_mutex_lock(&sess->sesslock);
 	sess->running = 0;
 	pthread_mutex_unlock(&sess->sesslock);
-	if(sess->srtid>0)
+	if(sess->srtid>0){
+		printf("pthread_join id = %lu\n",sess->srtid);
 		pthread_join(sess->srtid,NULL);
+	}
 	del_sess(sess);
 	take_sess_down( sess);
 	
@@ -1765,6 +1768,9 @@ exit:
 	dbg("\nExitting server\n");
 	return 0;
 }
+
+
+/*record function set*/
 
 #define RECORD_STATE_STOP 	 	0
 #define RECORD_STATE_SLOW	 	1
@@ -1782,6 +1788,9 @@ static nand_record_file_internal_header audio_internal_header={
 };
 static const int sensitivity_diff_size[4] = {10000,300,350,450};
 
+char pause_record = 0;
+char force_close_file = 0;
+
 static inline char * gettimestamp()
 {
 	static char timestamp[15];
@@ -1797,38 +1806,36 @@ static inline char * gettimestamp()
 	 return timestamp;
 }
 
+#define RECORD_SOUND
+
+#ifdef RECORD_SOUND
 static inline void write_syn_sound(int *need_video_internal_head)
 {
-	return 0;
 	static unsigned int i = 0;
 	char *buf;
-	//int ret;
+	int ret;
 	int size;
 	if(!threadcfg.sdcard_exist)
 		return ;
+	*need_video_internal_head=0;
 	buf = new_get_sound_data(MAX_NUM_IDS-1, & size);
 	if(buf){
 		i++;
 		if(!(i%60))
-			dbg("get sound data size == %d\n",size);
-		/*
-		*need_video_internal_head=0;
+			dbg("get sound data size == %d\n",size);		
 		ret = nand_write(&audio_internal_header, sizeof(audio_internal_header));
 		if( ret == 0 ){
-			nand_write(buf,size);
-			*need_video_internal_head=1;
+			ret = nand_write(buf,size);
+			if(ret ==0)
+				*need_video_internal_head=1;
 		}
-		audio_internal_header.flag[0]=0;
-		*/
+		//audio_internal_header.flag[0]=0;
 		free(buf);
 	}else{
 		dbg("sound data not prepare\n");
 	}
 }
-char pause_record = 0;
-char force_close_file = 0;
-//#define RECORD_SOUND
-#undef RECORD_SOUND
+#endif
 int start_video_record(struct sess_ctx* sess)
 {
 	//const char *videodevice = "/dev/video0";
@@ -1844,8 +1851,10 @@ int start_video_record(struct sess_ctx* sess)
 	//struct timeval open_time;
 	//unsigned long long un_cpture_time;
 	struct timeval starttime,endtime;
+#ifdef RECORD_SOUND
 	struct timeval prev_write_sound_time;
-	struct timeval alive_old_time,alive_curr_time;
+#endif
+	struct timeval alive_old_time;
 	struct timeval mail_last_time;
 	struct timeval index_table_15sec_last_time;
 	vs_ctl_message msg;
@@ -1888,12 +1897,8 @@ int start_video_record(struct sess_ctx* sess)
 	unsigned int *attr_table_size;
 	unsigned int *record_15sec_table_size;
 	index_table_item_t	  table_item;
-	char *audio_internal_header_p;
-	char *video_internal_header_p;
-#ifdef RECORD_SOUND
-	char *sound_buf;
- 	int sound_size;
-#endif
+	//char *audio_internal_header_p;
+	//char *video_internal_header_p;
 
 	//unsigned int * value;
 
@@ -1927,14 +1932,6 @@ int start_video_record(struct sess_ctx* sess)
 		record_15sec_table_size = attr_table_size+1;
 		attr_pos =(char *)(record_15sec_table_size+1);
 		record_15sec_pos = time_15sec_table;
-#ifdef RECORD_SOUND
-		sound_buf = (char *)malloc(32 * 1024); /*15 sec sound data about 32*50*15*/
-		if(!sound_buf){
-			printf("##################error malloc buf for record sound###############\n");
-			exit(0);
-		}
-		sound_size = 0;
-#endif
 	}
 	
 	i = 0;
@@ -2015,7 +2012,7 @@ int start_video_record(struct sess_ctx* sess)
 	timestamp = gettimestamp();
 	memcpy(audio_internal_header.StartTimeStamp,timestamp,sizeof(audio_internal_header.StartTimeStamp));
 	memcpy(video_internal_header.StartTimeStamp,timestamp,sizeof(video_internal_header.StartTimeStamp));
-
+/*
 	printf("audio_internal_header.head==");
 	for(i=0;i<5;i++)
 		printf("%2x ",audio_internal_header.head[i]);
@@ -2037,6 +2034,7 @@ int start_video_record(struct sess_ctx* sess)
 	printf("video_internal_header.timestamp==%s\n",video_internal_header.StartTimeStamp);
 	printf("video_internal_header.FrameWidth==%s\n",video_internal_header.FrameWidth);
 	printf("video_internal_header.FrameHeight==%s\n",video_internal_header.FrameHeight);
+	*/
 	reset_syn_buf();
 
 	if(threadcfg.sdcard_exist){
@@ -2049,7 +2047,13 @@ int start_video_record(struct sess_ctx* sess)
 	
 	memset(&mail_last_time , 0 ,sizeof(struct timeval));
 	gettimeofday(&starttime,NULL);
+#ifdef RECORD_SOUND
+	//timestamp = gettimestamp();
+	//memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
+	audio_internal_header.flag[0]=SET_ALL_FLAG_CHANGE;
 	memcpy(&prev_write_sound_time,&starttime,sizeof(struct timeval));
+#endif
+	video_internal_header.flag[0] = SET_ALL_FLAG_CHANGE;
 	memcpy(&index_table_15sec_last_time , &starttime , sizeof(struct timeval));
 	while(1) {
 		if(is_do_update()){
@@ -2057,8 +2061,8 @@ int start_video_record(struct sess_ctx* sess)
 			dbg("is do update return now\n");
 			goto __out;
 		}
-		gettimeofday(&alive_curr_time,NULL);
-		if(abs(alive_curr_time.tv_sec -alive_old_time.tv_sec)>=3){
+		gettimeofday(&endtime,NULL);
+		if(abs(endtime.tv_sec -alive_old_time.tv_sec)>=3){
 			ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
 			if(ret == -1){
 				dbg("send daemon message error\n");
@@ -2070,7 +2074,7 @@ int start_video_record(struct sess_ctx* sess)
 				system("reboot &");
 				exit(0);
 			}
-			memcpy(&alive_old_time,&alive_curr_time,sizeof(struct timeval));
+			memcpy(&alive_old_time,&endtime,sizeof(struct timeval));
 		}
 
 
@@ -2085,17 +2089,6 @@ int start_video_record(struct sess_ctx* sess)
 		if(threadcfg.sdcard_exist){
 			gettimeofday(&endtime,NULL);
 			if(abs(endtime.tv_sec - index_table_15sec_last_time.tv_sec)>=15){
-#ifdef RECORD_SOUND
-				if(sound_size>0){
-					timestamp = gettimestamp();
-					memcpy(audio_internal_header.StartTimeStamp,timestamp , sizeof(audio_internal_header.StartTimeStamp));
-					audio_internal_header.flag[0] = (1<<FLAG0_TS_CHANGED_BIT |1<<FLAG0_FR_CHANGED_BIT |1<<FLAG0_FW_CHANGED_BIT |1 <<FLAG0_FH_CHANGED_BIT);
-					nand_write(&audio_internal_header, sizeof(audio_internal_header));
-					nand_write(sound_buf, sound_size);
-					sound_size = 0;
-					need_write_internal_head = 1;
-				}
-#endif
 				table_item.location =nand_get_position();
 				if(*record_15sec_table_size + *attr_table_size +sizeof(index_table_item_t) + 8 <=INDEX_TABLE_SIZE){
 					memcpy(record_15sec_pos,&table_item ,sizeof(index_table_item_t));
@@ -2129,8 +2122,12 @@ int start_video_record(struct sess_ctx* sess)
 						pictures_to_write = record_normal_speed * record_normal_duration;
 						gettimeofday(&starttime,NULL);
 						if(record_last_state ==RECORD_STATE_STOP){
+#ifdef RECORD_SOUND
 							set_syn_sound_data_clean(MAX_NUM_IDS-1);
+							timestamp = gettimestamp();
+							memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
 							memcpy(&prev_write_sound_time,&starttime,sizeof(struct timeval));
+#endif
 							record_last_state = RECORD_STATE_FAST;
 							timestamp_change = 1;
 						}
@@ -2138,15 +2135,7 @@ int start_video_record(struct sess_ctx* sess)
 						pictures_to_write= 0;
 						if(record_last_state == RECORD_STATE_FAST){
 #ifdef RECORD_SOUND
-						if(threadcfg.sdcard_exist&&sound_size>0){
-							timestamp = gettimestamp();
-							memcpy(audio_internal_header.StartTimeStamp,timestamp , sizeof(audio_internal_header.StartTimeStamp));
-							audio_internal_header.flag[0] = (1<<FLAG0_TS_CHANGED_BIT |1<<FLAG0_FR_CHANGED_BIT |1<<FLAG0_FW_CHANGED_BIT |1 <<FLAG0_FH_CHANGED_BIT);
-							nand_write(&audio_internal_header, sizeof(audio_internal_header));
-							nand_write(sound_buf, sound_size);
-							sound_size = 0;
-							need_write_internal_head = 1;
-						}
+						write_syn_sound(&need_write_internal_head);
 #endif
 							record_last_state = RECORD_STATE_STOP;
 						}
@@ -2214,7 +2203,7 @@ int start_video_record(struct sess_ctx* sess)
 				}
 				break;
 			}
-			case 3:{
+			case 3:{/*this is the real normal*/
 				usec_between_image = (unsigned long long ) 1000000 /record_normal_speed;
 				record_last_state = RECORD_STATE_NORMAL;
 				gettimeofday(&endtime , NULL);
@@ -2252,16 +2241,20 @@ int start_video_record(struct sess_ctx* sess)
 			}
 		}
 
+		/*the need of a boss is change every sec , i need to change the code every time
+		*may be change back to the original designed ...
+		*/
+		//video_internal_header_p = video_internal_header.StartTimeStamp;
+		//audio_internal_header_p = audio_internal_header.StartTimeStamp;
 		
-		video_internal_header_p = video_internal_header.StartTimeStamp;
-		audio_internal_header_p = audio_internal_header.StartTimeStamp;
-
-		/*add this for convenience*/
 		if(need_write_internal_head||timestamp_change||frameratechange||prev_width!=width||prev_height!=height){
-			timestamp_change = frameratechange = 1;
-			prev_width = 0;
-			prev_height = 0;
+			need_write_internal_head = 1;
+			timestamp_change = 0;
+			frameratechange = 0;
+			prev_width = width;
+			prev_height = height;
 		}
+		/*
 		if(timestamp_change){
 			//printf("timestamp_change\n");
 			timestamp = gettimestamp();
@@ -2303,13 +2296,23 @@ int start_video_record(struct sess_ctx* sess)
 			video_internal_header_p += sizeof(video_internal_header.FrameHeight);
 			need_write_internal_head = 1;
 		}
+		*/
 		if(need_write_internal_head){
 			//printf("write video_internal_header\n");
 			
 			if(threadcfg.sdcard_exist){	
+				timestamp = gettimestamp();
+				sprintf(swidth,"%04d",width);
+				sprintf(sheight,"%04d",height);
+				sprintf(FrameRateUs,"%08llu",usec_between_image);
+				memcpy(video_internal_header.StartTimeStamp,timestamp,sizeof(video_internal_header.StartTimeStamp));
+				memcpy(video_internal_header.FrameRateUs,FrameRateUs,sizeof(video_internal_header.FrameRateUs));
+				memcpy(video_internal_header.FrameHeight,sheight,sizeof(video_internal_header.FrameHeight));
+				memcpy(video_internal_header.FrameWidth,swidth,sizeof(video_internal_header.FrameWidth));
+			
 				table_item.location = nand_get_position();
 				if(*record_15sec_table_size + *attr_table_size +sizeof(index_table_item_t) + 8 <=INDEX_TABLE_SIZE){
-				 	if(nand_write(&video_internal_header,video_internal_header_p -(char *) &video_internal_header)==0){
+				 	if(nand_write(&video_internal_header,sizeof(video_internal_header))==0){
 						memcpy(attr_pos,&table_item ,sizeof(index_table_item_t));
 						(*attr_table_size)+=sizeof(index_table_item_t);
 						//dbg("write attr location  pos = %u,write in %p , attr table size = %u struct size = %d\n",table_item.location , attr_pos, *attr_table_size , video_internal_header_p -(char *) &video_internal_header);
@@ -2317,26 +2320,13 @@ int start_video_record(struct sess_ctx* sess)
 				 	}
 				}
 			}
-			
-			video_internal_header.flag[0]=0;
+			//video_internal_header.flag[0]=0;
 			need_write_internal_head = 0;
 		}
 		//printf("write video picture size = %d\n" , size);
 retry:
 		if(threadcfg.sdcard_exist){
 			ret = nand_write(buffer, size);
-#ifdef RECORD_SOUND
-			if(ret == 0 || ret ==VS_MESSAGE_NEED_START_HEADER){
-				char *sound_data;
-				int 	data_size;
-				sound_data = new_get_sound_data(MAX_NUM_IDS - 1 , &data_size);
-				if(sound_data){
-					memcpy(sound_buf + sound_size , sound_data , data_size);
-					sound_size += data_size;
-					free(sound_data);
-				}
-			}
-#endif
 			if( ret == 0 ){
 				i++;
 				usleep(1);
@@ -2379,8 +2369,11 @@ retry:
 				dbg("write 15sec location  pos = %u , write in %p , 15sec table size = %u\n",table_item.location , record_15sec_pos,*record_15sec_table_size);
 				record_15sec_pos +=sizeof(index_table_item_t);
 				//dbg("#######################nand file write index table###############\n");
-#ifdef   RECORD_SOUND
-				sound_size = 0;
+#ifdef RECORD_SOUND
+				set_syn_sound_data_clean(MAX_NUM_IDS-1);
+				timestamp = gettimestamp();
+				memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
+				gettimeofday(&prev_write_sound_time , NULL);
 #endif
 				goto retry;
 			}
@@ -2389,6 +2382,17 @@ retry:
 			}
 		}
 		free(buffer);
+#ifdef RECORD_SOUND
+		gettimeofday(&endtime , NULL);
+		timeuse = (endtime.tv_sec - prev_write_sound_time.tv_sec)*1000000UL +
+			endtime.tv_usec - prev_write_sound_time.tv_usec;
+		if(timeuse>=1000000ULL){
+			write_syn_sound( &need_write_internal_head);
+			memcpy(&prev_write_sound_time , &endtime  , sizeof(endtime));
+			timestamp = gettimestamp();
+			memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
+		}
+#endif
 		//check if it is time come to write sound data
 	}
 
