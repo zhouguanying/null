@@ -38,6 +38,8 @@
 #include "cudt.h"
 #include "video_cfg.h"
 
+#include "stun.h"
+
 /*for debug malloc*/
 //#include "dbg_malloc.h"
 
@@ -211,6 +213,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	pthread_t tid;
 	vs_ctl_message msg;
 	int ret;
+	char buf[32];
 
 	printf("cli is running\n");
 	msqid = msgget(DAEMON_MESSAGE_QUEUE_KEY,0666);
@@ -250,6 +253,11 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	playback_init();
 	printf("video monitor and record is running\n");
 	start_udt_lib();
+	sprintf(buf , "%x",threadcfg.cam_id);
+	if (pthread_create(&tid, NULL, stun_camera, (void *)buf) < 0) {
+		return -1;
+	} 
+	
 	/*
 	sleep(1);
 	in_addr_t to;
