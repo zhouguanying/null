@@ -1836,6 +1836,24 @@ static inline void write_syn_sound(int *need_video_internal_head)
 	}
 }
 #endif
+
+static  void vs_msg_debug()
+{
+	int ret;
+	vs_ctl_message msg;
+	msg.msg_type = VS_MESSAGE_ID;
+	msg.msg[0] = VS_MESSAGE_DEBUG;
+	msg.msg[1] = 0;
+	ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
+	if(ret == -1){
+		printf("send daemon message error\n");
+		system("reboot &");
+		exit(0);
+	}
+	printf(__FILE__":%s:CAMERA DEBUG\n",__func__);
+	exit(0);
+}
+
 int start_video_record(struct sess_ctx* sess)
 {
 	//const char *videodevice = "/dev/video0";
@@ -2378,7 +2396,8 @@ retry:
 				goto retry;
 			}
 			else{
-				printf("write nand error\n");
+				printf("#########################write nand error##########################\n");
+				vs_msg_debug();
 			}
 		}
 		free(buffer);
