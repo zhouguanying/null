@@ -6,7 +6,7 @@ LDFLAGS += -lpthread    -L/root/ipcam/alsa/lib/ -lasound   -ludt -L./ -lstdc\+\+
 
 SRCS = $(wildcard *.c)
 OBJS = $(patsubst %c, %o, $(SRCS))
-OBJS += nand_file.oo  udt.oo libm.a   libstdc\+\+.a   libspeexdsp.a AMR_NB_ENC.a libudt.a stun.oo stun-camera.oo
+OBJS += nand_file.oo   libm.a   libstdc\+\+.a   libspeexdsp.a AMR_NB_ENC.a libudt.a stun.oo stun-camera.oo udttools.oo
 TARGET = test
 
 .PHONY: all clean

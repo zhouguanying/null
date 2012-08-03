@@ -953,6 +953,122 @@ __exit:
 	return 0;
 }
 
+int start_audio_monitor(struct sess_ctx*sess)
+{
+	
+	int on;
+	ssize_t ret=0;
+	ssize_t s;
+	ssize_t n;
+	char *buf;
+	ssize_t size;
+	char *start_buf;
+	int sockfd = sess->sc->audio_socket;
+	sess->ucount ++;
+		
+		start_buf = (char *)malloc(BOOT_SOUND_STORE_SIZE *2);
+		if(!start_buf){
+			printf("error malloc sound cache before send\n");
+			goto __exit;
+		}
+	       set_syn_sound_data_clean(sess->id);
+		 /*prepare 3sec sound data before send*/
+		 s = 0;
+		 while(s<BOOT_SOUND_STORE_SIZE){
+		 	buf=new_get_sound_data(sess->id,&size);
+			if(!buf){
+				usleep(50000);
+				continue;
+			}
+			memcpy(start_buf + s , buf , size);
+			s += size;
+			free(buf);
+		 }
+		 size = s;
+		 s = 0;
+		 while(size > 0){
+		 	if(size > 1024){
+				if(sess->is_tcp)
+					n=send(sockfd,start_buf+s,1024,0);
+				else
+					n=udt_send(sockfd , SOCK_STREAM , start_buf +s ,1024);
+			}else{
+				if(sess->is_tcp)
+					n=send(sockfd,start_buf+s,size,0);
+				else
+					n=udt_send(sockfd , SOCK_STREAM , start_buf+s , size);
+			}
+			if(n <=0){
+				printf("send 3s sound data error\n");
+				free(start_buf);
+				goto __exit;
+			}
+			size -=n;
+			s +=n;
+		 }
+		 free(start_buf);
+		 /*send sound data in normal*/
+		while(1){
+			pthread_mutex_lock(&sess->sesslock);
+			if(!sess->running){
+				pthread_mutex_unlock(&sess->sesslock);
+				goto __exit;
+			}
+			pthread_mutex_unlock(&sess->sesslock);
+	__tryget:
+			buf=new_get_sound_data(sess->id,&size);
+			if(!buf){
+				//printf("sound data not prepare\n");
+				usleep(50000);
+				pthread_mutex_lock(&sess->sesslock);
+				if(!sess->running){
+					pthread_mutex_unlock(&sess->sesslock);
+					goto __exit;
+				}
+				pthread_mutex_unlock(&sess->sesslock);
+				goto __tryget;
+			}
+			//if(size>416)
+				//printf("tcp send sound get size==%d\n",size);
+			s=0;
+			while(size>0){
+				if(size>1024){
+					if(sess->is_tcp)
+						n=send(sockfd,buf+s,1024,0);
+					else
+						n=udt_send(sockfd ,SOCK_STREAM , buf +s , 1024);
+				}else{
+					if(sess->is_tcp)
+						n=send(sockfd,buf+s,size,0);
+					else
+						n=udt_send(sockfd , SOCK_STREAM ,buf+s , size);
+				}
+				if(n>0){
+					s+=n;
+					size-=n;
+					//dbg("send sound data n==%d\n",n);
+				}else{
+					printf("send sound data error\n");
+					free(buf);
+					goto __exit;
+				}
+			}
+			free(buf);
+			//printf("send sound data count==%d\n",i);
+			usleep(1000);
+	}
+__exit:
+	printf("exit send sound thread\n");
+	pthread_mutex_lock(&sess->sesslock);
+	sess->ucount--;
+	if(sess->ucount<=0){
+		pthread_mutex_unlock(&sess->sesslock);
+		free_system_session(sess);
+	}else
+		pthread_mutex_unlock(&sess->sesslock);
+	return 0;
+}
+
 int test_sound_tcp_transport(struct sess_ctx* sess){
 	int lsockfd=-1;
 	int sockfd=-1;

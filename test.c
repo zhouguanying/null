@@ -33,9 +33,8 @@
 #include "playback.h"
 #include "amixer.h"
 #include "rtp.h"
-#include "udp_transfer.h"
+//#include "udp_transfer.h"
 #include "vpu_server.h"
-#include "cudt.h"
 #include "video_cfg.h"
 
 #include "stun.h"
@@ -266,7 +265,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	*/
 	
 
-	
+/*	
 #define MONITOR 0
 #if MONITOR
 	monitor_try_connected_thread();
@@ -276,7 +275,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 		exit(0);
 	}
 #endif
-
+*/
 	msg.msg_type = VS_MESSAGE_ID;
 	msg.msg[0] = VS_MESSAGE_MAIN_PROCESS_START;
 	msg.msg[1] = 0;

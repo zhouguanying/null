@@ -22,7 +22,8 @@ extern "C"
 #include <fcntl.h>
 
 #include "list.h"
-
+#include "server.h"
+extern pthread_mutex_t list_lock;
 #define PLAYBACK_NOT_ADDED -1
 
 #define PLAYBACK_STATUS_OFFLINE 0
@@ -46,6 +47,7 @@ typedef struct
 	uint16_t destrtpport;
 	uint16_t destrtcpport;
 	uint32_t destaddr;
+	struct sess_ctx *sess;
 }playback_t;
 #endif
 
@@ -53,6 +55,7 @@ typedef struct
 int playback_init();
 int playback_new(struct sockaddr_in address, int file, int seek_percent);
 //int playback_seekto(playback_t* pb, int percent);
+playback_t* playback_find(struct sockaddr_in address);
 int playback_connect(struct sockaddr_in address, int socket);
 int playback_exit(struct sockaddr_in address);
 int playback_seekto(struct sockaddr_in address, int percent);
@@ -60,6 +63,7 @@ void playback_remove_dead();
 int playback_get_status(playback_t * pb);
 int playback_set_status(playback_t * pb, int status);
 int cmd_playback_set_status(struct sockaddr_in address ,  int status , void *value);
+void* playback_thread(void * arg);
 #ifdef __cplusplus
 }
 #endif

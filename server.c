@@ -1278,7 +1278,288 @@ void  del_sess(struct sess_ctx *sess)
 
 #define UPDATE_FILE_HEAD_SIZE   11
 
- int tcp_do_update(void *arg){
+ int do_net_update(void *arg){
+ 	struct sess_ctx *sess = (struct sess_ctx *)arg;
+	socklen_t fromlen;
+	int ret;
+	int socket = -1;
+	//char* buffer;
+	//int size;
+	FILE * kfp = NULL;
+	FILE * sfp = NULL;
+	char __scrc;
+	char __kcrc;
+	char scrc;
+	char kcrc;
+	char buf[1024];
+	char *p;
+	char cmd;
+	int r;
+	int reboot_flag = 0;
+	unsigned int kernal_f_size;
+	unsigned int system_f_size;
+	unsigned int __kernal_f_size;
+	unsigned int __system_f_size;
+
+	add_sess( sess);
+	take_sess_up( sess);
+	if(is_do_update()){
+		dbg("tcp do update some one is doing update\n");
+		goto exit;
+	}
+	socket = sess->sc->video_socket;
+	printf("###################do update###################\n");
+	if(sess->is_tcp)
+		r = recv(socket , buf,1024,0);
+	else
+		r = udt_recv(socket ,SOCK_STREAM ,buf ,1024,NULL,NULL);
+	if(r!=1024){
+		printf(" do update recv data too small\n");
+		goto exit;
+	}
+	   p=buf;
+	   cmd = *p;
+	   p++;
+	   memcpy(&__system_f_size , p , sizeof(__system_f_size));
+	   p+=sizeof(__system_f_size);
+	   memcpy(&__kernal_f_size , p,sizeof(__kernal_f_size));
+	   p+=sizeof(__kernal_f_size);
+	   __scrc = *p;
+	   p++;
+	   __kcrc = *p;
+	   p++;
+	   kernal_f_size = 0;
+	   system_f_size = 0;
+	   scrc = 0;
+	   kcrc = 0;
+	   set_do_update();
+	   reboot_flag = 1;
+	   switch(cmd)
+	   {
+	   	case 0:
+			printf ("####################update system################\n");
+			sfp = fopen(SYSTEM_UPDATE_FILE , "w");
+			if(!sfp){
+				printf("*******************open system update file error**********\n");
+				goto exit;
+			}
+			system_f_size  = (1024-(p-buf));
+			scrc = checksum(scrc, (unsigned char *)p, system_f_size);
+			if(fwrite(p,1,system_f_size,sfp)!=system_f_size){
+				printf("**********error write system.update************\n");
+				goto exit;
+			}
+			while(system_f_size <__system_f_size){
+				if(sess->is_tcp)
+					r = recv(socket , buf,1024,0);
+				else
+					r = udt_recv(socket , SOCK_STREAM , buf , 1024 ,NULL , NULL);
+				 if(r<=0){
+				 	herror(" do update recvmsg error");
+		 			 goto exit;
+				 }
+				system_f_size +=r;
+				//printf("recv data=%d curr size =%d expected size = %d\n",r ,system_f_size , __system_f_size);
+				scrc = checksum(scrc, (unsigned char *)buf, r);
+				if((unsigned int )r!=fwrite(buf,1,r,sfp)){
+					printf("**********error write system.update************\n");
+					goto exit;
+				}
+			}
+			if(system_f_size!=__system_f_size){
+				printf("do system update error we expect file size %d but we recv %d\n",__system_f_size , system_f_size);
+				goto exit;
+			}
+			if(scrc!=__scrc){
+				printf("****************check sum error we expected %2x but the results is %2x**********\n",__scrc ,scrc);
+				goto exit;
+			}
+			fclose(sfp);
+			sfp = NULL;
+			prepare_do_update();
+			memset(buf , 0 ,1024);
+			sprintf(buf , "flashcp  %s  /dev/mtd1",SYSTEM_UPDATE_FILE);
+			system(buf);
+			system("reboot &");
+			exit(0);
+			break;
+		case 1:
+			printf("#####################update kernal################\n");
+			kfp = fopen(KERNAL_UPDATE_FILE , "w");
+			if(!kfp){
+				printf("*******************open kernal update file error**********\n");
+				goto exit;
+			}
+			kernal_f_size  = (1024-(p-buf));
+			kcrc = checksum(kcrc, (unsigned char *)p, kernal_f_size);
+			if(fwrite(p,1,kernal_f_size,kfp)!=kernal_f_size){
+				printf("**********error write kernal.update************\n");
+				goto exit;
+			}
+			while(kernal_f_size <__kernal_f_size){
+				if(sess->is_tcp)
+					r = recv(socket , buf,1024,0);
+				else
+					r = udt_recv(socket , SOCK_STREAM , buf , 1024 ,NULL , NULL);
+				 if(r<=0){
+				 	herror("tcp do update recvmsg error");
+		 			 goto exit;
+				 }
+				kernal_f_size +=r;
+				//printf("recv data=%d curr size =%d expected size = %d\n",r ,kernal_f_size , __kernal_f_size);
+				kcrc = checksum(kcrc, (unsigned char *)buf , r);
+				if((unsigned int)r!=fwrite(buf,1,r,kfp)){
+					printf("**********error write kernal.update************\n");
+					goto exit;
+				}
+			}
+			if(kernal_f_size!=__kernal_f_size){
+				printf("do kernal update error we expect file size %d but we recv %d\n",__kernal_f_size , kernal_f_size);
+				goto exit;
+			}
+			if(kcrc!=__kcrc){
+				printf("***************kernel sum error we expected %2x but the result is %2x************\n",__kcrc , kcrc);
+				goto exit;
+			}
+			fclose(kfp);
+			kfp = NULL;
+			prepare_do_update();
+			memset(buf , 0 ,1024);
+			sprintf(buf , "flashcp  %s  /dev/mtd0",KERNAL_UPDATE_FILE);
+			system(buf);
+			system("reboot &");
+			exit(0);
+			break;
+		case 2:
+			printf("###############update system and kernal################\n");
+			sfp = fopen(SYSTEM_UPDATE_FILE , "w");
+			if(!sfp){
+				printf("*******************open system update file error**********\n");
+				goto exit;
+			}
+			kfp = fopen(KERNAL_UPDATE_FILE , "w");
+			if(!kfp){
+				printf("*******************open kernal update file error**********\n");
+				goto exit;
+			}
+			system_f_size  = (1024-(p-buf));
+			scrc = checksum(scrc, (unsigned char *)p, system_f_size);
+			if(fwrite(p,1,system_f_size,sfp)!=system_f_size){
+				printf("**********error write system.update************\n");
+				goto exit;
+			}
+			p=NULL;
+			while(system_f_size <__system_f_size){
+				if(sess->is_tcp)
+					r = recv(socket , buf,1024,0);
+				else
+					r = udt_recv(socket , SOCK_STREAM , buf , 1024 ,NULL , NULL);
+				 if(r<=0){
+				 	herror("tcp do update recvmsg error");
+		 			 goto exit;
+				 }
+				 if(__system_f_size - system_f_size<(unsigned int)r){
+				 	scrc = checksum(scrc, (unsigned char *)buf, __system_f_size - system_f_size);
+				 	if(fwrite(buf,1,__system_f_size - system_f_size , sfp)!=(__system_f_size - system_f_size)){
+						printf("**********error write system.update************\n");
+						goto exit;
+				 	}
+					p= buf;
+					p+=(__system_f_size - system_f_size);
+					system_f_size = __system_f_size;
+					//printf("r = %d , system file size = %u we recv system update file ok\n",r , __system_f_size);
+					break;
+				 }
+				system_f_size +=r;
+				//printf("recv data=%d curr size =%u expected system file size = %u\n",r ,system_f_size , __system_f_size);
+				scrc = checksum(scrc, (unsigned char *)buf, r);
+				if((unsigned int )r!=fwrite(buf,1,r,sfp)){
+					printf("**********error write system.update************\n");
+					goto exit;
+				}
+			}
+			if(system_f_size!=__system_f_size){
+				printf("do system update error we expected file size %d but we recv %d\n",__system_f_size , system_f_size);
+				goto exit;
+			}
+			kernal_f_size = 0;
+			if(p){
+				kernal_f_size =r-(p-buf);
+				kcrc = checksum(kcrc, (unsigned char *)p, kernal_f_size);
+				if(fwrite(p,1,kernal_f_size,kfp)!=kernal_f_size){
+					printf("************error write kernal.updtea*************\n");
+					goto exit;
+				}
+			}
+			while(kernal_f_size <__kernal_f_size){
+				if(sess->is_tcp)
+					r = recv(socket , buf,1024,0);
+				else
+					r = udt_recv(socket , SOCK_STREAM , buf , 1024 ,NULL , NULL);
+				 if(r<=0){
+				 	herror("tcp do update recvmsg error:%s\n");
+		 			 goto exit;
+				 }
+				kernal_f_size +=r;
+				//printf("recv data=%d curr size =%d expected kernel file size = %d\n",r ,kernal_f_size , __kernal_f_size);
+				kcrc = checksum(kcrc, (unsigned char *)buf , r);
+				if((unsigned int)r!=fwrite(buf,1,r,kfp)){
+					printf("**********error write kernal.update************\n");
+					goto exit;
+				}
+			}
+			if(kernal_f_size!=__kernal_f_size){
+				printf("do kernal update error we expect file size %d but we recv %d\n",__kernal_f_size , kernal_f_size);
+				goto exit;
+			}
+			if(scrc!=__scrc||kcrc!=__kcrc){
+				printf("check sum error we expected system sum %2x  but the reslut is %2x we expected kernel sum %2x but the result is %2x\n",__scrc ,scrc,__kcrc , kcrc);
+				goto exit;
+			}
+			fclose(sfp);
+			fclose(kfp);
+			
+			prepare_do_update();
+			printf("####################ok try update kernal###################\n");
+			memset(buf , 0 ,1024);
+			sprintf(buf , "flashcp  %s  /dev/mtd0",KERNAL_UPDATE_FILE);
+			system(buf);
+			sleep(1);
+			printf("####################update kernal ok try update system##############\n");
+			memset(buf , 0 ,1024);
+			sprintf(buf , "flashcp  %s  /dev/mtd1",SYSTEM_UPDATE_FILE);
+			system(buf);
+			system("reboot &");
+			exit(0);
+			break;
+		default:
+			printf("*****************get unkown cmd*****************************\n");
+			goto exit;
+	   }
+exit:
+	if(reboot_flag){
+		system("reboot &");
+		exit(0);
+	}
+	if(sfp){
+		system("reboot &");
+		exit(0);
+	}
+	if(kfp){
+		system("reboot &");
+		exit(0);	
+	}
+	if(socket>=0){
+		system("reboot &");
+		exit(0);
+	}
+	del_sess(sess);
+	take_sess_down( sess);
+	return 0;
+ }
+
+/*
+int tcp_do_update(void *arg){
  	struct sess_ctx *sess = (struct sess_ctx *)arg;
 	socklen_t fromlen;
 	int ret;
@@ -1591,7 +1872,9 @@ exit:
 	take_sess_down( sess);
 	return 0;
  }
+*/
 
+/*
 int start_video_monitor(struct sess_ctx* sess)
 {
 //printf("*******************************Starting video monitor server*******************************\n");
@@ -1665,20 +1948,20 @@ __tryaccept:
 				close(sess->s1);
 				sess->s1=-1;
 
-				/*
-				pthread_mutex_lock(&global_ctx_lock);
-				memcpy(&sess->from,&address,fromlen);
-				pthread_mutex_unlock(&global_ctx_lock);
-				*/
+				
+				//pthread_mutex_lock(&global_ctx_lock);
+				//memcpy(&sess->from,&address,fromlen);
+				//pthread_mutex_unlock(&global_ctx_lock);
+				
 				
 				printf("connection in, addr=0x%x, port=%d\n",address.sin_addr.s_addr, ntohs(address.sin_port));
 				printf("from.sin_addr=0x%x , from.sin_port=%d\n",sess->from.sin_addr.s_addr,ntohs(sess->from.sin_port));
 				
-				/*
-				pthread_mutex_lock(&sess->sesslock);
-				sess->haveconnected=1;
-				pthread_mutex_unlock(&sess->sesslock);
-				*/
+				
+				//pthread_mutex_lock(&sess->sesslock);
+				//sess->haveconnected=1;
+				//pthread_mutex_unlock(&sess->sesslock);
+				
 				 ret = playback_connect(sess->from, socket);
 
 				 
@@ -1751,7 +2034,7 @@ __tryaccept:
 		handle_session(sess);
 	}
 exit:
-	/* Take down session */
+	 //Take down session 
 	pthread_mutex_lock(&sess->sesslock);
 	sess->running = 0;
 	pthread_mutex_unlock(&sess->sesslock);
@@ -1765,6 +2048,77 @@ exit:
 	if(socket>=0){
 		close(socket);
 	}
+	dbg("\nExitting server\n");
+	return 0;
+}
+*/
+
+int start_video_monitor(struct sess_ctx* sess)
+{
+	socklen_t fromlen;
+	int ret;
+	struct sockaddr_in address;
+	int socket = -1;
+	char* buffer;
+	int size;
+	pthread_t tid;
+	//int setframes=0;
+
+	if(is_do_update())
+		goto exit;
+	dbg("Starting video monitor server\n");
+       add_sess( sess);
+	take_sess_up( sess);
+	sess->ucount = 1;
+	socket = sess->sc->video_socket;
+	
+	if(threadcfg.sound_duplex){
+		if (pthread_create(&tid, NULL, (void *) start_audio_monitor, sess) < 0) {
+			goto exit;
+		} 
+	}
+	for(;;){
+		buffer = get_video_data(&size);
+		int i = 0;
+		while(size > 0 ) {
+			if( size >= 1000 ) {
+				if(sess->is_tcp)
+					ret = send(socket, buffer+i, 1000,0);
+				else
+					ret = udt_send(socket , SOCK_STREAM , buffer+i , 1000);
+				
+			} else {
+				if(sess->is_tcp)
+					ret = send(socket, buffer+i, size,0);
+				else
+					ret = udt_send(socket , SOCK_STREAM , buffer+i , size);
+			}
+			if( ret <= 0 ) {
+				printf("sent data error,the connection may currupt!\n");
+				printf("ret==%d\n",ret);
+				printf("something wrong kill myself now\n");
+				free(buffer);
+				goto exit;
+			}
+			//printf("sess->is_tcp = %d , sent message =%d\n",sess->is_tcp , ret);
+			size -= ret;
+			i += ret;
+		}
+		free(buffer);
+		pthread_mutex_lock(&sess->sesslock);
+		if(!sess->running){
+			pthread_mutex_unlock(&sess->sesslock);
+			goto exit;
+		}
+		pthread_mutex_unlock(&sess->sesslock);
+		handle_video_thread();
+	}
+	
+exit:
+	/* Take down session */
+	del_sess(sess);
+	take_sess_down( sess);
+	
 	dbg("\nExitting server\n");
 	return 0;
 }
@@ -2397,7 +2751,9 @@ retry:
 			}
 			else{
 				printf("#########################write nand error##########################\n");
-				vs_msg_debug();
+				system("reboot &");
+				exit(0);
+				//vs_msg_debug();
 			}
 		}
 		free(buffer);

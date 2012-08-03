@@ -24,6 +24,7 @@ extern "C"
 #include <fcntl.h>
 
 #include "includes.h"
+#include "socket_container.h"
 
 //#include "list.h"
 //#include "vpu_server.h"
@@ -65,12 +66,13 @@ extern "C"
  * @running session is running
  * @soft_reset: perform soft restart
  */
+
 struct sess_ctx {
 	u8 *                    name;	
 	 int 			    id;
-        int                     s1;  //listen socket of video tcp,closed after accept
-        int                     s2;
-	 int 			     s3;//transport tcp socket for test sound transport
+        int                     s1;  //cmd socket  it is udt socket
+        int                     s2;  //video socket it is tcp or udt socket
+	 int 			     s3; //audio socket it is tcp or udt socket
         int                     s1_type;
 	 // int 			    debugsocket;
         struct sockaddr_in *    myaddr;
@@ -116,6 +118,7 @@ struct sess_ctx {
         int     motion_detected;
 	 int     haveconnected;
 	struct sess_ctx * next;
+	 struct socket_container *sc;
 };
 
 //save the config of server,read it from video.cfg
@@ -185,7 +188,7 @@ void take_sess_down(struct sess_ctx *sess);
 char * get_video_data(int *size);
 int start_video_monitor(struct sess_ctx* sess);
 int start_video_record(struct sess_ctx* sess);
- int tcp_do_update(void *arg);
+int do_net_update(void *arg);
 void init_g_sess_id_mask();
 int get_sess_id();
 void put_sess_id(int index);

@@ -1,3 +1,5 @@
+
+/*
 #include "inet_type.h"
 #include "includes.h"
 #include "sockets.h"
@@ -132,7 +134,7 @@ void delete_timeout_mapping(uint32_t ip,uint16_t cliport)
 				pthread_mutex_unlock(&p->sess->sesslock);
 				*tmp = (*tmp)->next;
 				ready_count--;
-				/*
+				
 				wan_net_connet_count--;
 				if(wan_net_connet_count<=0){
 					if(!threadcfg.qvga_flag&&strncmp(threadcfg.monitor_mode,"inteligent",10)==0&&strncmp(threadcfg.record_resolution ,"vga",3)!=0){
@@ -142,7 +144,7 @@ void delete_timeout_mapping(uint32_t ip,uint16_t cliport)
 						memcpy(threadcfg.resolution , threadcfg.record_resolution,sizeof(threadcfg.resolution));
 					}
 				}
-				*/
+				
 				//pthread_mutex_unlock(&ready_list_lock);
 				//printf("########################wait the old thread close##############\n");
 				//pthread_join(p->sess->tid,NULL);
@@ -192,7 +194,7 @@ void del_from_ready_list(struct mapping *p)
 	if((*tmp)!=NULL){
 		*tmp=(*tmp)->next;
 		ready_count--;
-		/*
+		
 		wan_net_connet_count--;
 		if(wan_net_connet_count<=0){
 			if(!threadcfg.qvga_flag&&strncmp(threadcfg.monitor_mode,"inteligent",10)==0&&strncmp(threadcfg.record_resolution ,"vga",3)!=0){
@@ -202,7 +204,7 @@ void del_from_ready_list(struct mapping *p)
 				memcpy(threadcfg.resolution , threadcfg.record_resolution,sizeof(threadcfg.resolution));
 			}
 		}
-		*/
+		
 	}
 	pthread_mutex_unlock(&ready_list_lock);
 	
@@ -225,9 +227,7 @@ int remove_from_ready_list(uint32_t addr,uint16_t cliport)
 	pthread_mutex_unlock(&ready_list_lock);
 	if(p){
 		put_local_port(p->local_port[NAT_V_PORT]);
-		/*
-		* do something;
-		*/
+		
 		free(p);
 		return 0;
 	}
@@ -377,6 +377,15 @@ int transfer_thread()
 	struct timeval timeout;
 	struct hostent *host;
 	struct sockaddr_in *s;
+	
+	 transfer_thread_start();
+	 for(;;){
+		  transfer_thread_alive();
+		  sleep(3);
+	}
+
+
+	 
    	if ((sockfd = create_udp_socket()) < 0) {
        	 perror("Error creating socket\n");
         	return -1;
@@ -560,14 +569,6 @@ get_server_addr:
 						printf("video port:%d\n",ntohs(pdest->port[NAT_V_PORT]));
 						printf("audio port:%d\n",ntohs(pdest->port[NAT_A_PORT]));
 						printf("\n#########################################################\n");
-						/*
-						if(strncmp(threadcfg.record_resolution ,"qvga",4)!=0){
-							restart_v4l2(320, 240);
-							memset(threadcfg.record_resolution , 0 ,sizeof(threadcfg.record_resolution));
-							sprintf(threadcfg.record_resolution , "qvga");
-							memcpy(threadcfg.resolution , threadcfg.record_resolution,sizeof(threadcfg.resolution));
-						}
-						*/
 					}
 					break;
 				}
@@ -588,8 +589,10 @@ get_server_addr:
 			}
 		}
 	}
+	
    	return 0;
 }
+
 int start_udp_transfer()
 {
 	//int ret;
@@ -603,7 +606,7 @@ int start_udp_transfer()
 }
 
 
-
+*/
 
 
 
