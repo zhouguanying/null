@@ -61,7 +61,7 @@ void wait_socket(struct socket_container *sc)
 	}
 	pthread_cond_init(sc->cready , NULL);
 	gettimeofday(&tv  , NULL);
-	ts.tv_sec = tv.tv_sec +10;
+	ts.tv_sec = tv.tv_sec +20;
 	ts.tv_nsec = tv.tv_usec *1000;
 	pthread_cond_timedwait(sc->cready , &container_list_lock , &ts);
 	pthread_cond_destroy(sc->cready);
