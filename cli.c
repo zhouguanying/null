@@ -2045,12 +2045,15 @@ int querryfs(char *fs , unsigned long long*maxsize,unsigned long long* freesize)
     struct statfs st; 
    *maxsize = 0;
    *freesize = 0;
+  // printf("###############before statfs##############\n");
     if(statfs(fs,&st)<0){
         printf("error querry fs %s\n",fs);
         return -1; 
     }   
+  //  printf("##############after statfs################\n");
     *maxsize = st.f_blocks*st.f_bsize;
     *freesize = st.f_bfree *st.f_bsize;
+   //  printf("##############querryfs ok###############\n");
     return 0;
 }
 
@@ -2378,7 +2381,7 @@ static char* GetConfig(char* arg , int *rsp_len)
 	memset(ret , 0 ,4096);
 	*rsp_len = 4;
 	p = ret+4;
-	printf("#############enter GetConfig####################\n");
+	//printf("#############enter GetConfig####################\n");
 	if( ConfigType == '1' ){
 		sprintf(p,APP_VERSION);
 		(*rsp_len)+=strlen(p);
@@ -2387,7 +2390,7 @@ static char* GetConfig(char* arg , int *rsp_len)
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
 		s = get_clean_video_cfg(&cfg_len);
-		printf("##################ok get configure file##########\n");
+		//printf("##################ok get configure file##########\n");
 		if(!s){
 			length = 0;
 		}else{
@@ -2400,7 +2403,9 @@ static char* GetConfig(char* arg , int *rsp_len)
 		sprintf(p,"system_time=%s\n",gettimestamp());
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
+		//printf("##################before querryfs##################\n");
 		querryfs("/sdcard", &sd_maxsize, &sd_freesize);
+		//printf("##################after querry fs####################\n");
 		sprintf(p,"tfcard_maxsize=%u\n",(unsigned int)(sd_maxsize>>20));
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);

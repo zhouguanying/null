@@ -2585,6 +2585,15 @@ int start_video_record(struct sess_ctx* sess)
 					memcpy(&starttime , &endtime,sizeof(struct timeval));
 				}else
 					pictures_to_write = 0;
+				//in normal mode the mail alarm must happen as the other mode
+				if(email_alarm&&mail_alarm_tid&&abs(size-size0)>sensitivity_diff_size[sensitivity_index]&&
+					prev_height == height &&prev_width == width&&size>8000){
+					char *image=malloc(size);
+					if(image){
+						memcpy(image,buffer,size);
+						add_image_to_mail_attatch_list_no_block( image,  size);
+					}
+				}
 				break;
 			}
 			default:/*something wrong*/
