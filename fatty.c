@@ -41,6 +41,11 @@ uint16_t *fat16_buffer;
 uint32_t *fat32_buffer;
 uint32_t  fat_buffer_size;
 
+ int get_sdcard_size()
+{
+	return ((bytes_per_sector*total_logical_sectors)>>20);
+}
+
 uint32_t sector_of_cluster(uint32_t cluster_number)
 {
     return cluster_begin_sector +

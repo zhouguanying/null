@@ -338,9 +338,14 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 		if(tmp!=NULL&&tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port){
 			printf("#######################found session in cache#########################\n");
 			if (strncmp(argv[0], "set_transport_type", 18) == 0){
+				if(tmp->running){
 					pthread_mutex_unlock(&global_ctx_lock);
 					dbg("set_transport_type session already running\n");
 					return set_transport_type_rsp(tmp, rsp_len);
+				}else{
+					memset(&tmp->from,0,sizeof(struct sockaddr_in));
+					goto NEW_SESSION;
+				}
 			}
 			goto done;
 		}
@@ -348,9 +353,14 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 		while(tmp!=NULL){
 			if(tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port){
 				if (strncmp(argv[0], "set_transport_type", 18) == 0){
-					pthread_mutex_unlock(&global_ctx_lock);
-					dbg("set_transport_type session already running\n");
-					return set_transport_type_rsp(tmp, rsp_len);
+					if(tmp->running){
+						pthread_mutex_unlock(&global_ctx_lock);
+						dbg("set_transport_type session already running\n");
+						return set_transport_type_rsp(tmp, rsp_len);
+					}else{
+						memset(&tmp->from,0,sizeof(struct sockaddr_in));
+						goto NEW_SESSION;
+					}
 				}
 				sess->arg=tmp;
 				printf("###############ok find runnig sess,now go to do cmd#########################\n");
@@ -363,6 +373,7 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 				pthread_mutex_unlock(&global_ctx_lock);
 				return  strdup("connected max ");//should return a string report max connections
 			}
+NEW_SESSION:
 		//	printf("before new_system_session\n");
 		 	tmp= new_system_session("ipcam");
 			if(!tmp){
@@ -452,7 +463,7 @@ static inline void do_cli_alive()
 static int do_cli(struct cli_sess_ctx *sess)
 {
 #define  CLI_BUF_SIZE  1024
-	int uset[MAX_CONNECTIONS<<2];
+	int uset[64];
 	int fdnums;
 	int sockfd;
 	char req[CLI_BUF_SIZE];
@@ -2040,6 +2051,7 @@ char *search_wifi(char *arg)
 	return NULL;
 }
 int snd_soft_restart();
+/*
 int querryfs(char *fs , unsigned long long*maxsize,unsigned long long* freesize)
 {
     struct statfs st; 
@@ -2056,7 +2068,7 @@ int querryfs(char *fs , unsigned long long*maxsize,unsigned long long* freesize)
    //  printf("##############querryfs ok###############\n");
     return 0;
 }
-
+*/
 extern char inet_eth_device[64];
 extern char inet_wlan_device[64];
 extern char inet_eth_gateway[64];
@@ -2355,8 +2367,8 @@ static char* GetConfig(char* arg , int *rsp_len)
 	char* ret = 0;
 	char *p;
 	char *s;
-	unsigned long long sd_maxsize;
-	unsigned long long sd_freesize;
+	//unsigned long long sd_maxsize;
+	//unsigned long long sd_freesize;
 	int size;
 	int cfg_len;
 	char slength[5];
@@ -2403,15 +2415,13 @@ static char* GetConfig(char* arg , int *rsp_len)
 		sprintf(p,"system_time=%s\n",gettimestamp());
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
-		//printf("##################before querryfs##################\n");
-		querryfs("/sdcard", &sd_maxsize, &sd_freesize);
-		//printf("##################after querry fs####################\n");
-		sprintf(p,"tfcard_maxsize=%u\n",(unsigned int)(sd_maxsize>>20));
+		//querryfs("/sdcard", &sd_maxsize, &sd_freesize);
+		sprintf(p,"tfcard_maxsize=%d\n",get_sdcard_size());
 		(*rsp_len)+=strlen(p);
-		p+=strlen(p);
-		sprintf(p,"tfcard_freesize=%u\n",(unsigned int)(sd_freesize >>20));
-		(*rsp_len)+=strlen(p);
-		p+=strlen(p);
+		//p+=strlen(p);
+		//sprintf(p,"tfcard_freesize=%u\n",(unsigned int)(sd_freesize >>20));
+		//(*rsp_len)+=strlen(p);
+		//p+=strlen(p);
 		size = *rsp_len;
 		
 		sprintf(slength,"%4d",size - 4);
