@@ -22,6 +22,7 @@ struct socket_container{
 	SOCKET_TYPE video_st;
 	SOCKET_TYPE audio_st;
 	struct socket_container * next;
+	pthread_cond_t  *cready;
 };
 
 void init_socket_container_list();

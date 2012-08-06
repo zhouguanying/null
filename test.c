@@ -1401,7 +1401,7 @@ int get_cam_id(unsigned int *id)
 #define HIDCMD_GET_NETWORK_ADDRESS	4
 int test_printf_getConfig();
 int querryfs(char *fs , unsigned long long*maxsize,unsigned long long* freesize);
-char * get_clean_video_cfg();
+char * get_clean_video_cfg(int *size);
 void sig_handle(int signo)
 {
 	exit(0);
@@ -1602,6 +1602,7 @@ int main()
 		int size;
 		char *hid_buf;
 		int numssid;
+		int cfg_len;
 		
 		system("switch gadget && sleep 2");
 
@@ -1683,13 +1684,13 @@ int main()
 						sprintf(p , "cam_id=%x\n",threadcfg.cam_id);
 						data_len +=strlen(p);
 						p+=strlen(p);
-						s = get_clean_video_cfg();
+						s = get_clean_video_cfg(&cfg_len);
 						if(!s){
 							free(hid_buf);
 							goto hid_fail;
 						}
-						memcpy(p,s,strlen(s));
-						data_len+=strlen(s);
+						memcpy(p,s,cfg_len);
+						data_len+=cfg_len;
 						p+=strlen(s);
 						free(s);
 						querryfs("/sdcard", &sd_maxsize, &sd_freesize);

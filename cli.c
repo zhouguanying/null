@@ -2131,6 +2131,40 @@ static int fix_video_line(char *buf)
 	return -1;
 }  
 
+char * get_clean_video_cfg(int *size)
+{
+	FILE * fp;
+	char *cfg_buf;
+	
+	fp =fopen(RECORD_PAR_FILE, "r");
+	if(!fp){
+		system("cp /video.cfg  /data/video.cfg");
+		usleep(100000);
+		fp =fopen(RECORD_PAR_FILE, "r");
+		if(!fp)
+			return NULL;
+	}
+	cfg_buf = (char *)malloc(2048);
+	if(!cfg_buf){
+		printf("malloc buf for config file error\n");
+		fclose(fp);
+		return NULL;
+	}
+	memset(cfg_buf , 0 , 2048);
+	fseek(fp , 0 ,  SEEK_END);
+	*size = ftell(fp);
+	fseek(fp , 0 , SEEK_SET);
+	if(fread(cfg_buf , *size , 1 , fp)!=1){
+		printf("read configure file error\n");
+		free(cfg_buf);
+		fclose(fp);
+		return NULL;
+	}
+	fclose(fp);
+	return cfg_buf;
+}
+
+/*
 char * get_clean_video_cfg()
 {
 	char buf[256];
@@ -2173,7 +2207,7 @@ char * get_clean_video_cfg()
 	}
 	return cfg_buf;
 }
-
+*/
 static char *SetPswd(char*arg)
 {
 	FILE *fp;
@@ -2321,6 +2355,7 @@ static char* GetConfig(char* arg , int *rsp_len)
 	unsigned long long sd_maxsize;
 	unsigned long long sd_freesize;
 	int size;
+	int cfg_len;
 	char slength[5];
 	//struct stat st;
 	if(!arg)
@@ -2351,12 +2386,13 @@ static char* GetConfig(char* arg , int *rsp_len)
 		sprintf(p,"cam_id=%x\n",threadcfg.cam_id);
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
-		s = get_clean_video_cfg();
+		s = get_clean_video_cfg(&cfg_len);
+		printf("##################ok get configure file##########\n");
 		if(!s){
 			length = 0;
 		}else{
-			memcpy(p , s , strlen(s));
-			length = strlen(s);
+			memcpy(p , s , cfg_len);
+			length = cfg_len;
 			free(s);
 		}
 		(*rsp_len) +=length;
@@ -2372,6 +2408,10 @@ static char* GetConfig(char* arg , int *rsp_len)
 		(*rsp_len)+=strlen(p);
 		p+=strlen(p);
 		size = *rsp_len;
+		
+		sprintf(slength,"%4d",size - 4);
+		memcpy(ret , slength , 4);
+		/*
 		p = ret;
 		while(size>0){
 			if(size>1000){
@@ -2390,7 +2430,7 @@ static char* GetConfig(char* arg , int *rsp_len)
 				size = 0;
 			}	
 		}
-		
+		*/
 	}else{
 		free(ret);
 		printf("#####################GetConfig invalid parmeter#########\n");

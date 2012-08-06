@@ -45,6 +45,29 @@ void close_socket(SOCKET_TYPE st , int socket)
 	}
 }
 
+void wait_socket(struct socket_container *sc)
+{
+	struct timeval tv;
+	struct timespec ts;
+	if(sc->cready){
+		dbg("BUG the condition have already be built something wrong\n");
+		exit(0);
+	}
+	sc->cready = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
+	if(!(sc->cready)){
+		dbg("error malloc buffer for sc condition lock\n");
+		system("reboot &");
+		exit(0);
+	}
+	pthread_cond_init(sc->cready , NULL);
+	gettimeofday(&tv  , NULL);
+	ts.tv_sec = tv.tv_sec +10;
+	ts.tv_nsec = tv.tv_usec *1000;
+	pthread_cond_timedwait(sc->cready , &container_list_lock , &ts);
+	pthread_cond_destroy(sc->cready);
+	free(sc->cready);
+	sc->cready = NULL;
+}
 
 void get_cmd_socket(int *fds , int *nums)
 {
@@ -142,6 +165,7 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
 	gettimeofday(&now , NULL);
 	finded = 0;
 	ret = -1;
+	dbg("add socket  cap = %d , who = %llu\n",cap ,who);
 	pthread_mutex_lock(&container_list_lock);
 	scp = &socket_clist;
 	while(*scp!=NULL){
@@ -179,6 +203,10 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
 					dbg("########add unkown socket to list###########\n");
 					exit(0);
 			}
+			if((*scp)->cready&&(*scp)->video_socket>=0&&(*scp)->audio_socket>=0){
+				dbg("some one wait for sockets tell it\n");
+				pthread_cond_signal((*scp)->cready);
+			}
 			gettimeofday(&((*scp)->create_tv),NULL);
 			finded ++;
 			ret = 0;
@@ -203,6 +231,7 @@ FREE_CONTAINER:
 		case 0:
 			p = (struct socket_container *)malloc(sizeof(struct socket_container));
 			if(!p) break;
+			memset(p, 0 , sizeof(struct socket_container));
 			gettimeofday(&(p->create_tv) , NULL);
 			p ->who = who;
 			p->cmd_socket = -1;
@@ -290,6 +319,10 @@ struct socket_container *get_socket_container(int cmdsocket)
 			break;
 		}
 		sc = sc->next;
+	}
+	if(sc&&(sc->audio_socket<0||sc->video_socket<0)){
+		dbg("the socket is not built all  now wait for it\n");
+		wait_socket(sc);
 	}
 	pthread_mutex_unlock(&container_list_lock);
 	return sc;
