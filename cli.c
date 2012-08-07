@@ -166,6 +166,21 @@ void check_udt_fdset()
 }
 
 */
+
+static inline char * gettimestamp()
+{
+	static char timestamp[15];
+	time_t t;
+	struct tm *curtm;
+	 if(time(&t)==-1){
+        	 printf("get time error\n");
+         	 exit(0);
+   	  }
+	 curtm=localtime(&t);
+	  sprintf(timestamp,"%04d%02d%02d%02d%02d%02d",curtm->tm_year+1900,curtm->tm_mon+1,
+                curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
+	 return timestamp;
+}
 static struct cli_sess_ctx * new_session(void *arg)
 {
 	  struct cli_sess_ctx *sess = NULL;
@@ -489,7 +504,6 @@ LOOP_START:
 			do_cli_alive();
 			gettimeofday(&last_alive_time , NULL);
 		}
-		
 		//dbg("get socket num = %d\n",fdnums);
 		sockfd = udt_get_readable_socket(uset, fdnums,  &tv);
 		if(sockfd <0){
@@ -500,9 +514,7 @@ LOOP_START:
 			sleep(1);
 			goto LOOP_START;
 		}
-		dbg("select ok now begin recv\n");
-		
-		//sockfd = uset[0];
+		//dbg("select ok now begin recv\n");
 		dbg("get ready sockfd = %d\n",sockfd);
 		req_len = stun_recvmsg(sockfd ,req, CLI_BUF_SIZE , &from , &fromlen);
 		if(req_len <0){
@@ -531,7 +543,7 @@ LOOP_START:
 		rsp_len = 0;
 		cli_socket = sockfd;
 		rsp = handle_cli_request(sess, req, req_len, NULL, &rsp_len,from);
-		dbg("rsp=%s , rsp_len =%d\n",rsp ,rsp_len);
+		dbg("rsp=%s\n",rsp );
 		if (rsp != NULL) { /* command ok so send response */
 		//dbg("sent rsp");
 			fromlen = sizeof(struct sockaddr_in);
@@ -1998,20 +2010,7 @@ static int SetRs485BautRate(char* arg)
 	SetUartSpeed(speed);
 	return 0;
 }
-static inline char * gettimestamp()
-{
-	static char timestamp[15];
-	time_t t;
-	struct tm *curtm;
-	 if(time(&t)==-1){
-        	 printf("get time error\n");
-         	 exit(0);
-   	  }
-	 curtm=localtime(&t);
-	  sprintf(timestamp,"%04d%02d%02d%02d%02d%02d",curtm->tm_year+1900,curtm->tm_mon+1,
-                curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
-	 return timestamp;
-}
+
 static int Rs485Cmd(char* arg)
 {
 	int length;

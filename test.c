@@ -1391,6 +1391,7 @@ int get_cam_id(unsigned int *id)
 #define HID_READ_SEARCH_WIFI		   3
 #define HID_RESET_TO_DEFAULT		   4
 #define HID_SET_PSWD				   5
+#define HID_SET_SYS_TIME			   6
 
 #define HID_FAILE					   4
 
@@ -1724,23 +1725,21 @@ int main()
 						break;
 					case HID_READ_SEARCH_WIFI:
 						printf("HID_READ_SEARCH_WIFI\n");
-						hid_buf = get_parse_scan_result(& numssid, NULL);
-						data_len = strlen(hid_buf);
-						if(data_len%2)
-							data_len++;
-						printf("data_len==%d\n",(int)data_len);
 						do{
-							usleep(20000);
-							ret = write(hid_fd, (char *)&data_len , 2);
-						}while(ret != 2);
+							hid_buf = get_parse_scan_result(& numssid, NULL);
+						}while(hid_buf == NULL);
+						data_len = strlen(hid_buf);
+						printf("data_len==%d\n",(int)data_len);
+						memcpy(hid_unit_buf,&data_len,sizeof(data_len));
+						ret = write(hid_fd, hid_unit_buf, HID_RDWR_UNIT);
 						printf("##########################\n");
-						sleep(1);
-						for(i = 0; i<data_len; i+=2)
+						sleep(2);
+						for(i = 0; i<(int)data_len; i+=HID_RDWR_UNIT)
 						{
 							do{
 								usleep(20000);
-								ret = write(hid_fd , hid_buf+i ,2);
-							}while(ret != 2);
+								ret = write(hid_fd , hid_buf+i ,HID_RDWR_UNIT);
+							}while(ret != HID_RDWR_UNIT);
 						}
 						
 						/*clean garbage*/
@@ -1842,6 +1841,15 @@ int main()
 						read(hid_fd , buf,512);
 						
 						fclose(fd);
+						break;
+					case HID_SET_SYS_TIME:
+						printf("HID_SET_SYS_TIME\n");
+						hid_unit_buf[16]=0;
+						dbg("time = %s\n",hid_unit_buf +2);
+						set_system_time(hid_unit_buf +2);
+						
+						/*clear garbage*/
+						read(hid_fd , buf,512);
 						break;
 					default:
 					hid_fail:
