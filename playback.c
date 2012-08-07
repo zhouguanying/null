@@ -422,10 +422,10 @@ int playback_exit(struct sockaddr_in address)
 	pb = playback_find(address);
 	if(pb){
 		playback_set_status(pb, PLAYBACK_STATUS_EXIT);
-		if(pb->thread_id)
-			pthread_join(pb->thread_id, &status);
-		playback_destroy(pb);
-		printf("playback exit!\n");
+		//if(pb->thread_id)
+			//pthread_join(pb->thread_id, &status);
+		//playback_destroy(pb);
+		dbg("tell playback thread exit!\n");
 	}else{
 		ret = -1;
 		printf("playback not found\n");

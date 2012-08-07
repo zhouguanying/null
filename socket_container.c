@@ -173,7 +173,7 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
 			switch(cap){
 				case CAP_CMD:
 					if((*scp)->cmd_socket>=0){
-						dbg("the socket have already exist? something strange\n");
+						dbg("the socket have already exist? it may be the older connect\n");
 						goto FREE_CONTAINER;
 					}
 					if(st !=UDT_SOCKET){
@@ -185,7 +185,7 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
 					break;
 				case CAP_VIDEO:
 					if((*scp)->video_socket>=0){
-						dbg("the socket have already exist? something strange\n");
+						dbg("the socket have already exist? it may be the older connect\n");
 						goto FREE_CONTAINER;
 					}
 					(*scp)->video_socket = socket;
@@ -193,7 +193,7 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
 					break;
 				case CAP_AUDIO:
 					if((*scp)->audio_socket>=0 ){
-						dbg("the socket have already exist? something strange\n");
+						dbg("the socket have already exist? it may be the older connect\n");
 						goto FREE_CONTAINER;
 					}
 					(*scp)->audio_socket = socket;
