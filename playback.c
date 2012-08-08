@@ -813,6 +813,7 @@ __out:
 static int playback_send_data(int socket ,playback_t* pb, char* buf, int len)
 {
 	int  ret = -1 , s;
+	int status;
 	s = 0;
 	//dbg("#################begin send data#####################\n");
 	while(len > 0){
@@ -828,18 +829,32 @@ static int playback_send_data(int socket ,playback_t* pb, char* buf, int len)
 			else
 				ret = udt_send(socket, SOCK_STREAM,  buf+s, len);
 		}
+
+		status = playback_get_status(pb);
+		switch (status)
+		{
+			case PLAYBACK_STATUS_PAUSED:
+			case PLAYBACK_STATUS_SEEK:
+				ret = 0;
+				goto END;
+				break;
+			case PLAYBACK_STATUS_EXIT:
+				ret = -1;
+				goto END;
+				break;
+			default:
+				break;
+		}
 		
 		if(ret <=0){
-			if(playback_get_status(pb) ==PLAYBACK_STATUS_PAUSED)
-				ret = 0;
-			else
-				ret = -1;
+			ret = -1;
 			break;
 		}
 		s += ret;
 		len -= ret;
 	}
 	//dbg("##############################send data ok######################\n");
+	END:
 	return ret;
 }
 
