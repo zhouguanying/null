@@ -32,6 +32,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <sys/ipc.h>
+#include <sys/msg.h>
 #include <linux/fs.h>
 #include <sys/statfs.h>
 
@@ -59,6 +60,7 @@
 #include "amixer.h"
 #include "udttools.h"
 #include "socket_container.h"
+#include "stun.h"
 //#include "monitor.h"
 
 /* Debug */
@@ -213,6 +215,7 @@ static int free_session(struct cli_sess_ctx *sess)
 }
 
 extern char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int* rsp_len);
+/*
 static int save_config_value(char *name , char *value)
 {
 	FILE*fp;
@@ -253,7 +256,7 @@ static int save_config_value(char *name , char *value)
 	dbg("write config file ok\n");
 	return 0;
 }
-
+*/
 char *set_transport_type_rsp(struct sess_ctx * sess ,int *size)
 {
 	char *buf;
@@ -481,7 +484,7 @@ static int do_cli(struct cli_sess_ctx *sess)
 	int uset[64];
 	int fdnums;
 	int sockfd;
-	char req[CLI_BUF_SIZE];
+	u8 req[CLI_BUF_SIZE];
 	char *rsp;
 	int rsp_len;
 	struct timeval tv , now , last_alive_time;
@@ -516,7 +519,7 @@ LOOP_START:
 		}
 		//dbg("select ok now begin recv\n");
 		dbg("get ready sockfd = %d\n",sockfd);
-		req_len = stun_recvmsg(sockfd ,req, CLI_BUF_SIZE , &from , &fromlen);
+		req_len = stun_recvmsg(sockfd ,(char *)req, CLI_BUF_SIZE ,(struct sockaddr *) &from , &fromlen);
 		if(req_len <0){
 			dbg("udt select ok but cannot recv message? something wrong\n");
 			do_cli_alive();
@@ -2030,8 +2033,6 @@ char *search_wifi(char *arg)
 	char *buf;
 	int length;
 	char slength[5];
-	char *p;
-	int size;
 	if (!arg)
 		return NULL;
 	if(*arg=='0'){
@@ -2068,6 +2069,7 @@ int querryfs(char *fs , unsigned long long*maxsize,unsigned long long* freesize)
     return 0;
 }
 */
+/*
 extern char inet_eth_device[64];
 extern char inet_wlan_device[64];
 extern char inet_eth_gateway[64];
@@ -2144,7 +2146,7 @@ static int fix_video_line(char *buf)
 	}
 	return -1;
 }  
-
+*/
 char * get_clean_video_cfg(int *size)
 {
 	FILE * fp;
@@ -2228,7 +2230,6 @@ static char *SetPswd(char*arg)
 	char *p;
 	struct stat st;
 	char buf[512];
-	int pswd_size;
 	if(!arg){
 		printf("##############SetPswd no argument#########\n");
 		return strdup(PASSWORD_FAIL);
@@ -2333,7 +2334,7 @@ static char *PswdState()
 
 static char *cli_playback_set_status(struct sess_ctx *sess, char *arg)
 {
-	int status,value;
+	int value;
 	char *rsp = NULL;
 	char buf[32];
 	if(!sess||!arg)
@@ -2525,19 +2526,14 @@ int test_printf_getConfig()
 }
 */
 int set_raw_config_value(char * buffer);
+extern char force_close_file ;
 static char * SetConfig(char* arg)
 {
 	char ConfigType;
-	struct sockaddr_in from;
-	socklen_t fromlen;
-	fd_set sockset;
-	struct timeval timeout;
 	char *buf;
 	char *p;
 	int data_len;
 	char sdata_len[5];
-	int recvlen= 0;
-	int tryrecv = 10;
 	int ret;
 	int i;
 	int size;
@@ -2563,7 +2559,10 @@ static char * SetConfig(char* arg)
 		system(buf);
 		free(buf);
 		dbg("reset the value to default\n");
-		snd_soft_restart();
+		if(threadcfg.sdcard_exist)
+			force_close_file = 1;
+		else
+			snd_soft_restart();
 		return NULL;
 	}
 	if( ConfigType != '1' && ConfigType != '3' ){
@@ -2620,12 +2619,15 @@ static char * SetConfig(char* arg)
 		printf("####################################################\n");
 		set_raw_config_value(buf);
 		free(buf);
-		snd_soft_restart();
+		if(threadcfg.sdcard_exist)
+			force_close_file = 1;
+		else
+			snd_soft_restart();
 		return NULL;
 		
 	}else{
 		dbg("invalid argument\n");
-		return -1;
+		return NULL;
 	}
 }
 

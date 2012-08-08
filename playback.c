@@ -814,6 +814,7 @@ static int playback_send_data(int socket ,playback_t* pb, char* buf, int len)
 {
 	int  ret = -1 , s;
 	s = 0;
+	//dbg("#################begin send data#####################\n");
 	while(len > 0){
 		//printf("%s: running.\n", __func__);
 		if(len >1000){
@@ -838,7 +839,7 @@ static int playback_send_data(int socket ,playback_t* pb, char* buf, int len)
 		s += ret;
 		len -= ret;
 	}
-	
+	//dbg("##############################send data ok######################\n");
 	return ret;
 }
 

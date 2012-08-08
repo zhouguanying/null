@@ -31,6 +31,7 @@ void get_cmd_socket(int *fds , int *nums);
 void check_cmd_socket();
 int scl_add_socket(unsigned long long  who , int socket , SOCKET_CAP cap,SOCKET_TYPE st);
 struct socket_container *get_socket_container(int cmdsocket);
+int  close_socket_container(struct socket_container *sc);
 
 #ifdef  __cplusplus
 }

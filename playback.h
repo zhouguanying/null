@@ -64,6 +64,7 @@ int playback_get_status(playback_t * pb);
 int playback_set_status(playback_t * pb, int status);
 int cmd_playback_set_status(struct sockaddr_in address ,  int status , void *value);
 void* playback_thread(void * arg);
+ void playback_set_dead(playback_t* pb);
 #ifdef __cplusplus
 }
 #endif

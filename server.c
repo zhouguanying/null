@@ -2208,6 +2208,8 @@ static  void vs_msg_debug()
 	exit(0);
 }
 
+int snd_soft_restart();
+
 int start_video_record(struct sess_ctx* sess)
 {
 	//const char *videodevice = "/dev/video0";
@@ -2229,7 +2231,7 @@ int start_video_record(struct sess_ctx* sess)
 	struct timeval alive_old_time;
 	struct timeval mail_last_time;
 	struct timeval index_table_15sec_last_time;
-	vs_ctl_message msg;
+	vs_ctl_message msg , rmsg;
 	unsigned long long timeuse;
 	unsigned long long usec_between_image=0;
 	int frameratechange=0;
@@ -2708,6 +2710,14 @@ int start_video_record(struct sess_ctx* sess)
 retry:
 		if(threadcfg.sdcard_exist){
 			ret = nand_write(buffer, size);
+			if(force_close_file||msgrcv(msqid,&rmsg,sizeof(rmsg) - sizeof( long ), VS_MESSAGE_RECORD_ID , IPC_NOWAIT )>0){
+				dbg("####################force close file#################\n");
+				memcpy(attr_pos , time_15sec_table , *record_15sec_table_size);
+				nand_write_index_table( attr_table);
+				nand_prepare_close_record_header(&record_header);
+				nand_write_end_header(&record_header);
+				snd_soft_restart();
+			}
 			if( ret == 0 ){
 				i++;
 				usleep(1);
@@ -2729,8 +2739,7 @@ retry:
 			}
 			
 			else if( ret == VS_MESSAGE_NEED_END_HEADER ){
-				while(pause_record)
-					usleep(10000);
+				
 				memcpy(attr_pos , time_15sec_table , *record_15sec_table_size);
 				nand_write_index_table( attr_table);
 				nand_prepare_close_record_header(&record_header);

@@ -33,6 +33,7 @@
 
 
 #define	VS_MESSAGE_ID 0x55aa55aa
+#define   VS_MESSAGE_RECORD_ID  0X55bb55bb
 #define	VS_MESSAGE_CLIENT0_ID	0x5555aaaa
 #define	VS_MESSAGE_START_RECORDING	1
 #define	VS_MESSAGE_STOP_RECORDING	2
@@ -58,6 +59,7 @@
 #define 	VS_MESSAGE_UDP_STUN_ALIVE		21
 #define 	VS_MESSAGE_UPDATE_SYSTEM_TIME	22
 #define 	VS_MESSAGE_DEBUG					23
+#define 	VS_MESSAGE_CLOSE_RECORD_FILE	24
 
  #define KERNAL_UPDATE_FILE   	"/tmp/kernel.update"
 #define SYSTEM_UPDATE_FILE		"/tmp/system.update"
