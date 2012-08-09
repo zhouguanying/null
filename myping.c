@@ -239,8 +239,8 @@ int check_net(char *ping_addr,char * __device)
     memcpy( (char *)&dest_addr.sin_addr.s_addr,(char *)&inaddr,sizeof(in_addr_t));
     /*获取main的进程id,用于设置ICMP的标志符*/
     pid=getpid();
-  //  printf("PING %s(%s): %d bytes data in ICMP packets.\n",argv[1],
-   // inet_ntoa(dest_addr.sin_addr),datalen);
+    printf("PING %s(%s): %d bytes data in ICMP packets.\n",argv[1],
+    inet_ntoa(dest_addr.sin_addr),datalen);
    // signal(SIGINT,statistics);
    for(n =0;n<3;n++){
    	send_packet();

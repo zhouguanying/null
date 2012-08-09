@@ -963,6 +963,7 @@ int start_audio_monitor(struct sess_ctx*sess)
 	char *buf;
 	ssize_t size;
 	char *start_buf;
+	int attempts = 0;
 	int sockfd = sess->sc->audio_socket;
 	sess->ucount ++;
 		
@@ -987,6 +988,11 @@ int start_audio_monitor(struct sess_ctx*sess)
 		 size = s;
 		 s = 0;
 		 while(size > 0){
+		 	if(!sess->running){
+				dbg("the sess have been closed exit now\n");
+				free(start_buf);
+				goto __exit;
+		 	}
 		 	if(size > 1024){
 				if(sess->is_tcp)
 					n=send(sockfd,start_buf+s,1024,0);
@@ -999,39 +1005,41 @@ int start_audio_monitor(struct sess_ctx*sess)
 					n=udt_send(sockfd , SOCK_STREAM , start_buf+s , size);
 			}
 			if(n <=0){
+				attempts ++;
+				if(attempts <=10){
+					dbg("attempts send data now = %d\n",attempts);
+					continue;
+				}
 				printf("send 3s sound data error\n");
 				free(start_buf);
 				goto __exit;
 			}
+			attempts = 0;
 			size -=n;
 			s +=n;
 		 }
 		 free(start_buf);
 		 /*send sound data in normal*/
 		while(1){
-			pthread_mutex_lock(&sess->sesslock);
-			if(!sess->running){
-				pthread_mutex_unlock(&sess->sesslock);
-				goto __exit;
-			}
-			pthread_mutex_unlock(&sess->sesslock);
 	__tryget:
 			buf=new_get_sound_data(sess->id,&size);
 			if(!buf){
 				//printf("sound data not prepare\n");
 				usleep(50000);
-				pthread_mutex_lock(&sess->sesslock);
 				if(!sess->running){
-					pthread_mutex_unlock(&sess->sesslock);
 					goto __exit;
 				}
-				pthread_mutex_unlock(&sess->sesslock);
 				goto __tryget;
 			}
 			//if(size>416)
 				//printf("tcp send sound get size==%d\n",size);
 			s=0;
 			while(size>0){
+				if(!sess->running){
+					dbg("the sess have been closed exit now\n");
+					free(buf);
+					goto __exit;
+				}
 				if(size>1024){
 					if(sess->is_tcp)
 						n=send(sockfd,buf+s,1024,0);
@@ -1044,10 +1052,16 @@ int start_audio_monitor(struct sess_ctx*sess)
 						n=udt_send(sockfd , SOCK_STREAM ,buf+s , size);
 				}
 				if(n>0){
+					attempts = 0;
 					s+=n;
 					size-=n;
 					//dbg("send sound data n==%d\n",n);
 				}else{
+					attempts ++;
+					if(attempts <=10){
+						dbg("attempts send data now = %d\n",attempts);
+						continue;
+					}
 					printf("send sound data error\n");
 					free(buf);
 					goto __exit;

@@ -2062,6 +2062,7 @@ int start_video_monitor(struct sess_ctx* sess)
 	char* buffer;
 	int size;
 	pthread_t tid;
+	int attempts;
 	//int setframes=0;
 
 	if(is_do_update())
@@ -2077,10 +2078,16 @@ int start_video_monitor(struct sess_ctx* sess)
 			goto exit;
 		} 
 	}
+	attempts = 0;
 	for(;;){
 		buffer = get_video_data(&size);
 		int i = 0;
 		while(size > 0 ) {
+			if(!sess->running){
+				dbg("the sess have been closed exit now\n");
+				free(buffer);
+				goto exit;
+			}
 			if( size >= 1000 ) {
 				if(sess->is_tcp)
 					ret = send(socket, buffer+i, 1000,0);
@@ -2093,24 +2100,24 @@ int start_video_monitor(struct sess_ctx* sess)
 				else
 					ret = udt_send(socket , SOCK_STREAM , buffer+i , size);
 			}
-			if( ret <= 0 ) {
+			
+			if(ret <= 0 ) {
+				attempts ++;
+				if(attempts <=10){
+					dbg("attempts send data now = %d\n",attempts);
+					continue;
+				}
 				printf("sent data error,the connection may currupt!\n");
 				printf("ret==%d\n",ret);
-				printf("something wrong kill myself now\n");
 				free(buffer);
 				goto exit;
 			}
 			//printf("sess->is_tcp = %d , sent message =%d\n",sess->is_tcp , ret);
+			attempts = 0;
 			size -= ret;
 			i += ret;
 		}
 		free(buffer);
-		pthread_mutex_lock(&sess->sesslock);
-		if(!sess->running){
-			pthread_mutex_unlock(&sess->sesslock);
-			goto exit;
-		}
-		pthread_mutex_unlock(&sess->sesslock);
 		handle_video_thread();
 	}
 	
@@ -2451,9 +2458,10 @@ int start_video_record(struct sess_ctx* sess)
 			memcpy(&alive_old_time,&endtime,sizeof(struct timeval));
 		}
 
-
 		
+		//dbg("before get buffer\n");
 		buffer = get_data(&size,&width,&height);
+		//dbg("after get buffer\n");
 		/*
 		if(big_to_small >0&&num_pic_to_ignore>0){
 			size0 = size;

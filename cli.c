@@ -2026,7 +2026,7 @@ static int Rs485Cmd(char* arg)
 	UartWrite(buffer, length);
 	return 0;
 }
-char * get_parse_scan_result( int *numssid ,char *wish_ssid);
+
 char *search_wifi(char *arg)
 {
 	int numssid;
