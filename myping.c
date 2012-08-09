@@ -197,7 +197,7 @@ int check_net(char *ping_addr,char * __device)
         perror("socket error");
         return -1;
     }
-    timeout.tv_sec = 3;
+    timeout.tv_sec = 5;
     timeout.tv_usec  = 0;
     /* 回收root权限,设置当前用户权限*/
    // setuid(getuid());

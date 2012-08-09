@@ -814,22 +814,11 @@ static int playback_send_data(int socket ,playback_t* pb, char* buf, int len)
 {
 	int  ret = -1 , s;
 	int status;
+	int attempts= 0;
 	s = 0;
 	//dbg("#################begin send data#####################\n");
 	while(len > 0){
 		//printf("%s: running.\n", __func__);
-		if(len >1000){
-			if(pb->sess->is_tcp)
-				ret = send(socket ,buf+s , 1000 , 0);
-			else
-				ret = udt_send(socket, SOCK_STREAM,  buf+s, 1000);
-		}else{
-			if(pb->sess->is_tcp)
-				ret = send(socket ,buf+s , len , 0);
-			else
-				ret = udt_send(socket, SOCK_STREAM,  buf+s, len);
-		}
-
 		status = playback_get_status(pb);
 		switch (status)
 		{
@@ -845,11 +834,28 @@ static int playback_send_data(int socket ,playback_t* pb, char* buf, int len)
 			default:
 				break;
 		}
+		if(len >1000){
+			if(pb->sess->is_tcp)
+				ret = send(socket ,buf+s , 1000 , 0);
+			else
+				ret = udt_send(socket, SOCK_STREAM,  buf+s, 1000);
+		}else{
+			if(pb->sess->is_tcp)
+				ret = send(socket ,buf+s , len , 0);
+			else
+				ret = udt_send(socket, SOCK_STREAM,  buf+s, len);
+		}
 		
 		if(ret <=0){
+			attempts ++;
+			if(attempts <=10){
+				dbg("attempts to send playback data now = %d\n",attempts);
+				continue;
+			}
 			ret = -1;
 			break;
 		}
+		attempts = 0;
 		s += ret;
 		len -= ret;
 	}
@@ -1065,6 +1071,7 @@ void* playback_thread(void * arg)
 					ret = playback_send_data(socket , pb,buf,size);
 					if(ret < 0){
 						running = 0;
+						dbg("playback_send_data error\n");
 					}
 					/*
 					snd_size +=size;
@@ -1133,9 +1140,15 @@ void* playback_thread(void * arg)
 						memcpy(internal_header.FrameRateUs , file_header->FrameRateUs , sizeof(internal_header.FrameRateUs));
 						memcpy(internal_header.FrameWidth , file_header->FrameWidth , sizeof(internal_header.FrameWidth));
 						memcpy(internal_header.FrameHeight ,file_header->FrameHeight , sizeof(internal_header.FrameHeight));
+						status = playback_get_status(pb);
+						if(status !=PLAYBACK_STATUS_RUNNING){
+							record_file_seekto( file, reserve_seek);
+							goto __seek_out;
+						}
 						ret = playback_send_data(socket , pb,&internal_header,sizeof(internal_header));
 						if(ret <= 0){
 							running = 0;
+							dbg("playback_send_data error\n");
 							break;
 						}
 					}
@@ -1169,8 +1182,14 @@ void* playback_thread(void * arg)
 							}
 							e++;
 						}
+						status = playback_get_status(pb);
+						if(status !=PLAYBACK_STATUS_RUNNING){
+							record_file_seekto( file, reserve_seek);
+							goto __seek_out;
+						}
 						ret = playback_send_data(socket , pb,s,e -s);
 						if(ret <= 0){
+							dbg("playback_send_data error\n");
 							running = 0;
 							break;
 						}
@@ -1189,8 +1208,14 @@ void* playback_thread(void * arg)
 					s=buf+sizeof(nand_record_file_header);
 				else
 					s = buf + pb->seek%512;
+				status = playback_get_status(pb);
+				if(status !=PLAYBACK_STATUS_RUNNING){
+					record_file_seekto( file, reserve_seek);
+					goto __seek_out;
+				}
 				ret = playback_send_data(socket , pb,s,size -( s-buf));
 				if(ret <= 0){
+					dbg("playback_send_data error\n");
 					running = 0;
 				}
 			__seek_out:

@@ -497,8 +497,11 @@ static int do_cli(struct cli_sess_ctx *sess)
 	init_socket_container_list();
 	do_cli_start();
 	gettimeofday(&last_alive_time , NULL);
-LOOP_START:
+
 	for(;;){
+		printf("\n\n\n");
+		dbg("try to get cli cmd\n");
+LOOP_START:
 		for(;;){
 			get_cmd_socket(uset, &fdnums);
 			if(fdnums >0)
