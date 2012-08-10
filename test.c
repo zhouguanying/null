@@ -64,6 +64,20 @@ struct configstruct{
 	char value[64];
 };
 
+static inline char * gettimestamp()
+{
+	static char timestamp[15];
+	time_t t;
+	struct tm *curtm;
+	 if(time(&t)==-1){
+        	 printf("get time error\n");
+         	 exit(0);
+   	  }
+	 curtm=localtime(&t);
+	  sprintf(timestamp,"%04d%02d%02d%02d%02d%02d",curtm->tm_year+1900,curtm->tm_mon+1,
+                curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
+	 return timestamp;
+}
 int test_file_write()
 {
 	int i,j; 
@@ -945,7 +959,9 @@ int main()
 						//querryfs("/sdcard", &sd_maxsize, &sd_freesize);
 						sprintf(p,"tfcard_maxsize=%d\n",get_sdcard_size());
 						data_len +=strlen(p);
-						//p+=strlen(p);
+						p+=strlen(p);
+						sprintf(p,"system_time=%s\n",gettimestamp());
+						data_len +=strlen(p);
 						//sprintf(p,"tfcard_freesize=%u\n",(unsigned int)(sd_freesize>>20));
 						//data_len +=strlen(p);
 						
@@ -1101,6 +1117,12 @@ int main()
 						break;
 					default:
 					hid_fail:
+						dbg("HID_FAILE\n");
+						/*clear garbage*/
+						for(;;){
+							if(read(hid_fd , buf , 512)<=0)
+								break;
+						}
 						break;
 				}	
 			}

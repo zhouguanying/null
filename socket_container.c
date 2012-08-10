@@ -270,8 +270,9 @@ FREE_CONTAINER:
 			break;
 		default:
 			dbg("#########we found collision monitor id for safe we reboot now############\n");
-			system("reboot &");
-			exit(0);
+			clean_socket_container( who, 0);
+			//system("reboot &");
+			//exit(0);
 	}
 	pthread_mutex_unlock(&container_list_lock);
 	if(ret <0){
@@ -328,6 +329,43 @@ struct socket_container *get_socket_container(int cmdsocket)
 	return sc;
 }
 
-
+void clean_socket_container(unsigned long long who , int need_lock)
+{
+	struct socket_container *p;
+	struct socket_container **sc;
+	if(need_lock)
+		pthread_mutex_lock(&container_list_lock);
+	if(who == 0xffffffffffffffff){
+		dbg("clean all socket container\n");
+		for(sc = &socket_clist;*sc;){
+			p = *sc;
+			*sc = (*sc)->next;
+			if(p->cmd_socket>=0)
+				close_socket(p->cmd_st, p->cmd_socket);
+			if(p->audio_socket>=0)
+				close_socket(p->audio_st , p->audio_socket);
+			if(p->video_socket>=0)
+				close_socket(p->video_st, p->video_socket);
+			free(p);
+		}
+	}else{
+		for(sc = &socket_clist;*sc;){
+			if((*sc)->who == who){
+				p = *sc;
+				*sc = (*sc)->next;
+				if(p->cmd_socket>=0)
+					close_socket(p->cmd_st, p->cmd_socket);
+				if(p->audio_socket>=0)
+					close_socket(p->audio_st , p->audio_socket);
+				if(p->video_socket>=0)
+					close_socket(p->video_st, p->video_socket);
+				free(p);
+			}else
+				sc = &((*sc)->next);
+		}
+	}
+	if(need_lock)
+		pthread_mutex_unlock(&container_list_lock);
+}
 
 

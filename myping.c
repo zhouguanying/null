@@ -17,6 +17,7 @@
 
 #include "server.h"
 #include "vpu_server.h"
+#include "socket_container.h"
 
 #define PACKET_SIZE 256
 #define MAX_WAIT_TIME 5
@@ -352,6 +353,7 @@ int snd_soft_restart()
 {
 	int ret;
       vs_ctl_message msg;
+	clean_socket_container(0xffffffffffffffffULL, 1);
 	msg.msg_type = VS_MESSAGE_ID;
 	msg.msg[0] = VS_MESSAGE_SOFTRESET;
 	msg.msg[1] = 0;
