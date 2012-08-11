@@ -524,7 +524,7 @@ LOOP_START:
 		dbg("get ready sockfd = %d\n",sockfd);
 		req_len = stun_recvmsg(sockfd ,(char *)req, CLI_BUF_SIZE ,(struct sockaddr *) &from , &fromlen);
 		if(req_len <0){
-			dbg("udt select ok but cannot recv message? something wrong\n");
+			dbg("udt select ok but cannot recv message, socket may broken\n");
 			do_cli_alive();
 			gettimeofday(&last_alive_time , NULL);
 			check_cmd_socket();

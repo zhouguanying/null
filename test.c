@@ -1279,9 +1279,6 @@ read_config:
 			threadcfg.framerate = 1;
 		else if(threadcfg.framerate >25)
 			threadcfg.framerate = 25;
-		if(strncmp(threadcfg.monitor_mode , "inteligent",10)==0)
-			threadcfg.framerate = 25;
-		init_sleep_time();
 
 		extract_value(conf_p, lines, CFG_COMPRESSION, 1, threadcfg.compression);
 		printf("compression = %s\n",threadcfg.compression);
@@ -1418,7 +1415,16 @@ read_config:
 
 		if(strncmp(threadcfg.inet_mode , "eth_only",8)!=0&&strncmp(threadcfg.inet_mode , "wlan_only",9)!=0&&
 			strncmp(threadcfg.inet_mode , "inteligent",10)!=0)
-			sprintf(threadcfg.inet_mode,"inteligent");
+			sprintf(threadcfg.inet_mode,"eth_only");
+
+		if(strncmp(threadcfg.monitor_mode , "inteligent",10)==0){
+			if(strncmp(threadcfg.inet_mode , "wlan_only",9)==0)		
+				threadcfg.framerate = 12;
+			else
+				threadcfg.framerate = 25;
+		}
+
+		init_sleep_time();
 
 		threadcfg.inet_udhcpc = 1;
 		extract_value(conf_p, lines, CFG_UDHCPC, 0, (void *)&threadcfg.inet_udhcpc);

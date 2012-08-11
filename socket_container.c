@@ -32,6 +32,8 @@ void init_socket_container_list()
 
 void close_socket(SOCKET_TYPE st , int socket)
 {
+	if(socket<0)
+		return;
 	switch (st){
 		case TCP_SOCKET:
 		case UDP_SOCKET:
@@ -212,7 +214,7 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
 			ret = 0;
 		}
 		else if( (now.tv_sec - (*scp)->create_tv.tv_sec >=60)&&
-			((*scp)->cmd_socket<0||(*scp)->video_socket<0||(*scp)->audio_socket<0)){
+			((*scp)->cmd_socket<0/*||(*scp)->video_socket<0||(*scp)->audio_socket<0*/)){
 FREE_CONTAINER:
 			p=*scp;
 			*scp = (*scp)->next;
