@@ -954,7 +954,7 @@ int main()
 						}
 						memcpy(p,s,cfg_len);
 						data_len+=cfg_len;
-						p+=strlen(s);
+						p+=cfg_len;
 						free(s);
 						//querryfs("/sdcard", &sd_maxsize, &sd_freesize);
 						sprintf(p,"tfcard_maxsize=%d\n",get_sdcard_size());

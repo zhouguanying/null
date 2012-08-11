@@ -10,7 +10,7 @@
 
 #define dbg(fmt, args...)  \
     do { \
-        printf(__FILE__ ": %s: " fmt , __func__, ## args); \
+        printf(__FILE__ ": %s: %d: " fmt , __func__, __LINE__,## args); \
     } while (0)
 
 static LIST_HEAD(playback_list);
@@ -863,6 +863,17 @@ static int playback_send_data(int socket ,playback_t* pb, char* buf, int len)
 	END:
 	return ret;
 }
+/*
+|----------------------------------------------------------------------------------------------------------------------------------------------|
+|table1 data size 4B |table2 data size 4B|       table1 （max size..k）         |           table2   （max size..k）												     |
+|----------------------------------------------------------------------------------------------------------------------------------------------|
+|<-----------------------------------------------total size <=32*1024 bytes---------------------------------------------------------------------->|
+第一个表为属性改变时插入的内部头结构的位置，第二个表为每15秒图像写入文件
+的位置，两个表的表项为下列结构体
+typedef struct __record_item{
+   unsigned int locatetion;
+}record_item_t;
+*/
 
 #define PLAYBACK_SECTOR_NUM_ONE_READ 4
 void* playback_thread(void * arg)
@@ -1036,6 +1047,7 @@ void* playback_thread(void * arg)
 		goto __out;
 	/*get and send the last time stamp*/
 	//gettimeofday(&old_send_time , NULL);
+	dbg("In begining we seek to %d\n",pb->seek);
 	size = record_file_read(
 							file,(unsigned char *) buf, PLAYBACK_SECTOR_NUM_ONE_READ);
 	if(size <= 0){
@@ -1043,13 +1055,20 @@ void* playback_thread(void * arg)
 		goto __out;
 	}else{
 		file_header=(nand_record_file_header *)buf;
+		if(file_header->head[0]!=0||file_header->head[1]!=0||file_header->head[2]!=0||
+			file_header->head[3]!=1||file_header->head[4]!=0xc){
+			dbg("error file header cannot found\n");
+		}else
+			dbg("ok we found file header\n");
 		memcpy(file_header->LastTimeStamp,file->LastTimeStamp,sizeof(file_header->LastTimeStamp));
 		ret = playback_send_data(socket , pb,buf,size);
-		if(ret <= 0){
+		if(ret < 0){
 			goto __out;
 		}
 	}
 	//snd_size = size;
+	//pb->seek = 0;
+	//playback_set_status(pb, PLAYBACK_STATUS_SEEK);
 	while(running){
 		//printf("playback thread: %d\n", pb->thread_id);
 		status = playback_get_status(pb);
@@ -1147,7 +1166,7 @@ void* playback_thread(void * arg)
 							goto __seek_out;
 						}
 						ret = playback_send_data(socket , pb,&internal_header,sizeof(internal_header));
-						if(ret <= 0){
+						if(ret < 0){
 							running = 0;
 							dbg("playback_send_data error\n");
 							break;
@@ -1196,7 +1215,7 @@ void* playback_thread(void * arg)
 							goto __seek_out;
 						}
 						ret = playback_send_data(socket , pb,s,e -s);
-						if(ret <= 0){
+						if(ret < 0){
 							dbg("playback_send_data error\n");
 							running = 0;
 							break;
@@ -1235,7 +1254,7 @@ void* playback_thread(void * arg)
 					goto __seek_out;
 				}
 				ret = playback_send_data(socket , pb,s,size -( s-buf));
-				if(ret <= 0){
+				if(ret < 0){
 					dbg("playback_send_data error\n");
 					running = 0;
 				}
