@@ -877,6 +877,7 @@ void* playback_thread(void * arg)
 	index_table_item_t *table_item_p;
 	int ret, size;
 	nand_record_file_internal_header internal_header;
+	nand_record_file_internal_header *internal_header_p;
 	nand_record_file_header *file_header;
 	int running = 1;
 	unsigned int seek;
@@ -1164,8 +1165,15 @@ void* playback_thread(void * arg)
 						break;
 					}else{
 						s = buf + seek%512;
-						if(s[0]==0&&s[1]==0&&s[2]==0&&s[3]==1&&s[4]==0xc)
-							dbg("ok we find internal header\n");
+						if(s[0]==0&&s[1]==0&&s[2]==0&&s[3]==1&&s[4]==0xc){
+							//dbg("ok we find internal header\n");
+							internal_header_p = (nand_record_file_internal_header *)s;
+							if(internal_header_p->flag[1]!=1){
+								dbg("##########the flag[1] is wrong  it equal %d#############\n" , internal_header_p->flag[1]);
+							}else{
+								dbg("############ok we find video internal header###########\n");
+							}
+						}
 						else{
 							dbg("we not found internal header error\n");
 							record_file_seekto( file, reserve_seek);
@@ -1206,8 +1214,21 @@ void* playback_thread(void * arg)
 				}
 				if(pb->seek==0&&seek==0)
 					s=buf+sizeof(nand_record_file_header);
-				else
+				else{
 					s = buf + pb->seek%512;
+					if(pb->seek ==seek){
+						internal_header_p = (nand_record_file_internal_header *)s;
+						if(internal_header_p->head[0] == 0&&internal_header_p->head[1] == 0&&internal_header_p->head[2] == 0&&
+							internal_header_p->head[3] == 1&&internal_header_p->head[4] == 0xc){
+							if(internal_header_p->flag[1]!=1){
+								dbg("##########the flag[1] is wrong  it equal %d#############\n" , internal_header_p->flag[1]);
+							}else{
+								dbg("############ok we find video internal header###########\n");
+							}
+						}else
+							dbg("#############error we not find internal header##############\n");
+					}
+				}
 				status = playback_get_status(pb);
 				if(status !=PLAYBACK_STATUS_RUNNING){
 					record_file_seekto( file, reserve_seek);

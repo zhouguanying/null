@@ -2478,6 +2478,9 @@ int start_video_record(struct sess_ctx* sess)
 					memcpy(&index_table_15sec_last_time ,&endtime,sizeof(struct timeval));
 					//dbg("write 15sec location  pos = %u , write in %p , 15sec table size = %u\n",table_item.location , record_15sec_pos,*record_15sec_table_size);
 					record_15sec_pos +=sizeof(index_table_item_t);
+				}else{
+					dbg("#################the index table if full force close file now #################\n");
+					goto FORCE_CLOSE_FILE;
 				}
 			}
 		}
@@ -2709,6 +2712,9 @@ int start_video_record(struct sess_ctx* sess)
 						//dbg("write attr location  pos = %u,write in %p , attr table size = %u struct size = %d\n",table_item.location , attr_pos, *attr_table_size , video_internal_header_p -(char *) &video_internal_header);
 						attr_pos +=sizeof(index_table_item_t);
 				 	}
+				}else{
+					dbg("#################the index table if full force close file now #################\n");
+					goto FORCE_CLOSE_FILE;
 				}
 			}
 			//video_internal_header.flag[0]=0;
@@ -2747,7 +2753,7 @@ retry:
 			}
 			
 			else if( ret == VS_MESSAGE_NEED_END_HEADER ){
-				
+				FORCE_CLOSE_FILE:
 				memcpy(attr_pos , time_15sec_table , *record_15sec_table_size);
 				nand_write_index_table( attr_table);
 				nand_prepare_close_record_header(&record_header);
