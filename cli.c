@@ -522,7 +522,7 @@ LOOP_START:
 		}
 		//dbg("select ok now begin recv\n");
 		dbg("get ready sockfd = %d\n",sockfd);
-		req_len = stun_recvmsg(sockfd ,(char *)req, CLI_BUF_SIZE ,(struct sockaddr *) &from , &fromlen);
+		req_len = stun_recvmsg(sockfd ,(char *)req, CLI_BUF_SIZE-1 ,(struct sockaddr *) &from , &fromlen);
 		if(req_len <0){
 			dbg("udt select ok but cannot recv message, socket may broken\n");
 			do_cli_alive();
@@ -2746,6 +2746,9 @@ static char* GetNandRecordFile(char* arg)
 	int id = 0;
 	char* buffer;
 	int max_count;
+	int rsp_size;
+	char rsp_size_str[5];
+	char *ret;
 
 //	dbg("get a id char=%s\n",arg);
 	if(!arg)
@@ -2796,10 +2799,12 @@ search_finish:
 		nand_close_simple();	
 		total_file_number = i;
 	} 	
-
-	buffer = malloc(MAX_ITEMS_ONE_SEND*50+8);
-	memset(buffer,0,MAX_ITEMS_ONE_SEND*50+8);
+	//dbg("#########id = %d , total file num = %d############\n",id , total_file_number);
+	ret = malloc(total_file_number*50+8+4);
+	memset(ret,0,total_file_number*50+8+4);
+	buffer = ret +4;
 	sprintf(buffer,"%08d", id);
+	/*
 	if( id >= 25 || id >= total_file_number ){
 		return buffer;
 	}
@@ -2809,12 +2814,18 @@ search_finish:
 	else{
 		max_count = MAX_ITEMS_ONE_SEND;
 	}
+	*/
+	max_count = total_file_number;
+	//dbg("###############max_count = %d###############\n",max_count);
 	for( i = 0; i < max_count; i++ ){	//4 每次传20个包
 		sprintf( &buffer[8+i*48], "%s\n", &FileNameBuffer[id*48*20 + i*48]);
 	}
 
 	dbg("\n%s\n",&buffer[8]);
-	return buffer;
+	rsp_size= strlen(buffer);
+	sprintf(rsp_size_str , "%04d",rsp_size);
+	memcpy(ret , rsp_size_str , 4);
+	return ret;
 }
 
 static int IsFileExist(char* filename)
