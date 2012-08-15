@@ -22,6 +22,11 @@
 #include "includes.h"
 #include "server.h"
 
+#define dbg(fmt, args...)  \
+    do { \
+        printf(__FILE__ ": %s: " fmt , __func__, ## args); \
+    } while (0)
+
 // the next code for email alarm so boring code it seen my heartbeat stop when I typing it 
 
 #define MAX_DATA_IN_LIST  		 3
@@ -512,6 +517,8 @@ __end:
 	return -1;
 }
  int mail_alarm_thread(){
+ 	struct mail_attach_data *ap;
+ 	dbg("###############mail alarm thread ok###################\n");
  	while(1){
 		pthread_mutex_lock(&attach_data_list_head.mail_data_lock);
 		if(!attach_data_list_head.attach_data_list||attach_data_list_head.count<=0){
@@ -530,6 +537,14 @@ __end:
 		if(receiver[0]){
 			printf("mail box =%s\n",receiver);
 			mail_alarm();
+		}else{
+			dbg("#############mail alarm receiver not found#################\n");
+			while(private_list_head.attach_data_list!=NULL){
+				ap=private_list_head.attach_data_list;
+				private_list_head.attach_data_list=private_list_head.attach_data_list->next;
+				free(ap->image);
+				free(ap);
+			}
 		}
  	}
  	return 0;

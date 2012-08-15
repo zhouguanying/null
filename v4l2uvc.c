@@ -312,11 +312,13 @@ int uvcGrab (struct vdIn *vd)
 	memset (&vd->buf, 0, sizeof (struct v4l2_buffer));
 	vd->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	vd->buf.memory = V4L2_MEMORY_MMAP;
+	//dbg("###############before ioctl VIDEOC_DQBUF#############\n");
 	ret = ioctl (vd->fd, VIDIOC_DQBUF, &vd->buf);
 	if (ret < 0) {
 		fprintf (stderr, "Unable to dequeue buffer (%d).\n", errno);
 		goto err;
 	}
+	//dbg("###############after ioctl VIDEOC_DQBUF#############\n");
 	switch (vd->formatIn) {
 	case V4L2_PIX_FMT_MJPEG:
 		time = gettimestamp();
@@ -342,11 +344,13 @@ int uvcGrab (struct vdIn *vd)
 		goto err;
 		break;
 	}
+	//dbg("################before ioctl VIDEOC_QBUF###########\n");
 	ret = ioctl (vd->fd, VIDIOC_QBUF, &vd->buf);
 	if (ret < 0) {
 		fprintf (stderr, "Unable to requeue buffer (%d).\n", errno);
 		goto err;
 	}
+	//dbg("################after ioctl VIDEOC_QBUF###########\n");
 	memset(vd->hrb_tid,0,sizeof(vd->hrb_tid));
 	return 0;
 err:

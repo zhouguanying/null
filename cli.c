@@ -2774,8 +2774,8 @@ static char* GetNandRecordFile(char* arg)
 
 		}
 		else{
-			dbg("the disk is empty\n");
-			goto search_finish;
+			dbg("#########the disk is empty############\n");
+			//goto search_finish;
 		}
 		do{
 			next_secotor = nand_get_next_file_start_sector(start_sector);
@@ -2784,7 +2784,7 @@ static char* GetNandRecordFile(char* arg)
 				break;
 			}
 			time = nand_get_file_time(next_secotor);
-			if( time == (char*)0xffffffff ){
+			if( !time||time == (char*)0xffffffff ){
 				start_sector = next_secotor;
 				continue;
 			}
@@ -2800,8 +2800,8 @@ search_finish:
 		total_file_number = i;
 	} 	
 	//dbg("#########id = %d , total file num = %d############\n",id , total_file_number);
-	ret = malloc(total_file_number*50+8+4);
-	memset(ret,0,total_file_number*50+8+4);
+	ret = malloc(total_file_number*50+8+4 + 1);
+	memset(ret,0,total_file_number*50+8+4 + 1);
 	buffer = ret +4;
 	sprintf(buffer,"%08d", id);
 	/*
@@ -3056,14 +3056,27 @@ static char* DeleteAllFiles(struct sess_ctx *sess,char* arg)
 	return ret;
 }
 
+unsigned int hex_string_to_uint(char *string , int num)
+{
+	char buffer[20];
+	char* end;
+	if( num >= 20 )
+		return 0;
+	strcpy(buffer,"0x");
+	memcpy( &buffer[2], string, num );
+	buffer[num+2] = 0;
+//	dbg("sequence:%s\n",buffer);
+	return strtoul(buffer,&end,16);
+}
+
 static char* DeleteFile(struct sess_ctx *sess,char* arg)
 {
 	char * ret;
 	int file_id, file_end_id;
 
 	ret = malloc(50);
-	file_id = hex_string_to_int(arg, 8);
-	file_end_id = hex_string_to_int(&arg[8], 8);
+	file_id =(int) hex_string_to_uint(arg, 8);
+	file_end_id = (int)hex_string_to_uint(&arg[8], 8);
 	if( strlen(arg) != 16 ){
 		dbg("error delete file, arg invalid\n");
 		sprintf(ret,"DeleteFile%08xERROR",file_id);
@@ -3073,7 +3086,7 @@ static char* DeleteFile(struct sess_ctx *sess,char* arg)
 	//v2ipd_disable_write_nand();
 	//sleep(2);
 	nand_invalid_file(file_id,file_end_id);
-	system("/nand-flush /dev/nand-user");
+	//system("/nand-flush /dev/nand-user");
 	//v2ipd_restart_all();
 	return ret;
 }

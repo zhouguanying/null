@@ -1157,6 +1157,7 @@ static char* get_data(int* size,int *width,int *height)
 	
 	pthread_mutex_lock(&vdin_camera->tmpbufflock);
 retry:
+	//dbg("#############before uvcGrab#############\n");
 	if (uvcGrab (vdin_camera) < 0) {
 		printf("Error grabbing\n");
 		trygrab --;
@@ -1170,6 +1171,7 @@ retry:
 		usleep(100000);
 		goto retry;
 	}
+	//dbg("#############after uvcGrab#############\n");
 	//pthread_mutex_unlock(&vdin_camera->tmpbufflock);
 	buf = malloc(vdin_camera->buf.bytesused + DHT_SIZE);
 	if( !buf ) {
@@ -2324,12 +2326,17 @@ int start_video_record(struct sess_ctx* sess)
 
 	
 	if(threadcfg.email_alarm){
-		init_mail_attatch_data_list(threadcfg.mailbox);
-		if (pthread_create(&mail_alarm_tid, NULL, (void *) mail_alarm_thread, NULL) < 0) {
-			printf("mail alarm thread create fail\n");
-			mail_alarm_tid=0;
-		} else
-			printf("mail alarm thread create sucess\n");
+		if(!threadcfg.mailbox[0]){
+			dbg("################mail alarm open but mailbox not found check your data##############\n");
+			threadcfg.email_alarm = 0;
+		}else{
+			init_mail_attatch_data_list(threadcfg.mailbox);
+			if (pthread_create(&mail_alarm_tid, NULL, (void *) mail_alarm_thread, NULL) < 0) {
+				printf("mail alarm thread create fail\n");
+				mail_alarm_tid=0;
+			} else
+				printf("mail alarm thread create sucess\n");
+		}
 	}
 
 
@@ -2459,9 +2466,9 @@ int start_video_record(struct sess_ctx* sess)
 		}
 
 		
-		//dbg("before get buffer\n");
+		//dbg("################before get data################\n");
 		buffer = get_data(&size,&width,&height);
-		//dbg("after get buffer\n");
+		//dbg("################after get data#################\n");
 		/*
 		if(big_to_small >0&&num_pic_to_ignore>0){
 			size0 = size;
@@ -2723,7 +2730,9 @@ int start_video_record(struct sess_ctx* sess)
 		//printf("write video picture size = %d\n" , size);
 retry:
 		if(threadcfg.sdcard_exist){
+			//dbg("###########before nand_write##########\n");
 			ret = nand_write(buffer, size);
+			//dbg("#################after nand_write################\n");
 			if(force_close_file||msgrcv(msqid,&rmsg,sizeof(rmsg) - sizeof( long ), VS_MESSAGE_RECORD_ID , IPC_NOWAIT )>0){
 				dbg("####################force close file#################\n");
 				memcpy(attr_pos , time_15sec_table , *record_15sec_table_size);
