@@ -2149,7 +2149,29 @@ static nand_record_file_internal_header audio_internal_header={
 		{0,0,0,1,0xc},
 			{0,2,0,0},
 };
-static const int sensitivity_diff_size[4] = {10000,300,350,450};
+
+#define VGA_LV1   300
+#define VGA_LV2   350
+#define VGA_LV3   450
+#define QVGA_LV1 110
+#define QVGA_LV2 200
+#define QVGA_LV3 350  
+static  int sensitivity_diff_size[4] = {10000,300,350,450};
+
+static void init_sensitivity_diff_size(int width , int height)
+{
+	if(width == 320&&height==240){
+		dbg("########change to sensitivity of qvga###########\n");
+		sensitivity_diff_size[1] = QVGA_LV1;
+		sensitivity_diff_size[2] = QVGA_LV2;
+		sensitivity_diff_size[3] = QVGA_LV2;
+	}else if(width == 640&&height == 480){
+		dbg("##########change to sensitivity of vga###########\n");
+		sensitivity_diff_size[1] = VGA_LV1;
+		sensitivity_diff_size[2] = VGA_LV2;
+		sensitivity_diff_size[3] = VGA_LV3;
+	}
+}
 
 char pause_record = 0;
 char force_close_file = 0;
@@ -2323,6 +2345,7 @@ int start_video_record(struct sess_ctx* sess)
 	prev_height =height = vdin_camera->height;
 	prev_width = width =vdin_camera->width;
 	printf("width ==%d , height == %d\n",width , height);
+	init_sensitivity_diff_size( width,  height);
 
 	
 	if(threadcfg.email_alarm){
@@ -2606,6 +2629,8 @@ int start_video_record(struct sess_ctx* sess)
 				}else
 					pictures_to_write = 0;
 				//in normal mode the mail alarm must happen as the other mode
+				//if(abs(size - size0)>100)
+					//printf("###############diff = %d##################\n",abs(size - size0));
 				if(email_alarm&&mail_alarm_tid&&abs(size-size0)>sensitivity_diff_size[sensitivity_index]&&
 					prev_height == height &&prev_width == width&&size>8000){
 					char *image=malloc(size);
@@ -2630,7 +2655,8 @@ int start_video_record(struct sess_ctx* sess)
 		pictures_to_write --;
 
 		//printf("pictures to write ==%d\n", pictures_to_write);
-		if(email_alarm&&mail_alarm_tid&&pictures_to_write&&size>8000){
+		if(email_alarm&&mail_alarm_tid&&pictures_to_write&&size>8000&&
+			prev_width == width && prev_height == height){
 			gettimeofday(&endtime , NULL);
 			if(abs(endtime.tv_sec - mail_last_time.tv_sec)>=1){
 				char *image=malloc(size);
@@ -2649,6 +2675,8 @@ int start_video_record(struct sess_ctx* sess)
 		//audio_internal_header_p = audio_internal_header.StartTimeStamp;
 		
 		if(need_write_internal_head||timestamp_change||frameratechange||prev_width!=width||prev_height!=height){
+			if(prev_width != width || prev_height!=height)
+				init_sensitivity_diff_size( width,  height);
 			need_write_internal_head = 1;
 			timestamp_change = 0;
 			frameratechange = 0;
