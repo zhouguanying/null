@@ -875,13 +875,68 @@ typedef struct __record_item{
 }record_item_t;
 */
 
+static int playback_send_raw_data(int socket ,playback_t* pb, char* buf, int len)
+{
+	int  ret = -1 , s;
+	int status;
+	int attempts= 0;
+	s = 0;
+	//dbg("#################begin send data#####################\n");
+	while(len > 0){
+		//printf("%s: running.\n", __func__);
+		status = playback_get_status(pb);
+		switch (status)
+		{
+			case PLAYBACK_STATUS_EXIT:
+				ret = -1;
+				goto END;
+				break;
+			default:
+				break;
+		}
+		if(len >1000){
+			if(pb->sess->is_tcp)
+				ret = send(socket ,buf+s , 1000 , 0);
+			else
+				ret = udt_send(socket, SOCK_STREAM,  buf+s, 1000);
+		}else{
+			if(pb->sess->is_tcp)
+				ret = send(socket ,buf+s , len , 0);
+			else
+				ret = udt_send(socket, SOCK_STREAM,  buf+s, len);
+		}
+		
+		if(ret <=0){
+			attempts ++;
+			if(attempts <=10){
+				dbg("attempts to send playback data now = %d\n",attempts);
+				continue;
+			}
+			ret = -1;
+			break;
+		}
+		attempts = 0;
+		s += ret;
+		len -= ret;
+	}
+	//dbg("##############################send data ok######################\n");
+	END:
+	return ret;
+}
+void send_raw_record_file(playback_t *pb)
+{
+	int socket;
+	socket = pb->sess->sc->video_socket;
+	return;
+}
+
 #define PLAYBACK_SECTOR_NUM_ONE_READ 4
 void* playback_thread(void * arg)
 {
 	playback_t* pb = (playback_t*)arg;
 	record_file_t* file;
 	int status;
-	char* buf;
+	char* buf = NULL;
 	unsigned int attr_table_size;
 	unsigned int time_table_size;
 	char *table_buf =NULL;
@@ -1269,7 +1324,8 @@ void* playback_thread(void * arg)
 	}
 __out:
 	dbg("exit playback thread\n");
-	free(buf);
+	if(buf)
+		free(buf);
 	if(table_buf)
 		free(table_buf);
 	del_sess(pb->sess);

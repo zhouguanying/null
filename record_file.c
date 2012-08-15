@@ -110,6 +110,7 @@ record_file_t* record_file_open(int start_sector)
 	return file;
 }
 
+
 /*
 	return the real byte num that read. 
 	if error, reture -1;
