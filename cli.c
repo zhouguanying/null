@@ -3030,8 +3030,8 @@ static void ReplayRecord(struct sess_ctx *sess,char* arg)
 	int seek;
 	if(!arg)
 		return;
-	file_id = hex_string_to_int(arg, 8);
-	seek = hex_string_to_int(&arg[8], 8);
+	file_id =(int) hex_string_to_uint(arg, 8);
+	seek = (int)hex_string_to_uint(&arg[8], 8);
 	/*
 	dbg("ready to replay file at sectors =%d, seek percent=%d\n", file_id,v2ipd_share_mem->replay_file_seek_percent);
 	v2ipd_share_mem->replay_file_start_sectors = file_id;
@@ -3056,18 +3056,6 @@ static char* DeleteAllFiles(struct sess_ctx *sess,char* arg)
 	return ret;
 }
 
-unsigned int hex_string_to_uint(char *string , int num)
-{
-	char buffer[20];
-	char* end;
-	if( num >= 20 )
-		return 0;
-	strcpy(buffer,"0x");
-	memcpy( &buffer[2], string, num );
-	buffer[num+2] = 0;
-//	dbg("sequence:%s\n",buffer);
-	return strtoul(buffer,&end,16);
-}
 
 static char* DeleteFile(struct sess_ctx *sess,char* arg)
 {

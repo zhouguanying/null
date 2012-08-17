@@ -40,6 +40,7 @@ static int max_sequence;
 static int nand_blocked = 1;
 static int record_file_size = 0;
 static pthread_mutex_t  write_file_lock;
+static char curr_file_start_time[20];
 
 #if 0
 int nand_find_start_sector()
@@ -240,6 +241,14 @@ static void init_file_index_table()
 	file_index_table.cur_index = -1;
 	file_index_table.cur_fd = -1;
 }
+int open_download_file(int start_sector)
+{
+	int file_index;
+	file_index = start_sector/ ( FILE_SEGMENT_SIZE / 512 );
+	if(!file_index_table.table[file_index])
+		return -1;
+	return (open( file_index_table.table[file_index], O_RDONLY));
+}
 
 int read_file_segment(struct nand_write_request* req)
 {
@@ -266,6 +275,8 @@ int read_file_segment(struct nand_write_request* req)
 	}
 	else{
 		printf("read size is too large\n");
+		close(fd);
+		return -1;
 	}
 	close( fd );
 	return 0;
@@ -437,18 +448,83 @@ int nand_open(char* name)
 int nand_write_start_header(nand_record_file_header* header)
 {
 	char buffer[20];
+	struct nand_write_request req;
+	//unsigned int flag;
+	char *buf;
 	sprintf( buffer,"%08x", max_sequence );
 	memcpy( header->PackageSequenceNumber, buffer, sizeof(header->PackageSequenceNumber));
 	memcpy( cache.buf, (char*)header, sizeof( nand_record_file_header ));
 	record_file_size  = cache.index = sizeof( nand_record_file_header );
 	nand_blocked = 0;
 	dbg("********************write start header, sequence=%d, sector=%x***************************\n", max_sequence, cur_sector );
+	buf = (char *)malloc(512);
+	if(!buf)
+		return 0;
+	memset(buf , 0 , 512);
+	//flag = 0xffffffff;
+	//memcpy(buf , &flag ,sizeof(flag));
+	req.start = header_sector + NAND_RECORD_FILE_SECTOR_SIZE;
+	if( req.start >= partition_sector_num ){
+		req.start = partition_sector_num;
+	}
+	req.start -= INDEX_TABLE_LOCATION*512/512;
+	req.sector_num = 1;
+	req.buf = (unsigned char *)buf;
+	req.erase = 1;
+	write_file_segment(&req);
+	dbg("##################mask no index talbe###############\n");
+	free(buf);
 	return 0;
+}
+
+void nand_update_file_status()
+{
+	char buffer[20];
+	unsigned char *buf;
+	struct nand_record_file_header head;
+	struct nand_record_file_header *header;
+	time_t timep;
+	struct tm * gtm;
+	struct nand_write_request req;
+
+	buf = (unsigned char *)malloc(512);
+	if(!buf)
+		return;
+	header = &head;
+	header->head[0] = header->head[1] = header->head[2] = 0;
+	header->head[3] = 1;
+	header->head[4] = 0xc;
+	memset(buffer,0,20);
+	sprintf( buffer,"%08x", record_file_size);
+	memcpy( header->TotalPackageSize, buffer, sizeof(header->TotalPackageSize));
+	sprintf(buffer,"%08x",max_sequence);
+	memcpy(header->PackageSequenceNumber , buffer , sizeof(header->PackageSequenceNumber));
+	time (&timep);
+	gtm = localtime(&timep);
+	sprintf(buffer,"%04d%02d%02d%02d%02d%02d",gtm->tm_year+1900,gtm->tm_mon+1,gtm->tm_mday,gtm->tm_hour,gtm->tm_min,gtm->tm_sec);
+	memcpy(header->LastTimeStamp, buffer, sizeof(header->LastTimeStamp));
+	memcpy(header->StartTimeStamp , curr_file_start_time , sizeof(header->StartTimeStamp));
+	memcpy(buf , (char *)header , sizeof(struct nand_record_file_header));
+	memset(buf + sizeof(struct nand_record_file_header) , 0xff , 512 - sizeof(struct nand_record_file_header));
+	req.buf = buf;
+	req.sector_num = 1;
+	req.start = header_sector + NAND_RECORD_FILE_SECTOR_SIZE;
+	if( req.start >= partition_sector_num ){
+		req.start = partition_sector_num;
+	}
+	req.start -= END_HEADER_LOCATION*512/512;
+	req.erase = 1;
+	write_file_segment(&req);
+	free(buf);
 }
 
 int nand_write_end_header(nand_record_file_header* header)
 {
 	struct nand_write_request req;
+	char buf[20];
+	
+	sprintf(buf , "%08x",max_sequence);
+	memcpy(header->PackageSequenceNumber , buf , sizeof(header->PackageSequenceNumber));
 
 	memcpy( cache.buf, (char*)header, sizeof( nand_record_file_header ));
 	cache.index =  sizeof( nand_record_file_header );
@@ -536,6 +612,7 @@ int nand_write(char* buf, int size)
 //		dbg("-----------------nand write is blocked-----------------------\n");
 		return -1;
 	}
+	record_file_size += write_size;
 	while(size + cache.index >= cache.size){
 		memcpy(&(cache.buf[cache.index]), buf, cache.size - cache.index);
 		//write(fd, cache.buf, cache.size);
@@ -545,6 +622,7 @@ int nand_write(char* buf, int size)
 		req.erase = 1;
 		//ioctl(fd, BLK_NAND_WRITE_DATA, &req);
 		write_file_segment(&req);
+		nand_update_file_status();
 		size -= cache.size - cache.index;
 		buf += cache.size - cache.index;
 		cache.index = 0;
@@ -563,7 +641,6 @@ int nand_write(char* buf, int size)
 
 #endif
 
-	record_file_size += write_size;
 	//printf("%s: leave\n", __func__);
 	return 0;
 }
@@ -712,6 +789,30 @@ int nand_get_next_file_start_sector(int cur_sector)
 	*/
 }
 
+int check_nand_file(int file_start_sector)
+{
+	unsigned char buf[512];
+	struct nand_write_request req;
+	unsigned int flag;
+	req.start = file_start_sector+ NAND_RECORD_FILE_SECTOR_SIZE;
+	if( req.start >= partition_sector_num ){
+		req.start = partition_sector_num;
+	}
+	req.start -= INDEX_TABLE_LOCATION*512/512;
+	req.buf = buf;
+	req.sector_num = 1;
+	if(read_file_segment(&req)<0){
+		dbg("############error check index table flag###########\n");
+		return -1;
+	}
+	memcpy(&flag , buf , sizeof(flag));
+	if(flag == 0xfffffffe){
+		dbg("##########file deleted###########\n");
+		return -1;
+	}
+	return 0;
+}
+
 char* nand_get_file_time(int file_start_sector)
 {
 	nand_record_file_header header, end;
@@ -722,9 +823,28 @@ char* nand_get_file_time(int file_start_sector)
 	unsigned char buf[512];
 	struct nand_write_request req;
 	int header_package_size;
+	unsigned int flag;
 
 	if(header_sector == file_start_sector){
+		dbg("###########curr file we will not send #############\n");
 		return (char*)0xffffffff;
+	}
+
+	req.start = file_start_sector+ NAND_RECORD_FILE_SECTOR_SIZE;
+	if( req.start >= partition_sector_num ){
+		req.start = partition_sector_num;
+	}
+	req.start -= INDEX_TABLE_LOCATION*512/512;
+	req.buf = buf;
+	req.sector_num = 1;
+	if(read_file_segment(&req)<0){
+		dbg("############error check index table flag###########\n");
+		return (char *)0xffffffff;
+	}
+	memcpy(&flag , buf , sizeof(flag));
+	if(flag == 0xfffffffe){
+		dbg("##########file deleted###########\n");
+		return (char *)0xffffffff;
 	}
 
 #if 1
@@ -776,6 +896,8 @@ char* nand_get_file_time(int file_start_sector)
 	sequence_head = hex_string_to_int(header.PackageSequenceNumber, sizeof(header.PackageSequenceNumber));
 	sequence_end = hex_string_to_int(end.PackageSequenceNumber, sizeof(end.PackageSequenceNumber));
 	header_package_size = hex_string_to_int(header.TotalPackageSize, sizeof(header.TotalPackageSize));
+	//dbg("sequence_head= %d,sequence_end = %d\n", sequence_head, sequence_end);
+	//dbg("header_is_valid = %d , end_is_valid = %d\n",header_is_valid , end_is_valid);
 	if(header_is_valid&&sequence_end == sequence_head && end_is_valid ){
 		// so good to found the exact one
 //		dbg("%d,%d\n", sequence_head, sequence_end);
@@ -783,16 +905,16 @@ char* nand_get_file_time(int file_start_sector)
 		file_time_buffer[8]=':';
 		if( header_package_size == 1 ){
 			return (char*)0xffffffff;
-			memcpy(&file_time_buffer[8+1], &header.TotalPackageSize, 8);
+			//memcpy(&file_time_buffer[8+1], &header.TotalPackageSize, 8);
 		}
 		else{
 			memcpy(&file_time_buffer[8+1], end.TotalPackageSize, 8);
 		}
 		file_time_buffer[8+1+8]=':';
-		memcpy(&file_time_buffer[8+1+8+1], end.StartTimeStamp, 14);
+		memcpy(&file_time_buffer[8+1+8+1], header.StartTimeStamp, 14);
 		file_time_buffer[8+1+8+1+14] = '-';
 		memcpy(&file_time_buffer[8+1+8+1+14+1], end.LastTimeStamp, 14);
-//		dbg("a good file: sector=%d, time=%s\n", file_start_sector, file_time_buffer);
+		dbg("a good file: sector=%d, time=%s\n", file_start_sector, file_time_buffer);
 		return file_time_buffer;
 	}
 	if( header_is_valid ){
@@ -800,7 +922,7 @@ char* nand_get_file_time(int file_start_sector)
 		file_time_buffer[8]=':';
 		if( header_package_size == 1 ){
 			return (char*)0xffffffff;
-			memcpy(&file_time_buffer[8+1], &header.TotalPackageSize, 8);
+			//memcpy(&file_time_buffer[8+1], &header.TotalPackageSize, 8);
 		}
 		else{
 			memcpy(&file_time_buffer[8+1], "        ", 8);
@@ -862,6 +984,7 @@ int nand_invalid_file(int file_start_sector, int file_end_sector)
 	char tmp[20];
 	int hs;
 	int ret;
+	unsigned int flag;
 	ret = 0;
 	hs = header_sector;
 	if(file_start_sector <=file_end_sector){
@@ -883,17 +1006,20 @@ int nand_invalid_file(int file_start_sector, int file_end_sector)
 	sprintf( tmp,"%08x", 1);
 	buf = malloc(512);
 	memset(buf, 0, 512);
+	flag = 0xfffffffe;
+	memcpy(buf , &flag , sizeof(flag));
+	
 	req.buf = buf;
 	req.sector_num = 512/512;
 	req.erase = 1;
 	header = (nand_record_file_header*)req.buf;
 
 	if( file_start_sector == file_end_sector ){
-			req.start = file_start_sector;
-			//ioctl(fd, BLK_NAND_READ_DATA, &req);
-			//read_file_segment(&req);
-			//memcpy( header->TotalPackageSize, tmp, sizeof(header->TotalPackageSize));
-			//ioctl(fd, BLK_NAND_WRITE_DATA, &req);
+			req.start = file_start_sector+ NAND_RECORD_FILE_SECTOR_SIZE;
+			if( req.start >= partition_sector_num ){
+				req.start = partition_sector_num;
+			}
+			req.start -= INDEX_TABLE_LOCATION*512/512;
 			if(file_start_sector != header_sector)
 				write_file_segment(&req);
 	}
@@ -903,11 +1029,12 @@ int nand_invalid_file(int file_start_sector, int file_end_sector)
 			file_end_sector = partition_sector_num;
 		}
 		while(file_start_sector <= file_end_sector){
-			req.start = file_start_sector;
-			//ioctl(fd, BLK_NAND_READ_DATA, &req);
-			//read_file_segment(&req);
-			//memcpy( header->TotalPackageSize, tmp, sizeof(header->TotalPackageSize));
-			//ioctl(fd, BLK_NAND_WRITE_DATA, &req);
+			req.start = file_start_sector+ NAND_RECORD_FILE_SECTOR_SIZE;
+			if( req.start >= partition_sector_num ){
+				req.start = partition_sector_num;
+			}
+			req.start -= INDEX_TABLE_LOCATION*512/512;
+			
 			if(file_start_sector != header_sector)
 				write_file_segment(&req);
 			file_start_sector += NAND_RECORD_FILE_SECTOR_SIZE;
@@ -915,22 +1042,23 @@ int nand_invalid_file(int file_start_sector, int file_end_sector)
 	}
 	else{
 		while( file_start_sector <= partition_sector_num ){
-			req.start = file_start_sector;
-			//ioctl(fd, BLK_NAND_READ_DATA, &req);
-			//read_file_segment(&req);
-			//memcpy( header->TotalPackageSize, tmp, sizeof(header->TotalPackageSize));
-			//ioctl(fd, BLK_NAND_WRITE_DATA, &req);
+			req.start = file_start_sector+ NAND_RECORD_FILE_SECTOR_SIZE;
+			if( req.start >= partition_sector_num ){
+				req.start = partition_sector_num;
+			}
+			req.start -= INDEX_TABLE_LOCATION*512/512;
+			
 			if(file_start_sector != header_sector)
 				write_file_segment(&req);
 			file_start_sector += NAND_RECORD_FILE_SECTOR_SIZE;
 		}
 		file_start_sector = 0;
 		while(file_start_sector <= file_end_sector){
-			req.start = file_start_sector;
-			//ioctl(fd, BLK_NAND_READ_DATA, &req);
-			//read_file_segment(&req);
-			//memcpy( header->TotalPackageSize, tmp, sizeof(header->TotalPackageSize));
-			//ioctl(fd, BLK_NAND_WRITE_DATA, &req);
+			req.start = file_start_sector+ NAND_RECORD_FILE_SECTOR_SIZE;
+			if( req.start >= partition_sector_num ){
+				req.start = partition_sector_num;
+			}
+			req.start -= INDEX_TABLE_LOCATION*512/512;
 			if(file_start_sector != header_sector)
 				write_file_segment(&req);
 			file_start_sector += NAND_RECORD_FILE_SECTOR_SIZE;
@@ -958,6 +1086,7 @@ int nand_prepare_record_header(nand_record_file_header* header)
 //	dbg("year:%d,month:%d,day:%d,hour:%d,minute:%d,second:%d\n", gtm->tm_year+1900,gtm->tm_mon+1,gtm->tm_mday,gtm->tm_hour,gtm->tm_min,gtm->tm_sec);
 	sprintf(buffer,"%04d%02d%02d%02d%02d%02d",gtm->tm_year+1900,gtm->tm_mon+1,gtm->tm_mday,gtm->tm_hour,gtm->tm_min,gtm->tm_sec);
 	memcpy((char*)header->StartTimeStamp, buffer, sizeof(header->StartTimeStamp));
+	memcpy(curr_file_start_time , buffer , 20);
 
 	value = 25;
 	sprintf(buffer,"%8x", value);

@@ -124,7 +124,7 @@ int camera_init_channel(camera_channel channel, int width, int height)
 			return -2;
 		}
 	}
-
+	return 0;
 //	printf("%s: leave\n", __func__);
 }
 int camera_start_channel(camera_channel channel)
@@ -188,7 +188,7 @@ struct camera_buf* camera_get_data(camera_channel channel)
 	int ret = ioctl(camera_fd, VIDIOC_DQBUF, &buf);
 	if(ret < 0){
 		printf("%s:DQBUF error: channel=%d\n", __func__, channel);
-		return -1;
+		return NULL;
 	}
 
 	if(channel == capture_channel)
@@ -205,7 +205,9 @@ int camera_finish_data(camera_channel channel, struct camera_buf *camera_buf)
 {
 	if(ioctl(camera_fd, VIDIOC_QBUF, &(camera_buf->buf)) < 0) {
 		printf("%s:V4L2: Capture re-QBUF error\n", __func__);
+		return -1;
 	}
+	return 0;
 }
 
 int camera_destroy_channel(camera_channel channel)
@@ -238,6 +240,7 @@ int camera_close()
 		capture_on = 0;
 		overlay_on = 0;
 	}
+	return 0;
 //	printf("%s: leave\n", __func__);
 }
 

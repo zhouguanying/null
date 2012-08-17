@@ -118,6 +118,9 @@ int nand_invalid_file(int file_start_sector, int file_end_sector);
 int nand_prepare_record_header(nand_record_file_header* header);
 int nand_prepare_close_record_header(nand_record_file_header* header);
 
+int open_download_file(int start_sector);
+int check_nand_file(int file_start_sector);
+
 #endif
 
 

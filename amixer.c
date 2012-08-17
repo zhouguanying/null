@@ -1926,9 +1926,9 @@ struct sset_argv{
 
 int alsa_set_volume(int value)
 {
-	int level=0;
+	//int level=0;
 	int ret;
-	int i;
+	//int i;
 	char *argv[3];
 	if(value<0||value>100)
 		return -1;

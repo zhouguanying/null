@@ -2819,9 +2819,10 @@ retry:
 				goto retry;
 			}
 			else{
-				printf("#########################write nand error##########################\n");
-				system("reboot &");
-				exit(0);
+				printf("#################write nand error  it may need to close file#################\n");
+				goto FORCE_CLOSE_FILE;
+				//system("reboot &");
+				//exit(0);
 				//vs_msg_debug();
 			}
 		}

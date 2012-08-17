@@ -47,6 +47,19 @@ int hex_string_to_int(char* string, int num)
 	return strtol(buffer,&end,16);
 }
 
+unsigned int hex_string_to_uint(char *string , int num)
+{
+	char buffer[20];
+	char* end;
+	if( num >= 20 )
+		return 0;
+	strcpy(buffer,"0x");
+	memcpy( &buffer[2], string, num );
+	buffer[num+2] = 0;
+//	dbg("sequence:%s\n",buffer);
+	return strtoul(buffer,&end,16);
+}
+
 int dec_string_to_int(char* string, int num)
 {
 	char buffer[20];
