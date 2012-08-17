@@ -2045,7 +2045,7 @@ char *search_wifi(char *arg)
 		length = strlen(buf);
 		memmove(buf+4 ,buf,length);
 		memset(buf,0,4);
-		sprintf(slength,"%4d",length);
+		sprintf(slength,"%04d",length);
 		memcpy(buf,slength,4);
 		return buf;
 	}else{
