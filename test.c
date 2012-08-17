@@ -78,6 +78,7 @@ static inline char * gettimestamp()
                 curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
 	 return timestamp;
 }
+/*
 int test_file_write()
 {
 	int i,j; 
@@ -184,6 +185,8 @@ retry:
 	return 0;
 
 }
+
+*/
 
 int test_cli(struct sess_ctx* system_sess)
 {

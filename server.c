@@ -2140,7 +2140,7 @@ exit:
 #define RECORD_STATE_FAST		2
 #define RECORD_STATE_NORMAL	3
 extern struct __syn_sound_buf syn_buf;
-static nand_record_file_header record_header;
+static nand_record_file_header *record_header;
 static nand_record_file_internal_header video_internal_header={
 		{0,0,0,1,0xc},
 			{0,1,0,0},
@@ -2295,11 +2295,11 @@ int start_video_record(struct sess_ctx* sess)
 	int record_mode = 0;
 	int need_write_internal_head=0;
 	//int write_internal_head=0;
-	char *attr_table;
-	char *time_15sec_table;
-	char * attr_pos ;
-	char * record_15sec_pos ;
-	unsigned int *attr_table_size;
+	char *attr_table = NULL;
+	char *time_15sec_table = NULL;
+	char * attr_pos = NULL ;
+	char * record_15sec_pos = NULL;
+	unsigned int *attr_table_size ;
 	unsigned int *record_15sec_table_size;
 	index_table_item_t	  table_item;
 	//char *audio_internal_header_p;
@@ -2323,22 +2323,17 @@ int start_video_record(struct sess_ctx* sess)
 			sigignore(i);
 	}
 	
-	if(threadcfg.sdcard_exist){
-		attr_table = (char *)malloc(INDEX_TABLE_SIZE);
-		time_15sec_table = (char *)malloc(INDEX_TABLE_SIZE);
+	memset(nand_shm_file_end_head , 0xFF , 512);
+	record_header =(struct nand_record_file_header *) nand_shm_file_end_head;
+	attr_table = nand_shm_addr + RECORD_SHM_ATTR_TABLE_POS;
+	time_15sec_table = nand_shm_addr + RECORD_SHM_15SEC_TABLE_POS;
+	memset(attr_table ,0 ,INDEX_TABLE_SIZE);
+	memset(time_15sec_table , 0 ,INDEX_TABLE_SIZE);
+	attr_table_size = (unsigned int *)attr_table;
+	record_15sec_table_size = attr_table_size+1;
+	attr_pos =(char *)(record_15sec_table_size+1);
+	record_15sec_pos = time_15sec_table;
 		
-		if(!attr_table||!time_15sec_table){
-			printf("error malloc buffer for index table\n");
-			exit(0);
-		}
-		memset(attr_table ,0 ,INDEX_TABLE_SIZE);
-		memset(time_15sec_table , 0 ,INDEX_TABLE_SIZE);
-		attr_table_size = (unsigned int *)attr_table;
-		record_15sec_table_size = attr_table_size+1;
-		attr_pos =(char *)(record_15sec_table_size+1);
-		record_15sec_pos = time_15sec_table;
-	}
-	
 	i = 0;
 	width = vdin_camera->width;
 	height = vdin_camera->height;
@@ -2765,8 +2760,8 @@ retry:
 				dbg("####################force close file#################\n");
 				memcpy(attr_pos , time_15sec_table , *record_15sec_table_size);
 				nand_write_index_table( attr_table);
-				nand_prepare_close_record_header(&record_header);
-				nand_write_end_header(&record_header);
+				nand_prepare_close_record_header(record_header);
+				nand_write_end_header(record_header);
 				snd_soft_restart();
 			}
 			if( ret == 0 ){
@@ -2778,14 +2773,14 @@ retry:
 	//			dbg("write to nand=%d\n",size);
 			}
 			else if( ret == VS_MESSAGE_NEED_START_HEADER ){
-				nand_prepare_record_header(&record_header);
+				nand_prepare_record_header(record_header);
 				sprintf(swidth,"%04d",width);
 				sprintf(sheight,"%04d",height);
 				sprintf(FrameRateUs,"%08llu",usec_between_image);
-				memcpy(&record_header.FrameWidth,&swidth,4);
-				memcpy(&record_header.FrameHeight,&sheight,4);
-				memcpy(&record_header.FrameRateUs,&FrameRateUs,8);
-				nand_write_start_header(&record_header);
+				memcpy(record_header->FrameWidth,swidth,4);
+				memcpy(record_header->FrameHeight,sheight,4);
+				memcpy(record_header->FrameRateUs,FrameRateUs,8);
+				nand_write_start_header(record_header);
 				goto retry;
 			}
 			
@@ -2793,8 +2788,8 @@ retry:
 				FORCE_CLOSE_FILE:
 				memcpy(attr_pos , time_15sec_table , *record_15sec_table_size);
 				nand_write_index_table( attr_table);
-				nand_prepare_close_record_header(&record_header);
-				nand_write_end_header(&record_header);
+				nand_prepare_close_record_header(record_header);
+				nand_write_end_header(record_header);
 				
 				memset(attr_table ,0 ,INDEX_TABLE_SIZE);
 				memset(time_15sec_table , 0 ,INDEX_TABLE_SIZE);

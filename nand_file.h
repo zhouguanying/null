@@ -91,6 +91,10 @@ struct nand_cache
 	int size;
 };
 
+extern char  *nand_shm_addr;
+extern char *nand_shm_file_path;
+extern char *nand_shm_file_end_head;
+
 int nand_open(char* name);
 int nand_write(char* buf, int size);
 int nand_read(char* buf, int size);

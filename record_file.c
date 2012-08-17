@@ -50,7 +50,10 @@ record_file_t* record_file_open(int start_sector)
 	req.start = start_sector;
 	req.sector_num = 1;
 //	ioctl(file->fd, BLK_NAND_READ_DATA, &req);
-	read_file_segment(&req);
+	if(read_file_segment(&req)<0){
+		free(file);
+		return 0;
+	}
 	memcpy(&header, req.buf, sizeof( header ));
 
 	end_sector = start_sector + NAND_RECORD_FILE_SECTOR_SIZE;
@@ -63,7 +66,10 @@ record_file_t* record_file_open(int start_sector)
 	req.start = end_sector;
 	req.sector_num = 1;
 //	ioctl(file->fd, BLK_NAND_READ_DATA, &req);
-	read_file_segment(&req);
+	if(read_file_segment(&req)<0){
+		free(file);
+		return 0;
+	}
 	memcpy(&end, req.buf, sizeof( header ));
 	
 	if( header.head[0]!=0 || header.head[1]!=0 || header.head[2]!=0 || header.head[3]!=1 || header.head[4] != 0xc ){
