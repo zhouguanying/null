@@ -2313,6 +2313,7 @@ int start_video_record(struct sess_ctx* sess)
 	int sensitivity_index = threadcfg.record_sensitivity;;
 	int record_mode = 0;
 	int need_write_internal_head=0;
+	int internal_head_for_sound = 0;
 	//int write_internal_head=0;
 	char *attr_table = NULL;
 	char *time_15sec_table = NULL;
@@ -2585,7 +2586,7 @@ int start_video_record(struct sess_ctx* sess)
 						pictures_to_write= 0;
 						if(record_last_state == RECORD_STATE_FAST){
 #ifdef RECORD_SOUND
-						write_syn_sound(&need_write_internal_head);
+						write_syn_sound(&internal_head_for_sound);
 #endif
 							record_last_state = RECORD_STATE_STOP;
 						}
@@ -2677,17 +2678,20 @@ int start_video_record(struct sess_ctx* sess)
 		
 		pictures_to_write --;
 		
-		if(need_write_internal_head||timestamp_change||frameratechange||prev_width!=width||prev_height!=height){
+		if(timestamp_change||frameratechange||prev_width!=width||prev_height!=height){
 			if(prev_width != width || prev_height!=height){
 				init_sensitivity_diff_size( width,  height);
 				set_ignore_count(6);
 			}
+			internal_head_for_sound = 0;
 			need_write_internal_head = 1;
 			timestamp_change = 0;
 			frameratechange = 0;
 			prev_width = width;
 			prev_height = height;
 		}
+		if(internal_head_for_sound)
+			need_write_internal_head = 1;
 		
 		if(need_write_internal_head){
 			//printf("write video_internal_header\n");
@@ -2704,10 +2708,10 @@ int start_video_record(struct sess_ctx* sess)
 			
 				table_item.location = nand_get_position();
 				if(*record_15sec_table_size + *attr_table_size +sizeof(index_table_item_t) + 8 <=INDEX_TABLE_SIZE){
-				 	if(nand_write(&video_internal_header,sizeof(video_internal_header))==0){
+				 	if(nand_write(&video_internal_header,sizeof(video_internal_header))==0&&!internal_head_for_sound){
 						memcpy(attr_pos,&table_item ,sizeof(index_table_item_t));
 						(*attr_table_size)+=sizeof(index_table_item_t);
-						//dbg("write attr location  pos = %u,write in %p , attr table size = %u struct size = %d\n",table_item.location , attr_pos, *attr_table_size , video_internal_header_p -(char *) &video_internal_header);
+						dbg("write attr location  pos = %u,write in %p , attr table size = %u struct size = %d\n",table_item.location , attr_pos, *attr_table_size , video_internal_header_p -(char *) &video_internal_header);
 						attr_pos +=sizeof(index_table_item_t);
 				 	}
 				}else{
@@ -2795,7 +2799,7 @@ retry:
 		timeuse = (endtime.tv_sec - prev_write_sound_time.tv_sec)*1000000UL +
 			endtime.tv_usec - prev_write_sound_time.tv_usec;
 		if(timeuse>=1000000ULL){
-			write_syn_sound( &need_write_internal_head);
+			write_syn_sound( &internal_head_for_sound);
 			memcpy(&prev_write_sound_time , &endtime  , sizeof(endtime));
 			timestamp = gettimestamp();
 			memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));

@@ -2026,7 +2026,7 @@ static int Rs485Cmd(char* arg)
 	length = arg[0];
 	buffer = &arg[1];
 	/*
-	*buffer format         0xa0    0x0  {4bytes cmd}   0xaf  {last bytes is the prev 7 bytes ^}
+	*buffer format         0xa0    0x0  {4bytes cmd}   0xaf  {last byte is the prev 7 bytes' xor}
 	* up      0x00,0x08,0x00,0x30
 	*down   0x00,0x10,0x00,0x30
 	*left      0x00,0x04,0x30,0x00
@@ -2037,7 +2037,7 @@ static int Rs485Cmd(char* arg)
 	if(length == 8)
 		UartWrite(buffer, 8);
 	else if(length == 9){
-		dbg("##############rs485 cmd leng 9###############\n");
+		//dbg("##############rs485 cmd leng 9###############\n");
 		UartWrite(buffer , 8 );
 		usleep(200000);
 		UartWrite(stopcmd , 8);

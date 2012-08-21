@@ -994,9 +994,23 @@ int main()
 						break;
 					case HID_READ_SEARCH_WIFI:
 						printf("HID_READ_SEARCH_WIFI\n");
+						close(hid_fd);
+						system("switch host");
+						sleep(1);
+						system("switch host");
+						sleep(3);
 						do{
 							hid_buf = get_parse_scan_result(& numssid, NULL);
 						}while(hid_buf == NULL);
+						system("switch gadget");
+						sleep(2);
+						if((hid_fd = open("/dev/hidg0", O_RDWR)) != -1 && set_fl( hid_fd, O_NONBLOCK ) != -1 )
+							dbg("reopen hid sucess now begin to send data\n");
+						else{
+							dbg("reopen hid error reboot now\n");
+							system("reboot&");
+							exit(0);
+						}
 						data_len = strlen(hid_buf);
 						printf("data_len==%d\n",(int)data_len);
 						memcpy(hid_unit_buf,&data_len,sizeof(data_len));

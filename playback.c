@@ -986,6 +986,7 @@ void* playback_thread(void * arg)
 	char *s,*e;
 	unsigned int reserve_seek;
 	int socket;
+	int end_wait_time;
 //	struct timeval old_send_time , currtime;
 //	unsigned long long timeuse;
 //	unsigned int snd_size;
@@ -1221,6 +1222,7 @@ no_table:
 				running = 0;
 				break;
 			case PLAYBACK_STATUS_SEEK:
+				__SEEK__:
 				dbg("playback seek , pb->seek=%d\n",pb->seek);
 				playback_set_status(pb, PLAYBACK_STATUS_RUNNING);
 				reserve_seek = file->cur_sector *512;
@@ -1378,6 +1380,23 @@ no_table:
 		}
 	}
 __out:
+	for(end_wait_time = 15; end_wait_time>0 ; end_wait_time --)
+	{
+		status = playback_get_status( pb);
+		switch (status)
+		{
+			case PLAYBACK_STATUS_EXIT:
+				goto __exit;
+				break;
+			case PLAYBACK_STATUS_SEEK:
+				goto __SEEK__;
+				break;
+			default:
+				break;
+		}
+		sleep(1);
+	}
+__exit:
 	dbg("exit playback thread\n");
 	if(buf)
 		free(buf);
