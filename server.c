@@ -1202,14 +1202,14 @@ void change_camera_status(struct sess_ctx *sess , int sess_in)
 	if(strncmp(threadcfg.monitor_mode , "inteligent",10)!=0)
 		return;
 	if(sess_in){
-		if(sess->is_tcp){			
+		if(sess->sc->video_socket_is_lan){			
 			if(strncmp(threadcfg.record_resolution,"vga",3)!=0){
 				memset(threadcfg.record_resolution , 0 ,sizeof(threadcfg.record_resolution));
 				sprintf(threadcfg.record_resolution , "vga");
 				memcpy(threadcfg.resolution ,threadcfg.record_resolution , sizeof(threadcfg.resolution));
 				restart_v4l2(640, 480);
 			}
-		}else if(sess->is_rtp){
+		}else{
 			if(strncmp(threadcfg.record_resolution,"qvga",4)!=0){
 				memset(threadcfg.record_resolution , 0 ,sizeof(threadcfg.record_resolution));
 				sprintf(threadcfg.record_resolution , "qvga");

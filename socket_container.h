@@ -23,13 +23,14 @@ struct socket_container{
 	SOCKET_TYPE audio_st;
 	struct socket_container * next;
 	pthread_cond_t  *cready;
+	char video_socket_is_lan;
 };
 
 void init_socket_container_list();
 void close_socket(SOCKET_TYPE st , int socket);
 void get_cmd_socket(int *fds , int *nums);
 void check_cmd_socket();
-int scl_add_socket(unsigned long long  who , int socket , SOCKET_CAP cap,SOCKET_TYPE st);
+int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_TYPE st , char is_lan);
 struct socket_container *get_socket_container(int cmdsocket);
 int  close_socket_container(struct socket_container *sc);
 void clean_socket_container(unsigned long long who , int need_lock);

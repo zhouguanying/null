@@ -156,7 +156,7 @@ int  new_socket_container(int who)
 	return 0;
 }
 */
-int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_TYPE st)
+int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_TYPE st , char is_lan)
 {
 	struct socket_container **scp;
 	struct socket_container *p;
@@ -192,6 +192,7 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
 					}
 					(*scp)->video_socket = socket;
 					(*scp)->video_st = st;
+					(*scp)->video_socket_is_lan = is_lan;
 					break;
 				case CAP_AUDIO:
 					if((*scp)->audio_socket>=0 ){
@@ -251,6 +252,7 @@ FREE_CONTAINER:
 				case CAP_VIDEO:
 					p->video_socket = socket;
 					p->video_st = st;
+					p->video_socket_is_lan = is_lan;
 					break;
 				case CAP_AUDIO:
 					p->audio_socket = socket;
