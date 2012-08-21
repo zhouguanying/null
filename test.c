@@ -39,6 +39,7 @@
 
 #include "stun.h"
 #include "cfg_network.h"
+#include "mail_alarm.h"
 
 /*for debug malloc*/
 //#include "dbg_malloc.h"
@@ -799,11 +800,11 @@ int update_config_file_carefully()
 		while(*p==' '||*p=='\t')p++;
 		if(!version_flag&&strncmp(p,CFG_VERSION,strlen(CFG_VERSION)) ==0){
 			version_flag = 1;
-		}else if(!contrast_flag&&strncmp(p,CFG_CONTRAST,strlen(CFG_CONTRAST))==0){
+		}/*else if(!contrast_flag&&strncmp(p,CFG_CONTRAST,strlen(CFG_CONTRAST))==0){
 			contrast_flag = 1;
 		}else if(!brightness_flag&&strncmp(p,CFG_BRIGHTNESS,strlen(CFG_BRIGHTNESS))==0){
 			brightness_flag = 1;
-		}else{
+		}*/else{
 			memcpy(old_file_buf+pos,p,strlen(p));
 			pos+=strlen(p);
 		}
@@ -853,6 +854,7 @@ int main()
 		system("reboot &");
 		exit (0);
 	}
+	prepare_record();
 	if( ioctl_usbdet_read()){
 		int hid_fd;
 		//FILE *config_fp;
@@ -1407,6 +1409,15 @@ read_config:
 		extract_value(conf_p, lines, CFG_MAILBOX, 1, threadcfg.mailbox);
 		printf("mailbox = %s\n",threadcfg.mailbox);
 
+		extract_value(conf_p, lines, CFG_MAILSENDER, 1, sender);
+		printf("sender = %s\n",sender);
+
+		extract_value(conf_p, lines, CFG_SENDERPSWD, 1, senderpswd);
+		printf("senderpswd = %s\n",senderpswd);
+
+		extract_value(conf_p, lines, CFG_SENDERSMTP, 1, mailserver);
+		printf("mailserver = %s\n",mailserver);
+
 		extract_value(conf_p, lines, CFG_SOUND_DUPLEX, 0, (void *)&threadcfg.sound_duplex);
 		printf("sound_duplex = %d\n",threadcfg.sound_duplex);
 
@@ -1633,7 +1644,6 @@ read_config:
 		printf("the network is error , check your network \n");
 	}
 	threadcfg.sdcard_exist = 1;
-	prepare_record();
 	ret = nand_open("/sdcard");
 	if( ret != 0 ){
 		threadcfg.sdcard_exist = 0;

@@ -2150,13 +2150,30 @@ static nand_record_file_internal_header audio_internal_header={
 			{0,2,0,0},
 };
 
-#define VGA_LV1   300
-#define VGA_LV2   350
-#define VGA_LV3   450
-#define QVGA_LV1 110
-#define QVGA_LV2 200
-#define QVGA_LV3 350  
+#define COMPARE_STEP  3
+#define VGA_LV1   200
+#define VGA_LV2   250
+#define VGA_LV3   300
+#define QVGA_LV1 75
+#define QVGA_LV2 85
+#define QVGA_LV3 95
 static  int sensitivity_diff_size[4] = {10000,300,350,450};
+int ignore_pic_count = 6;
+pthread_mutex_t ignore_pic_lock;
+
+void set_ignore_count(int num)
+{
+	pthread_mutex_lock(&ignore_pic_lock);
+	ignore_pic_count = num;
+	pthread_mutex_unlock(&ignore_pic_lock);
+}
+
+void dec_ignore_count()
+{
+	pthread_mutex_lock(&ignore_pic_lock);
+	ignore_pic_count --;
+	pthread_mutex_unlock(&ignore_pic_lock);
+}
 
 static void init_sensitivity_diff_size(int width , int height)
 {
@@ -2164,7 +2181,7 @@ static void init_sensitivity_diff_size(int width , int height)
 		dbg("########change to sensitivity of qvga###########\n");
 		sensitivity_diff_size[1] = QVGA_LV1;
 		sensitivity_diff_size[2] = QVGA_LV2;
-		sensitivity_diff_size[3] = QVGA_LV2;
+		sensitivity_diff_size[3] = QVGA_LV3;
 	}else if(width == 640&&height == 480){
 		dbg("##########change to sensitivity of vga###########\n");
 		sensitivity_diff_size[1] = VGA_LV1;
@@ -2251,6 +2268,8 @@ int start_video_record(struct sess_ctx* sess)
 	int size;
 	int i;
 	int size0=0;
+	int size1=0;
+	int size2=0;
 	char *timestamp;
 	//struct timeval stop_time;
 	//struct timeval open_time;
@@ -2302,6 +2321,10 @@ int start_video_record(struct sess_ctx* sess)
 	unsigned int *attr_table_size ;
 	unsigned int *record_15sec_table_size;
 	index_table_item_t	  table_item;
+	int pic_size[COMPARE_STEP];
+	int size_count = 0;
+	int pic_to_alarm = 0;
+	int j;
 	//char *audio_internal_header_p;
 	//char *video_internal_header_p;
 
@@ -2322,7 +2345,7 @@ int start_video_record(struct sess_ctx* sess)
 		else
 			sigignore(i);
 	}
-	
+	pthread_mutex_init(&ignore_pic_lock , NULL);
 	memset(nand_shm_file_end_head , 0xFF , 512);
 	record_header =(struct nand_record_file_header *) nand_shm_file_end_head;
 	attr_table = nand_shm_addr + RECORD_SHM_ATTR_TABLE_POS;
@@ -2344,7 +2367,7 @@ int start_video_record(struct sess_ctx* sess)
 
 	
 	if(threadcfg.email_alarm){
-		if(!threadcfg.mailbox[0]){
+		if(!threadcfg.mailbox[0]||!sender[0]||!senderpswd[0]||!mailserver[0]){
 			dbg("################mail alarm open but mailbox not found check your data##############\n");
 			threadcfg.email_alarm = 0;
 		}else{
@@ -2363,7 +2386,8 @@ int start_video_record(struct sess_ctx* sess)
 	if(strncmp(threadcfg.record_mode,"no_record",strlen("no_record")) ==0)
 		record_mode = 0;
 	else if(strncmp(threadcfg.record_mode,"inteligent",strlen("inteligent")) ==0){
-		printf("record_mode ==inteligent\n");
+		printf("record_mode ==inteligent , now we not support change to normal mode\n");
+		goto NORMAL_MODE;
 		record_mode = 2;
 		record_fast_duration = threadcfg.record_fast_duration;
 		record_slow_speed = threadcfg.record_slow_speed;
@@ -2373,6 +2397,7 @@ int start_video_record(struct sess_ctx* sess)
 		//memcpy(record_fast_resolution,threadcfg.record_fast_resolution,32);
 	}
 	else {
+	NORMAL_MODE:
 		printf("record_mode==normal\n");
 		record_mode =3;
 		record_normal_duration = threadcfg.record_normal_duration;
@@ -2418,29 +2443,7 @@ int start_video_record(struct sess_ctx* sess)
 	timestamp = gettimestamp();
 	memcpy(audio_internal_header.StartTimeStamp,timestamp,sizeof(audio_internal_header.StartTimeStamp));
 	memcpy(video_internal_header.StartTimeStamp,timestamp,sizeof(video_internal_header.StartTimeStamp));
-/*
-	printf("audio_internal_header.head==");
-	for(i=0;i<5;i++)
-		printf("%2x ",audio_internal_header.head[i]);
-	printf("\n");
-	printf("audio_internal_hreader.flag==");
-	for(i=0;i<4;i++)
-		printf("%2x ",audio_internal_header.flag[i]);
-	printf("\n");
-	printf("audio_internal_header.timestamp==%s\n",audio_internal_header.StartTimeStamp);
 
-	printf("video_internal_header.head==");
-	for(i=0;i<5;i++)
-		printf("%2x ",video_internal_header.head[i]);
-	printf("\n");
-	printf("video_internal_hreader.flag==");
-	for(i=0;i<4;i++)
-		printf("%2x ",video_internal_header.flag[i]);
-	printf("\n");
-	printf("video_internal_header.timestamp==%s\n",video_internal_header.StartTimeStamp);
-	printf("video_internal_header.FrameWidth==%s\n",video_internal_header.FrameWidth);
-	printf("video_internal_header.FrameHeight==%s\n",video_internal_header.FrameHeight);
-	*/
 	reset_syn_buf();
 
 	if(threadcfg.sdcard_exist){
@@ -2451,8 +2454,9 @@ int start_video_record(struct sess_ctx* sess)
 		record_15sec_pos +=sizeof(index_table_item_t);
 	}
 	
-	memset(&mail_last_time , 0 ,sizeof(struct timeval));
 	gettimeofday(&starttime,NULL);
+	mail_last_time.tv_sec = starttime.tv_sec;
+	mail_last_time.tv_usec = starttime.tv_usec;
 #ifdef RECORD_SOUND
 	//timestamp = gettimestamp();
 	//memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
@@ -2482,17 +2486,53 @@ int start_video_record(struct sess_ctx* sess)
 			}
 			memcpy(&alive_old_time,&endtime,sizeof(struct timeval));
 		}
-
 		
-		//dbg("################before get data################\n");
 		buffer = get_data(&size,&width,&height);
-		//dbg("################after get data#################\n");
-		/*
-		if(big_to_small >0&&num_pic_to_ignore>0){
-			size0 = size;
-			num_pic_to_ignore --;
+		
+		//mail alarm
+		if(email_alarm&&mail_alarm_tid){
+			pic_size[size_count] = size;
+			size_count = (size_count + 1)%COMPARE_STEP;
+			if(size_count ==0){
+				size2 = 0;
+				for(j = 0 ; j<COMPARE_STEP ; j++)
+					size2 += pic_size[j];
+				size2 /=COMPARE_STEP;
+			}	
+			if(pic_to_alarm <=0){
+				if(size_count ==0){
+					if(size0&&size1&&(abs(size2-size1 )>=sensitivity_diff_size[sensitivity_index]||abs(size2 - size0)>=sensitivity_diff_size[sensitivity_index])){
+						printf("#####diff0 = %d ,diff1 = %d , size0 = %d , size1= %d , size2 = %d#######\n",size2 -size1 , size2 - size0 , size0 , size1 , size2);
+						pic_to_alarm = 6;
+						mail_last_time.tv_sec = 0;
+					}
+					size0 = size1;
+					size1 = size2;
+				}	
+	
+			}else{
+				gettimeofday(&endtime , NULL);
+				timeuse=(unsigned long long)1000000 *abs ( endtime.tv_sec - mail_last_time.tv_sec ) + endtime.tv_usec - mail_last_time.tv_usec;					
+				if(timeuse >333333ULL){
+					if(ignore_pic_count <=0){
+						char *image=malloc(size);
+						if(image){
+							memcpy(image,buffer,size);
+							add_image_to_mail_attatch_list_no_block( image,  size);
+						}
+					}else
+						dec_ignore_count();
+					memcpy(&mail_last_time , &endtime , sizeof(endtime));
+					pic_to_alarm -- ;
+				}
+				if(size_count == 0){
+					size0 = size1;
+					size1 = size2;
+				}
+			}
 		}
-		*/
+		//end email alarm
+		
 		if(threadcfg.sdcard_exist){
 			gettimeofday(&endtime,NULL);
 			if(abs(endtime.tv_sec - index_table_15sec_last_time.tv_sec)>=15){
@@ -2623,24 +2663,12 @@ int start_video_record(struct sess_ctx* sess)
 					memcpy(&starttime , &endtime,sizeof(struct timeval));
 				}else
 					pictures_to_write = 0;
-				//in normal mode the mail alarm must happen as the other mode
-				//if(abs(size - size0)>100)
-					//printf("###############diff = %d##################\n",abs(size - size0));
-				if(email_alarm&&mail_alarm_tid&&abs(size-size0)>sensitivity_diff_size[sensitivity_index]&&
-					prev_height == height &&prev_width == width&&size>8000){
-					char *image=malloc(size);
-					if(image){
-						memcpy(image,buffer,size);
-						add_image_to_mail_attatch_list_no_block( image,  size);
-					}
-				}
 				break;
 			}
 			default:/*something wrong*/
 				exit(0);
 		}
 
-		size0 = size;
 		if(pictures_to_write<=0){
 			free(buffer);
 			usleep(1000);
@@ -2648,79 +2676,19 @@ int start_video_record(struct sess_ctx* sess)
 		}
 		
 		pictures_to_write --;
-
-		//printf("pictures to write ==%d\n", pictures_to_write);
-		if(email_alarm&&mail_alarm_tid&&pictures_to_write&&size>8000&&
-			prev_width == width && prev_height == height){
-			gettimeofday(&endtime , NULL);
-			if(abs(endtime.tv_sec - mail_last_time.tv_sec)>=1){
-				char *image=malloc(size);
-				if(image){
-					memcpy(image,buffer,size);
-					add_image_to_mail_attatch_list_no_block( image,  size);
-				}
-				memcpy(&mail_last_time , &endtime, sizeof(struct timeval));
-			}
-		}
-
-		/*the need of a boss is change every sec , i need to change the code every time
-		*may be change back to the original designed ...
-		*/
-		//video_internal_header_p = video_internal_header.StartTimeStamp;
-		//audio_internal_header_p = audio_internal_header.StartTimeStamp;
 		
 		if(need_write_internal_head||timestamp_change||frameratechange||prev_width!=width||prev_height!=height){
-			if(prev_width != width || prev_height!=height)
+			if(prev_width != width || prev_height!=height){
 				init_sensitivity_diff_size( width,  height);
+				set_ignore_count(6);
+			}
 			need_write_internal_head = 1;
 			timestamp_change = 0;
 			frameratechange = 0;
 			prev_width = width;
 			prev_height = height;
 		}
-		/*
-		if(timestamp_change){
-			//printf("timestamp_change\n");
-			timestamp = gettimestamp();
-			//printf("%s\n",timestamp);
-			timestamp_change = 0;
-			video_internal_header.flag[0]|=(1<<FLAG0_TS_CHANGED_BIT);
-			audio_internal_header.flag[0]|=(1<<FLAG0_TS_CHANGED_BIT);
-			memcpy(video_internal_header_p,timestamp,sizeof(video_internal_header.StartTimeStamp));
-			memcpy(audio_internal_header_p,timestamp,sizeof(audio_internal_header.StartTimeStamp));
-			video_internal_header_p+=sizeof(video_internal_header.StartTimeStamp);
-			audio_internal_header_p+=sizeof(audio_internal_header.StartTimeStamp);
-			need_write_internal_head = 1;
-		}
-		if(frameratechange){
-			//printf("frmeratechange\n");
-			frameratechange = 0;
-			video_internal_header.flag[0]|=(1<<FLAG0_FR_CHANGED_BIT);
-			sprintf(FrameRateUs,"%08llu",usec_between_image);
-			memcpy(video_internal_header_p,FrameRateUs,sizeof(video_internal_header.FrameRateUs));
-			video_internal_header_p += sizeof(video_internal_header.FrameRateUs);
-			//printf("%s\n",FrameRateUs);
-			need_write_internal_head = 1;
-		}
-		if(prev_width!=width){
-			//printf("picture width change\n");
-			prev_width = width;
-			video_internal_header.flag[0]|=(1<<FLAG0_FW_CHANGED_BIT);
-			sprintf(swidth,"%04d",width);
-			memcpy(video_internal_header_p,swidth,sizeof(video_internal_header.FrameWidth));
-			video_internal_header_p += sizeof(video_internal_header.FrameWidth);
-			need_write_internal_head = 1;
-		}
-		if(prev_height!=height){
-			//printf("picture height change\n");
-			prev_height = height;
-			video_internal_header.flag[0]|=(1<<FLAG0_FH_CHANGED_BIT);
-			sprintf(sheight,"%04d",height);
-			memcpy(video_internal_header_p,sheight,sizeof(video_internal_header.FrameHeight));
-			video_internal_header_p += sizeof(video_internal_header.FrameHeight);
-			need_write_internal_head = 1;
-		}
-		*/
+		
 		if(need_write_internal_head){
 			//printf("write video_internal_header\n");
 			

@@ -44,8 +44,9 @@ static int max_sequence;
 static int nand_blocked = 1;
 static int record_file_size = 0;
 static pthread_mutex_t  write_file_lock;
-static char curr_file_start_time[20];
 static int nand_shm_id;
+
+static pthread_rwlock_t  file_index_table_lock;
 
 #if 0
 int nand_find_start_sector()
@@ -264,11 +265,15 @@ int read_file_segment(struct nand_write_request* req)
 	
 	file_index = req->start / ( FILE_SEGMENT_SIZE / 512 );
 	file_offset = ( req->start % ( FILE_SEGMENT_SIZE / 512 ))*512;
-	if(!file_index_table.table[file_index])
-			return -1;
+	pthread_rwlock_rdlock(&file_index_table_lock);
+	if(!file_index_table.table[file_index]){
+		pthread_rwlock_unlock(&file_index_table_lock);
+		return -1;
+	}
 	fd = open( file_index_table.table[file_index], O_RDONLY);
 	if( fd == -1 ){
 		printf("open read file error file_index=%d ,  file=%s\n" , file_index,file_index_table.table[file_index]);
+		pthread_rwlock_unlock(&file_index_table_lock);
 		return -1;
 	}
 	lseek(fd, file_offset, SEEK_SET);
@@ -276,15 +281,18 @@ int read_file_segment(struct nand_write_request* req)
 		ret = read( fd, req->buf, req->sector_num * 512 );
 		if( ret != req->sector_num * 512 ){
 			close(fd);
+			pthread_rwlock_unlock(&file_index_table_lock);
 			return -1;
 		}
 	}
 	else{
 		printf("read size is too large\n");
 		close(fd);
+		pthread_rwlock_unlock(&file_index_table_lock);
 		return -1;
 	}
 	close( fd );
+	pthread_rwlock_unlock(&file_index_table_lock);
 	return 0;
 }
 
@@ -305,7 +313,14 @@ int write_file_segment(struct nand_write_request* req)
 		}
 		fd = file_index_table.cur_fd = open( file_index_table.table[file_index], O_WRONLY);
 		if( fd == -1 ){
+			pthread_rwlock_wrlock(&file_index_table_lock);
 			printf("open file segment error:%s\n", file_index_table.table[file_index]);
+			if(strcmp(file_index_table.table[file_index] , nand_shm_file_path)==0)
+				memset(nand_shm_file_path , 0 , strlen(nand_shm_file_path));
+			free(file_index_table.table[file_index]);
+			file_index_table.table[file_index] = NULL;
+			dbg("#############file open error discard it ##########\n");
+			pthread_rwlock_unlock(&file_index_table_lock);
 			goto error;
 		}
 		file_index_table.cur_index = file_index;
@@ -419,6 +434,7 @@ int nand_open(char* name)
 	int disk_free_size;
 
 	pthread_mutex_init(&write_file_lock , NULL);
+	pthread_rwlock_init(&file_index_table_lock , NULL);
 	if((nand_shm_id = shmget(RECORD_SHM_KEY ,RECORD_SHM_SIZE ,0666))<0){
 		perror("shmget : open");
 		exit(0);
@@ -467,7 +483,7 @@ int nand_write_start_header(nand_record_file_header* header)
 	char buffer[20];
 	struct nand_write_request req;
 	int file_index;
-	unsigned int flag;
+	//unsigned int flag;
 	char *buf;
 	int len;
 	sprintf( buffer,"%08x", max_sequence );
@@ -484,22 +500,22 @@ int nand_write_start_header(nand_record_file_header* header)
 	len =  strlen(file_index_table.table[file_index]);
 	memcpy(nand_shm_file_path , file_index_table.table[file_index] , len);
 	nand_shm_file_path[len] = 0;
-	buf = (char *)malloc(512);
+	buf = (char *)malloc(1024);
 	if(!buf)
 		return 0;
-	memset(buf , 0 , 512);
-	flag = 0xfffffffe;
-	memcpy(buf , &flag ,sizeof(flag));
+	memset(buf , 0 , 1024);
+	//flag = 0xfffffffe;
+	//memcpy(buf , &flag ,sizeof(flag));
 	req.start = header_sector + NAND_RECORD_FILE_SECTOR_SIZE;
 	if( req.start >= partition_sector_num ){
 		req.start = partition_sector_num;
 	}
-	req.start -= INDEX_TABLE_LOCATION*512/512;
-	req.sector_num = 1;
+	req.start -= END_HEADER_LOCATION*512/512;
+	req.sector_num = 2;
 	req.buf = (unsigned char *)buf;
 	req.erase = 1;
 	write_file_segment(&req);
-	dbg("##################mask file invalid ok###############\n");
+	dbg("##################mask file ok###############\n");
 	free(buf);
 	return 0;
 }
@@ -574,13 +590,17 @@ int nand_write_index_table(char* index_table)
 	return 0;
 }
 
+static char file_all_error = 0;
 int nand_write(char* buf, int size)
 {
 	struct nand_write_request req;
 	int end_sector;
 	int write_size=size;
+	int i;
 	//printf("%s: enter, size=%d, buf=0x%x\n", __func__, size, buf);
 
+	if(file_all_error)
+		return 0;
 #ifndef NAND_MODE_IOCTL
 	while(size + cache.index >= cache.size){
 		memcpy(&(cache.buf[cache.index]), buf, cache.size - cache.index);
@@ -626,7 +646,15 @@ int nand_write(char* buf, int size)
 		req.buf = cache.buf;
 		req.erase = 1;
 		//ioctl(fd, BLK_NAND_WRITE_DATA, &req);
-		write_file_segment(&req);
+		if(write_file_segment(&req)<0){
+			for(i=0 ; i < file_index_table.index_count ; i++){
+				if(file_index_table.table[i])
+					return -1;
+			}
+			dbg("#############all file error stop record now###########\n");
+			file_all_error = 1;
+			return 0;
+		}
 		nand_update_file_status();
 		size -= cache.size - cache.index;
 		buf += cache.size - cache.index;
@@ -830,11 +858,13 @@ char* nand_get_file_time(int file_start_sector)
 	int header_package_size;
 	unsigned int flag;
 
+/*
+	//curr file we also need to send !!
 	if(header_sector == file_start_sector){
 		dbg("###########curr file we will not send #############\n");
 		return (char*)0xffffffff;
 	}
-
+*/
 	req.start = file_start_sector+ NAND_RECORD_FILE_SECTOR_SIZE;
 	if( req.start >= partition_sector_num ){
 		req.start = partition_sector_num;
@@ -857,7 +887,9 @@ char* nand_get_file_time(int file_start_sector)
 	req.start = file_start_sector;
 	req.sector_num = 1;
 	//ioctl(fd, BLK_NAND_READ_DATA, &req);
-	read_file_segment(&req);
+	if(read_file_segment(&req)<0){
+		return (char *)0xffffffff;
+	}
 	memcpy(&header, req.buf, sizeof( header ));
 #else
 	lseek64(fd, (int64_t)file_start_sector*(int64_t)512, SEEK_SET);
@@ -875,7 +907,9 @@ char* nand_get_file_time(int file_start_sector)
 	req.start = last_sector;
 	req.sector_num = 1;
 	//ioctl(fd, BLK_NAND_READ_DATA, &req);
-	read_file_segment(&req);
+	if(read_file_segment(&req)<0){
+		return (char *)0xffffffff;
+	}
 	memcpy(&end, req.buf, sizeof( header ));
 #else
 	lseek64(fd, (int64_t)last_sector*(int64_t)512, SEEK_SET);
@@ -1091,7 +1125,6 @@ int nand_prepare_record_header(nand_record_file_header* header)
 //	dbg("year:%d,month:%d,day:%d,hour:%d,minute:%d,second:%d\n", gtm->tm_year+1900,gtm->tm_mon+1,gtm->tm_mday,gtm->tm_hour,gtm->tm_min,gtm->tm_sec);
 	sprintf(buffer,"%04d%02d%02d%02d%02d%02d",gtm->tm_year+1900,gtm->tm_mon+1,gtm->tm_mday,gtm->tm_hour,gtm->tm_min,gtm->tm_sec);
 	memcpy((char*)header->StartTimeStamp, buffer, sizeof(header->StartTimeStamp));
-	memcpy(curr_file_start_time , buffer , 20);
 
 	value = 25;
 	sprintf(buffer,"%8x", value);

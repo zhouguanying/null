@@ -200,6 +200,7 @@ void set_do_update();
 int is_do_update();
 void set_msg_do_update();
 void prepare_do_update();
+void set_ignore_count(int num);
 
 unsigned char checksum(unsigned char cksum, unsigned char *data, int size);
 #ifdef __cplusplus

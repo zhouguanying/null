@@ -30,12 +30,14 @@
 // the next code for email alarm so boring code it seen my heartbeat stop when I typing it 
 
 #define MAX_DATA_IN_LIST  		 3
-#define MAILSERVER 				 "smtp.163.com"
+#define MAILSERVER 				 "smtp.126.com"
 #define RECEIVER 	 			 "linrizeng@sina.com"
-#define SENDER   	 				 "iped2010@163.com"
+#define SENDER   	 				 "ipedsender@126.com"
 #define CONTENT 	 				 "email alarm!!"
-#define USERNAME 				 "iped2010@163.com"
-#define PASSWD					 "iped2010iped2010"
+#define USERNAME 				 "ipedsender@126.com"
+#define PASSWD					 "iped2012iped2012"
+
+
 #define CMDBUF_LEN				 0x400
     
 struct mail_attach_data{
@@ -64,12 +66,13 @@ static char table[]=
 'g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v',
 'w','x','y','z','0','1','2','3','4','5','6','7','8','9','+','/','='};
       
-static char mailserver[32]=MAILSERVER;
-static char receiver[64]=RECEIVER;
-static char sender[32]=SENDER;
+char mailserver[64];
+char receiver[64];
+char sender[64];
+char sendername[64];
+char senderpswd[64];
+
 static char content[CMDBUF_LEN]=CONTENT;
-static char username[32]=USERNAME;
-static char passwd[32]=PASSWD;
 static char boundary[]="000XMAIL000";
 static unsigned int    mailfileno=0;
 static unsigned int    mailsubjectno=0;
@@ -94,6 +97,7 @@ void init_mail_attatch_data_list(char *mailbox){
 	pthread_mutex_init(&attach_data_list_head.mail_data_lock,NULL);
 	memset(receiver,0,64);
 	memcpy(receiver,mailbox,64);
+	memcpy(sendername , sender , 64);
 }
 
 int add_image_to_mail_attatch_list_no_block(char *image,int size){
@@ -231,6 +235,7 @@ static int sendtext(int sockfd,char *ptext)
 	strcat(p,"Content-Transfer-Encoding: 8bit");
 	strcat(p,"\r\n");
 	strcat(p,"\r\n");
+	sprintf(content , "mail alarm  no %u camera id %x time %s",mailsubjectno - 1 , threadcfg.cam_id ,gettimestamp());
 	strcat(p,content);
 	strcat(p,"\r\n");
 /*mail attachment*/
@@ -329,7 +334,7 @@ __error:
 	memcpy(&sina_mail_addr.sin_addr,sina_mail_ent->h_addr_list[0],sizeof(struct in_addr));
 	sina_mail_addr.sin_family=AF_INET;
 	sina_mail_addr.sin_port=htons(25);
-__retry:
+
 	sockfd=-1;
 	sockfd=socket(AF_INET,SOCK_STREAM,0);
 	ret=connect(sockfd,(void *)&sina_mail_addr,sizeof(sina_mail_addr));
@@ -378,7 +383,7 @@ __retry:
 	if(ret<0)
 		goto __error;
 	memset(buf,0,sizeof(buf));
-	en_base64(username,strlen(username),buf,NULL);
+	en_base64(sendername,strlen(sendername),buf,NULL);
 	strcat(buf,"\r\n");
 	ret=send(sockfd,buf,strlen(buf),0);
 	if(ret==-1){
@@ -395,10 +400,10 @@ __retry:
 	if(ret<0){
 		close(sockfd);
 		printf(" user name fail try again\n");
-		goto __retry;
+		goto __error;
 	}
 	memset(buf,0,sizeof(buf));
-	en_base64(passwd,strlen(passwd),buf,NULL);
+	en_base64(senderpswd,strlen(senderpswd),buf,NULL);
 	strcat(buf,"\r\n");
 	ret=send(sockfd,buf,strlen(buf),0);
 	if(ret==-1){
@@ -415,7 +420,7 @@ __retry:
 	if(ret<0){
 		close(sockfd);
 		printf("passwd fail try again\n");
-		goto __retry;
+		goto __error;
 	}
 	printf("login sucess!\n");
 	memset(buf,0,sizeof(buf));
@@ -534,7 +539,7 @@ __end:
 		attach_data_list_head.attach_data_list=NULL;
 		attach_data_list_head.data_list_tail=NULL;
 		pthread_mutex_unlock(&attach_data_list_head.mail_data_lock);
-		if(receiver[0]){
+		if(receiver[0]&&sender[0]&&senderpswd[0]&&mailserver[0]){
 			printf("mail box =%s\n",receiver);
 			mail_alarm();
 		}else{

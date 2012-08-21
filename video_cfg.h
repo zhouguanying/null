@@ -8,9 +8,9 @@
 #define PASSWORD_SET					"PSWD_SET"
 #define PASSWORD_PART_ARG				"PSWD="
 
-#define CURR_VIDEO_CFG_VERSION		"1.0.2"
+#define CURR_VIDEO_CFG_VERSION		"1.0.3"
 
-#define APP_VERSION 					"version=3.0.7\n"
+#define APP_VERSION 					"version=3.0.9\n"
 #define UDP_SERVER_ADDR  				"udp.iped.com.cn"
 
 #define CFG_VERSION						"cfg_v"
@@ -39,6 +39,9 @@
 #define CFG_RECORD_FAST_DURATION		 "r_fast_duration"
 #define CFG_EMAIL_ALARM				 "email_alarm"
 #define CFG_MAILBOX						 "mailbox"
+#define CFG_MAILSENDER					 "mailsender"
+#define CFG_SENDERPSWD				 "senderpswd"
+#define CFG_SENDERSMTP					 "sendersmtp"
 #define CFG_SOUND_DUPLEX				 "snd_duplex"
 #define CFG_UDHCPC						 "udhcpc"
 #define CFG_NET_MODE					 "net_mode"

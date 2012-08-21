@@ -143,7 +143,8 @@ int record_file_read(record_file_t* file, unsigned char* buf, int sector_num)
 		req.start = file->cur_sector + file->start_sector;
 		req.sector_num = sec_num_to_read;
 //		ioctl(file->fd, BLK_NAND_READ_DATA, &req);
-		read_file_segment(&req);
+		if(read_file_segment(&req)<0)
+			return -1;
 
 		file->cur_sector += sec_num_to_read;
 	}

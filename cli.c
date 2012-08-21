@@ -2017,6 +2017,7 @@ static int SetRs485BautRate(char* arg)
 	return 0;
 }
 
+static const char stopcmd[8] = {0xa0 , 00 , 00 , 00 , 00 , 00 , 0xaf , 0x0f};
 static int Rs485Cmd(char* arg)
 {
 	int length;
@@ -2024,9 +2025,24 @@ static int Rs485Cmd(char* arg)
 
 	length = arg[0];
 	buffer = &arg[1];
-	//printf("get rs485cmd time %s\n",gettimestamp());
-	//dbg("receive a cmd:%s\n", arg);
-	UartWrite(buffer, length);
+	/*
+	*buffer format         0xa0    0x0  {4bytes cmd}   0xaf  {last bytes is the prev 7 bytes ^}
+	* up      0x00,0x08,0x00,0x30
+	*down   0x00,0x10,0x00,0x30
+	*left      0x00,0x04,0x30,0x00
+	*right    0x00,0x02,0x30,0x00
+	*stop     0x00,0x00,0x00,0x00
+	*/
+	set_ignore_count(18);
+	if(length == 8)
+		UartWrite(buffer, 8);
+	else if(length == 9){
+		dbg("##############rs485 cmd leng 9###############\n");
+		UartWrite(buffer , 8 );
+		usleep(200000);
+		UartWrite(stopcmd , 8);
+	}else
+		dbg("get unkown length %d\n",length);
 	return 0;
 }
 
