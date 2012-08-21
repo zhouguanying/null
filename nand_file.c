@@ -787,7 +787,7 @@ int nand_get_sector_num()
 	return partition_sector_num;
 }
 
-int nand_get_next_file_start_sector(int cur_sector)
+ int nand_get_next_file_start_sector(int cur_sector)
 {
 	int next_sector;
 	int sequence_next;
@@ -796,6 +796,7 @@ int nand_get_next_file_start_sector(int cur_sector)
 		dbg("meet the disk end at sector: %x\n", cur_sector);
 		return -1;
 	}
+	return next_sector;
 	sequence_next = nand_get_sequence( next_sector );
 	if( sequence_next != -1 )
 		return next_sector;
@@ -853,7 +854,7 @@ char* nand_get_file_time(int file_start_sector)
 	int sequence_head, sequence_end;
 	int last_sector;
 	int header_is_valid, end_is_valid;
-	unsigned char buf[512];
+	unsigned char buf[1024];
 	struct nand_write_request req;
 	int header_package_size;
 	unsigned int flag;
@@ -866,21 +867,22 @@ char* nand_get_file_time(int file_start_sector)
 	}
 */
 	req.start = file_start_sector+ NAND_RECORD_FILE_SECTOR_SIZE;
-	if( req.start >= partition_sector_num ){
+	if( req.start > partition_sector_num ){
 		req.start = partition_sector_num;
 	}
-	req.start -= INDEX_TABLE_LOCATION*512/512;
+	req.start -= END_HEADER_LOCATION*512/512;
 	req.buf = buf;
-	req.sector_num = 1;
+	req.sector_num = 2;
 	if(read_file_segment(&req)<0){
 		dbg("############error check index table flag###########\n");
 		return (char *)0xffffffff;
 	}
-	memcpy(&flag , buf , sizeof(flag));
+	memcpy(&flag , buf +512, sizeof(flag));
 	if(flag == 0xfffffffe){
 		dbg("##########file deleted###########\n");
 		return (char *)0xffffffff;
 	}
+	memcpy(&end, buf, sizeof( header ));
 
 #if 1
 	req.buf = buf;
@@ -897,12 +899,15 @@ char* nand_get_file_time(int file_start_sector)
 #endif
 	
 	memset(file_time_buffer,0,64);
+/*
 	last_sector = file_start_sector + NAND_RECORD_FILE_SECTOR_SIZE;
 	if( last_sector >= partition_sector_num ){
 		last_sector = partition_sector_num;
 	}
 	last_sector -= END_HEADER_LOCATION*512/512;
+*/
 #if 1
+/*
 	req.buf = buf;
 	req.start = last_sector;
 	req.sector_num = 1;
@@ -911,13 +916,14 @@ char* nand_get_file_time(int file_start_sector)
 		return (char *)0xffffffff;
 	}
 	memcpy(&end, req.buf, sizeof( header ));
+	*/
 #else
 	lseek64(fd, (int64_t)last_sector*(int64_t)512, SEEK_SET);
 	read( fd, (char*)&end, sizeof(end));
 #endif
 	if( header.head[0]!=0 || header.head[1]!=0 || header.head[2]!=0 || header.head[3]!=1 || header.head[4] != 0xc ){
 		memcpy(&data, header.head, 4);
-		dbg("-----------------can't find sequence at START sector:%d, head=%x\n", file_start_sector,data);
+		//dbg("-----------------can't find sequence at START sector:%d, head=%x\n", file_start_sector,data);
 		header_is_valid = 0;
 //		return 0;
 	}
@@ -926,7 +932,7 @@ char* nand_get_file_time(int file_start_sector)
 	}
 	if( end.head[0]!=0 || end.head[1]!=0 || end.head[2]!=0 || end.head[3]!=1 || end.head[4] != 0xc ){
 		memcpy(&data, end.head, 4);
-		dbg("-----------------can't find sequence at END sector:%d, head=%x\n", last_sector,data);
+		//dbg("-----------------can't find sequence at END sector:%d, head=%x\n", last_sector,data);
 		end_is_valid = 0;
 	}
 	else{
@@ -953,7 +959,7 @@ char* nand_get_file_time(int file_start_sector)
 		memcpy(&file_time_buffer[8+1+8+1], header.StartTimeStamp, 14);
 		file_time_buffer[8+1+8+1+14] = '-';
 		memcpy(&file_time_buffer[8+1+8+1+14+1], end.LastTimeStamp, 14);
-		dbg("a good file: sector=%d, time=%s\n", file_start_sector, file_time_buffer);
+		//dbg("a good file: sector=%d, time=%s\n", file_start_sector, file_time_buffer);
 		return file_time_buffer;
 	}
 	if( header_is_valid ){
@@ -970,7 +976,7 @@ char* nand_get_file_time(int file_start_sector)
 		memcpy(&file_time_buffer[8+1+8+1], header.StartTimeStamp, 14);
 		file_time_buffer[8+1+8+1+14] = '-';
 		memcpy(&file_time_buffer[8+1+8+1+14+1], "              ", 14);
-		dbg("only head is good: sector=%d, time=%s\n", file_start_sector, file_time_buffer);
+		//dbg("only head is good: sector=%d, time=%s\n", file_start_sector, file_time_buffer);
 		return file_time_buffer;
 	}
 	return 0;
