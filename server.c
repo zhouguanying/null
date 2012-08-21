@@ -2692,10 +2692,8 @@ int start_video_record(struct sess_ctx* sess)
 		}
 		if(internal_head_for_sound)
 			need_write_internal_head = 1;
-		
 		if(need_write_internal_head){
-			//printf("write video_internal_header\n");
-			
+			//dbg("###############write internal head#############\n");
 			if(threadcfg.sdcard_exist){	
 				timestamp = gettimestamp();
 				sprintf(swidth,"%04d",width);
@@ -2711,16 +2709,19 @@ int start_video_record(struct sess_ctx* sess)
 				 	if(nand_write(&video_internal_header,sizeof(video_internal_header))==0&&!internal_head_for_sound){
 						memcpy(attr_pos,&table_item ,sizeof(index_table_item_t));
 						(*attr_table_size)+=sizeof(index_table_item_t);
-						dbg("write attr location  pos = %u,write in %p , attr table size = %u struct size = %d\n",table_item.location , attr_pos, *attr_table_size , video_internal_header_p -(char *) &video_internal_header);
+						//dbg("write attr location  pos = %u,write in %p , attr table size = %u struct size = %d\n",table_item.location , attr_pos, *attr_table_size , sizeof video_internal_header);
 						attr_pos +=sizeof(index_table_item_t);
 				 	}
 				}else{
 					dbg("#################the index table if full force close file now #################\n");
+					need_write_internal_head = 0;
+					internal_head_for_sound = 0;
 					goto FORCE_CLOSE_FILE;
 				}
 			}
 			//video_internal_header.flag[0]=0;
 			need_write_internal_head = 0;
+			internal_head_for_sound = 0;
 		}
 		//printf("write video picture size = %d\n" , size);
 retry:
