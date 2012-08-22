@@ -659,7 +659,7 @@ int get_cam_id(unsigned int *id)
 #define HID_SET_PSWD				   5
 #define HID_SET_SYS_TIME			   6
 
-#define HID_FAILE					   4
+//#define HID_FAILE					   4
 
 #define HIDCMD_SCAN_WIFI	0
 #define HIDCMD_SET_NETWORK_MODE 1
@@ -984,11 +984,6 @@ int main()
 								ret = write(hid_fd , hid_buf+i ,HID_RDWR_UNIT);
 							}while(ret != HID_RDWR_UNIT);
 						}
-						
-						/*clean garbage*/
-						usleep(10000);
-						read(hid_fd , hid_buf,4096);
-						
 						free(hid_buf);
 						dbg("send configure file sucess\n");
 						break;
@@ -1025,10 +1020,6 @@ int main()
 							}while(ret != HID_RDWR_UNIT);
 						}
 						
-						/*clean garbage*/
-						usleep(10000);
-						read(hid_fd , hid_buf,4096);
-						
 						free(hid_buf);
 						break;
 					case HID_WRITE_VIDEO_CFG:
@@ -1037,14 +1028,7 @@ int main()
 						if(!hid_buf)
 							exit(0);
 						memset(hid_buf , 0 ,4096);
-						size = 0;
-						do{
-							ret = read(hid_fd, hid_unit_buf+size, HID_RDWR_UNIT -size);
-							if(ret <=0)
-								continue;
-							size +=ret;
-						}while(size <HID_RDWR_UNIT);
-						memcpy(&data_len , hid_unit_buf, 2);
+						memcpy(&data_len , hid_unit_buf + 2, 2);
 						printf("data_len==%d\n",(int)data_len);
 						size = 0;
 						while(size <(int)data_len){
@@ -1057,14 +1041,12 @@ int main()
 							}while(ret <=0);
 							size +=ret;
 						}
+						if(data_len %HID_RDWR_UNIT)
+							read(hid_fd , hid_unit_buf , HID_RDWR_UNIT - (data_len %HID_RDWR_UNIT));
 						printf("####################GET VIDEO_CFG###################\n");
 						printf("%s",hid_buf);
 						printf("##################################################\n");
 						set_raw_config_value(hid_buf);
-						
-						/*clean garbage*/
-						read(hid_fd , hid_buf,4096);
-						
 						free(hid_buf);
 						break;
 					case HID_RESET_TO_DEFAULT:
@@ -1077,15 +1059,8 @@ int main()
 						system(buf);
 						break;
 					case HID_SET_PSWD:
-						printf("HID_SET_PSWD\n");
-						size = 0;
-						do{
-							ret = read(hid_fd, hid_unit_buf+size, HID_RDWR_UNIT -size);
-							if(ret <=0)
-								continue;
-							size +=ret;
-						}while(size <HID_RDWR_UNIT);
-						memcpy(&data_len , hid_unit_buf, 2);
+						printf("HID_SET_PSWD\n");				
+						memcpy(&data_len , hid_unit_buf + 2, 2);
 						memset(buf,0,512);
 						sprintf(buf,PASSWORD_PART_ARG);
 						p = buf;
@@ -1102,6 +1077,8 @@ int main()
 							}while(ret <=0);
 							size +=ret;
 						}
+						if(data_len %HID_RDWR_UNIT)
+							read(hid_fd , hid_unit_buf , HID_RDWR_UNIT - (data_len % HID_RDWR_UNIT));
 						data_len +=strlen(PASSWORD_PART_ARG);
 						fd = fopen(PASSWORD_FILE,"w");
 						if(!fd){
@@ -1118,11 +1095,7 @@ int main()
 							printf("write pswd fail\n");
 							goto hid_fail;
 						}
-						printf("%s\n",buf);
-						
-						/*clear garbage*/
-						read(hid_fd , buf,512);
-						
+						printf("%s\n",buf);		
 						fclose(fd);
 						break;
 					case HID_SET_SYS_TIME:
@@ -1130,19 +1103,14 @@ int main()
 						hid_unit_buf[16]=0;
 						dbg("time = %s\n",hid_unit_buf +2);
 						set_system_time(hid_unit_buf +2);
-						
-						/*clear garbage*/
-						read(hid_fd , buf,512);
 						break;
 					default:
-					hid_fail:
-						dbg("HID_FAILE\n");
-						/*clear garbage*/
-						for(;;){
-							if(read(hid_fd , buf , 512)<=0)
-								break;
-						}
+						if(!hid_unit_buf[1])
+							dbg("###########get garbage discard it############\n");
 						break;
+					hid_fail:
+						system("reboot&");
+						exit(0);
 				}	
 			}
 		}
