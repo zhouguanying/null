@@ -80,10 +80,7 @@ void get_cmd_socket(int *fds , int *nums)
 	p = socket_clist;
 	while(p!=NULL){
 		if(p->cmd_socket>=0){
-			if(p->cmd_st !=UDT_SOCKET){
-				dbg("the cmd socket is not udt socket?\n");
-				exit(0);
-			}
+			
 			fds[i] = p->cmd_socket;
 			i++;
 		}
@@ -101,11 +98,19 @@ void check_cmd_socket()
 	pthread_mutex_lock(&container_list_lock);
 	sc = &socket_clist;
 	while(*sc!=NULL){
-		if((*sc)->cmd_socket >=0 ){
-			if((*sc)->cmd_st !=UDT_SOCKET){
-				dbg("the cmd socket is not udt socket?\n");
-				exit(0);
-			}
+		if((*sc)->close_all){
+			dbg("socket need close all\n");
+			p=*sc;
+			*sc = (*sc)->next;
+			if(p->cmd_socket>=0)
+				close_socket(p->cmd_st , p->cmd_socket);
+			if(p->audio_socket>=0)
+				close_socket(p->audio_st, p->audio_socket);
+			if(p->video_socket>=0)
+				close_socket(p->video_st, p->video_socket);
+			free(p);
+			continue;
+		}else if((*sc)->cmd_socket >=0 &&(*sc)->cmd_st == UDT_SOCKET){
 			if(udt_socket_ok((*sc)->cmd_socket)<0){
 				dbg("socket error close it now\n");
 				p=*sc;
@@ -178,10 +183,7 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
 						dbg("the socket have already exist? it may be the older connect\n");
 						goto FREE_CONTAINER;
 					}
-					if(st !=UDT_SOCKET){
-						dbg("BUG:: cmd socket is not udt socket\n");
-						exit(0);
-					}
+					
 					(*scp)->cmd_socket = socket;
 					(*scp)->cmd_st =st;
 					break;

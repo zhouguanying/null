@@ -24,6 +24,7 @@ struct socket_container{
 	struct socket_container * next;
 	pthread_cond_t  *cready;
 	char video_socket_is_lan;
+	char close_all;
 };
 
 void init_socket_container_list();

@@ -2125,6 +2125,7 @@ int start_video_monitor(struct sess_ctx* sess)
 	
 exit:
 	/* Take down session */
+	sess->sc->close_all = 1;
 	del_sess(sess);
 	take_sess_down( sess);
 	
