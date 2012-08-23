@@ -125,7 +125,7 @@ void check_cmd_socket()
 				continue;
 			}
 		}
-		else if(((*sc)->cmd_socket<0||(*sc)->video_socket<0||(*sc)->audio_socket<0)&&now.tv_sec - (*sc)->create_tv.tv_sec >=180){
+		/*else if(((*sc)->cmd_socket<0||(*sc)->video_socket<0||(*sc)->audio_socket<0)&&now.tv_sec - (*sc)->create_tv.tv_sec >=180){
 			p = *sc;
 			*sc = (*sc)->next;
 			if(p->audio_socket>=0)
@@ -134,7 +134,7 @@ void check_cmd_socket()
 				close_socket(p->video_st , p->video_socket);
 			free(p);
 			continue;
-		}else if((*sc)->video_st == TCP_SOCKET&&!((*sc)->connected)&&(now.tv_sec - (*sc)->create_tv.tv_sec)>300){
+		}*/else if(/*(*sc)->video_st == TCP_SOCKET&&*/!((*sc)->connected)&&(now.tv_sec - (*sc)->create_tv.tv_sec)>300){
 				dbg("##################the socket too long not conneted close it now################\n");
 				p = *sc;
 				*sc = (*sc)->next;

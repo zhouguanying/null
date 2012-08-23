@@ -230,10 +230,6 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 		dbg("unable to open daemon message");
 		exit (0);
 	}
-	if( start_cli(system_sess) == NULL ){
-		printf("cli start error\n");
-		return -1;
-	}
 	
 	/*
 	if (pthread_create(&tid, NULL, (void *) start_video_monitor, system_sess) < 0) {
@@ -268,6 +264,12 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 	playback_init();
 	printf("video monitor and record is running\n");
 	start_udt_lib();
+	sleep(1);
+	if( start_cli(system_sess) == NULL ){
+		printf("cli start error\n");
+		return -1;
+	}
+	
 	sprintf(buf , "%x",threadcfg.cam_id);
 	if (pthread_create(&tid, NULL, stun_camera, (void *)buf) < 0) {
 		return -1;
@@ -658,6 +660,7 @@ int get_cam_id(unsigned int *id)
 #define HID_RESET_TO_DEFAULT		   4
 #define HID_SET_PSWD				   5
 #define HID_SET_SYS_TIME			   6
+#define HID_GET_WIFI_RESULT		   7
 
 //#define HID_FAILE					   4
 
@@ -871,6 +874,8 @@ int main()
 		char *hid_buf;
 		int numssid;
 		int cfg_len;
+		FILE *wifi_fp;
+		int scantime = 0;
 		
 		system("switch gadget && sleep 2");
 
@@ -996,9 +1001,12 @@ int main()
 						sleep(3);
 						do{
 							hid_buf = get_parse_scan_result(& numssid, NULL);
-						}while(hid_buf == NULL);
+						}while(hid_buf == NULL&&(scantime ++)<5);
+						if(hid_buf ==NULL)
+							goto hid_fail;
+						free(hid_buf);
 						system("switch gadget");
-						sleep(2);
+						sleep(5);
 						if((hid_fd = open("/dev/hidg0", O_RDWR)) != -1 && set_fl( hid_fd, O_NONBLOCK ) != -1 )
 							dbg("reopen hid sucess now begin to send data\n");
 						else{
@@ -1006,10 +1014,29 @@ int main()
 							system("reboot&");
 							exit(0);
 						}
-						data_len = strlen(hid_buf);
+						break;
+					case HID_GET_WIFI_RESULT:
+						printf("HID_GET_WIFI_RESULT\n");
+						hid_buf = (char *)malloc(4096);
+						if(!hid_buf)
+							goto hid_fail;
+						wifi_fp = fopen(RESERVE_SCAN_FILE  , "r");
+						if(!wifi_fp){
+							free(hid_buf);
+							goto hid_fail;
+						}
+						fseek(wifi_fp , 0 ,SEEK_END);
+						data_len =(unsigned short) ftell(wifi_fp);
+						fseek(wifi_fp, 0 , SEEK_SET);
+						fread(hid_buf , (int)data_len , 1 , wifi_fp);
 						printf("data_len==%d\n",(int)data_len);
-						memcpy(hid_unit_buf,&data_len,sizeof(data_len));
-						ret = write(hid_fd, hid_unit_buf, HID_RDWR_UNIT);
+						hid_unit_buf[0]=0xff;
+						hid_unit_buf[1] = HID_READ_SEARCH_WIFI;
+						memcpy(hid_unit_buf+2,&data_len,sizeof(data_len));
+						do{
+							usleep(20000);
+							ret = write(hid_fd, hid_unit_buf, HID_RDWR_UNIT);
+						}while(ret!=HID_RDWR_UNIT);
 						printf("##########################\n");
 						sleep(2);
 						for(i = 0; i<(int)data_len; i+=HID_RDWR_UNIT)
@@ -1018,9 +1045,9 @@ int main()
 								usleep(20000);
 								ret = write(hid_fd , hid_buf+i ,HID_RDWR_UNIT);
 							}while(ret != HID_RDWR_UNIT);
-						}
-						
-						free(hid_buf);
+						}	
+						free(hid_buf);	
+						fclose(wifi_fp);
 						break;
 					case HID_WRITE_VIDEO_CFG:
 						printf("HID_WRITE_VIDEO_CFG\n");

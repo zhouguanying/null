@@ -633,10 +633,11 @@ LOOP_START:
 		dbg("get ready sockfd = %d\n",sockfd);
 		req_len = cmd_recv_msg(sockfd , st,(char *)req, CLI_BUF_SIZE-1 ,(struct sockaddr *) &from , &fromlen);
 		if(req_len <0){
-			dbg("udt select ok but cannot recv message, socket may broken\n");
+			dbg("select point out  scoket readable but cannot recv message, socket may broken\n");
 			do_cli_alive();
 			gettimeofday(&last_alive_time , NULL);
-			check_cmd_socket();
+			//check_cmd_socket();
+			close_socket_container(get_socket_container(sockfd));
 			sleep(1);
 			goto LOOP_START;
 		}
@@ -2146,15 +2147,19 @@ static int Rs485Cmd(char* arg)
 	*stop     0x00,0x00,0x00,0x00
 	*/
 	set_ignore_count(18);
-	if(length == 8)
+	if(length == 8){
 		UartWrite(buffer, 8);
+		if(memcmp(stopcmd , buffer , 8)!=0)
+			usleep(150000);
+	}
 	else if(length == 9){
 		//dbg("##############rs485 cmd leng 9###############\n");
 		UartWrite(buffer , 8 );
-		usleep(200000);
+		usleep(150000);
 		UartWrite(stopcmd , 8);
 	}else
 		dbg("get unkown length %d\n",length);
+	
 	return 0;
 }
 
