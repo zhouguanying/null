@@ -10,7 +10,7 @@
 
 #define CURR_VIDEO_CFG_VERSION		"1.0.3"
 
-#define APP_VERSION 					"version=5.1.1\n"
+#define APP_VERSION 					"version=5.2.0\n"
 #define UDP_SERVER_ADDR  				"udp.iped.com.cn"
 
 #define CFG_VERSION						"cfg_v"

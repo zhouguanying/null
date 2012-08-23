@@ -1389,6 +1389,7 @@ __out:
 				goto __exit;
 				break;
 			case PLAYBACK_STATUS_SEEK:
+				running = 1;
 				goto __SEEK__;
 				break;
 			default:

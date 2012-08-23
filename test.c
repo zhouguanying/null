@@ -931,6 +931,15 @@ int main()
 						continue;
 					size  += ret;
 					dbg("get cmd size = %d\n",size);
+					if(size <HID_RDWR_UNIT){
+						for(i = 0; i<size; i++){
+							if(hid_unit_buf[i])
+								break;
+						}
+						if(i == size){
+							break;
+						}
+					}
 				}while(size <HID_RDWR_UNIT);
 				
 				cmd=(int)hid_unit_buf[1];
