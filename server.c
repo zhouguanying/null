@@ -1268,6 +1268,9 @@ void  del_sess(struct sess_ctx *sess)
 
  void take_sess_down(struct sess_ctx *sess)
 {
+	if(!sess)
+		return;
+	sess->sc->close_all = 1;
 	pthread_mutex_lock(&sess->sesslock);
 	sess->ucount--;
 	sess->running=0;
@@ -2125,7 +2128,6 @@ int start_video_monitor(struct sess_ctx* sess)
 	
 exit:
 	/* Take down session */
-	sess->sc->close_all = 1;
 	del_sess(sess);
 	take_sess_down( sess);
 	

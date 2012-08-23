@@ -78,7 +78,8 @@ struct cli_sess_ctx *g_cli_ctx = NULL; /* Single session only */
 
 static struct cli_handler cli_cmd_handler;
 
-static int cli_socket = -1; /*it must be udt socket*/
+static int cli_socket = -1; 
+SOCKET_TYPE cli_st;
 
 /*
 struct  UDT_SELECT_SET{
@@ -478,12 +479,120 @@ static inline void do_cli_alive()
 	}
 }
 
+int tcp_get_readable_socket(int *sockfds , int sockfdnums , const struct timeval *tv)
+{
+	fd_set rfds;
+	int i;
+	int ret;
+	int maxfdp1 = -1;
+	FD_ZERO(&rfds);
+	if(sockfdnums<=0)
+		return -1;
+	for(i = 0; i< sockfdnums ; i++)
+	{
+		FD_SET(sockfds[i] , &rfds);
+		if(sockfds[i ] >maxfdp1)
+			maxfdp1 = sockfds[i];
+	}
+	ret = select(maxfdp1+1 , &rfds , NULL , NULL, tv);
+	if(ret == 0)
+		return UDT_SELECT_TIMEOUT;
+	if(ret == -1)
+		return UDT_SELECT_ERROR;
+	for(i = 0 ; i < sockfdnums ; i++)
+	{
+		if(FD_ISSET(sockfds[i] , &rfds))
+			return sockfds[i];
+	}
+	dbg("tcp select got unknown error\n");
+	return UDT_SELECT_UNKONW_ERROR;
+}
+
+int get_readable_socket(cmd_socket_t*sockfds , int sockfdnums , const struct timeval *tv , SOCKET_TYPE *type)
+{
+	int udtsockfds[64];
+	int tcpsockfds[64];
+	int i , udtsocketnum , tcpsocketnum;
+	int socket;
+	udtsocketnum = tcpsocketnum  = 0;
+	for(i = 0 ; i<sockfdnums ; i++)
+	{
+		switch(sockfds[i].type)
+		{
+			case TCP_SOCKET:
+				tcpsockfds[tcpsocketnum] = sockfds[i].socket;
+				tcpsocketnum ++;
+				break;
+			case UDT_SOCKET:
+				udtsockfds[udtsocketnum] = sockfds[i].socket;
+				udtsocketnum ++;
+				break;
+			default:
+				dbg("##########error cmd socket not tcp nor udt something wrong########\n");
+				system("reboot&");
+				exit(0);
+				break;
+		}
+	}
+	if(udtsocketnum>0)
+	{
+		socket = udt_get_readable_socket(udtsockfds,udtsocketnum,  tv);
+		if(socket >= 0){
+			*type = UDT_SOCKET;
+			return socket;
+		}
+	}
+	if(tcpsocketnum>0)
+	{
+		socket = tcp_get_readable_socket(tcpsockfds, tcpsocketnum,  tv);
+		if(socket >=0){
+			*type = TCP_SOCKET;
+			return socket;
+		}
+	}
+	return -1;
+}
+
+int cmd_send_msg(int sock , SOCKET_TYPE st , char *buf , int len)
+{
+	switch (st)
+	{
+		case TCP_SOCKET:
+			return stun_tcp_sendmsg(sock,  buf,  len);
+			break;
+		case UDT_SOCKET:
+			return stun_sendmsg( sock, buf, len);
+			break;
+		default:
+			dbg("#########socket type error#######\n");
+			break;
+	}
+	return -1;
+}
+int cmd_recv_msg(int sock , SOCKET_TYPE st , char *buf , int len , struct sockaddr *addr , int *addrlen)
+{
+	switch (st)
+	{
+		case TCP_SOCKET:
+			return stun_tcp_recvmsg(sock,  buf,  len ,addr, addrlen);
+			break;
+		case UDT_SOCKET:
+			return stun_recvmsg( sock, buf, len , addr , addrlen);
+			break;
+		default:
+			dbg("#########socket type error#######\n");
+			break;
+	}
+	return -1;
+}
+
 static int do_cli(struct cli_sess_ctx *sess)
 {
 #define  CLI_BUF_SIZE  1024
-	int uset[64];
+	cmd_socket_t uset[64];
 	int fdnums;
 	int sockfd;
+	SOCKET_TYPE st;
 	u8 req[CLI_BUF_SIZE];
 	char *rsp;
 	int rsp_len;
@@ -511,7 +620,7 @@ LOOP_START:
 			gettimeofday(&last_alive_time , NULL);
 		}
 		//dbg("get socket num = %d\n",fdnums);
-		sockfd = udt_get_readable_socket(uset, fdnums,  &tv);
+		sockfd = get_readable_socket(uset, fdnums,  &tv , &st);
 		if(sockfd <0){
 			//dbg("select error\n");
 			do_cli_alive();
@@ -522,7 +631,7 @@ LOOP_START:
 		}
 		//dbg("select ok now begin recv\n");
 		dbg("get ready sockfd = %d\n",sockfd);
-		req_len = stun_recvmsg(sockfd ,(char *)req, CLI_BUF_SIZE-1 ,(struct sockaddr *) &from , &fromlen);
+		req_len = cmd_recv_msg(sockfd , st,(char *)req, CLI_BUF_SIZE-1 ,(struct sockaddr *) &from , &fromlen);
 		if(req_len <0){
 			dbg("udt select ok but cannot recv message, socket may broken\n");
 			do_cli_alive();
@@ -548,6 +657,7 @@ LOOP_START:
 		}
 		rsp_len = 0;
 		cli_socket = sockfd;
+		cli_st = st;
 		rsp = handle_cli_request(sess, req, req_len, NULL, &rsp_len,from);
 		dbg("rsp=%s\n",rsp );
 		if (rsp != NULL) { /* command ok so send response */
@@ -559,9 +669,9 @@ LOOP_START:
 				s = 0;
 				while(rsp_len>0){
 					if(rsp_len>1000){
-						ret =stun_sendmsg(sockfd,  rsp+s , 1000);
+						ret =cmd_send_msg(sockfd , st,  rsp+s , 1000);
 					}else{
-						ret =stun_sendmsg(sockfd,  rsp+s , rsp_len);
+						ret =cmd_send_msg(sockfd , st,  rsp+s , rsp_len);
 					}
 					if(ret <0){
 						dbg("udt send  something wrong\n");
@@ -577,9 +687,9 @@ LOOP_START:
 				s = 0;
 				while(rsp_len>0){
 					if(rsp_len>1000){
-						ret =stun_sendmsg(sockfd,  rsp+s , 1000);
+						ret =cmd_send_msg(sockfd , st,  rsp+s , 1000);
 					}else{
-						ret =stun_sendmsg(sockfd, rsp+s , rsp_len);
+						ret =cmd_send_msg(sockfd, st,rsp+s , rsp_len);
 					}
 					if(ret <0){
 						dbg("udt send  something wrong\n");
@@ -944,24 +1054,26 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
 	struct socket_container *sc;
 	playback_t *pb;
 	char *r;
-	if (sess == NULL) {
-            dbg("error\n");
-            return NULL;
-    }
-	
-    if(check_cli_pswd( arg, & r)!=0){
-		  g_cli_ctx->arg=NULL;
-		  free_system_session(sess);
-		return r;
-    	}
-	//dbg("after check pswd\n");
-	sc = get_socket_container(cli_socket);
-	if(!sc){
+	 sc = get_socket_container(cli_socket);
+	 if(!sc){
 		dbg("error not found socket container\n");
 		g_cli_ctx->arg = NULL;
 		free_system_session(sess);
 		return NULL;
 	}
+	 sc->connected = 1;
+	if (sess == NULL) {
+            dbg("error\n");
+		close_socket_container(sc);
+            return NULL;
+    }
+    if(check_cli_pswd( arg, & r)!=0){
+		  g_cli_ctx->arg=NULL;
+		  free_system_session(sess);
+		close_socket_container(sc);
+		return r;
+    	}
+	//dbg("after check pswd\n");
 	//dbg("after get socket container sc = %p , sc->video_socket = %d , sc->audio_socket = %d\n" , sc->video_socket , sc->audio_socket);
 	if(sc->video_socket<0||sc->audio_socket<0){
 		dbg("error the video socket or audio socket is not build\n");
@@ -2598,7 +2710,7 @@ static char * SetConfig(char* arg)
 			return NULL;
 		}
 		memset(buf,0,4096);
-		ret = stun_recvmsg(cli_socket,  buf, 4096, NULL, NULL);
+		ret = cmd_recv_msg(cli_socket ,cli_st,  buf, 4096, NULL, NULL);
 		if(ret <=0){
 			dbg("error recv configure file\n");
 			free(buf);

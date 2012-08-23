@@ -71,7 +71,7 @@ void wait_socket(struct socket_container *sc)
 	sc->cready = NULL;
 }
 
-void get_cmd_socket(int *fds , int *nums)
+void get_cmd_socket(cmd_socket_t*fds , int *nums)
 {
 	struct socket_container *p;
 	int i;
@@ -80,8 +80,8 @@ void get_cmd_socket(int *fds , int *nums)
 	p = socket_clist;
 	while(p!=NULL){
 		if(p->cmd_socket>=0){
-			
-			fds[i] = p->cmd_socket;
+			fds[i].socket= p->cmd_socket;
+			fds[i].type = p->cmd_st;
 			i++;
 		}
 		p = p->next;
@@ -99,7 +99,7 @@ void check_cmd_socket()
 	sc = &socket_clist;
 	while(*sc!=NULL){
 		if((*sc)->close_all){
-			dbg("socket need close all\n");
+			dbg("################socket need close all####################\n");
 			p=*sc;
 			*sc = (*sc)->next;
 			if(p->cmd_socket>=0)
@@ -125,7 +125,7 @@ void check_cmd_socket()
 				continue;
 			}
 		}
-		else if(now.tv_sec - (*sc)->create_tv.tv_sec >=60){
+		else if(((*sc)->cmd_socket<0||(*sc)->video_socket<0||(*sc)->audio_socket<0)&&now.tv_sec - (*sc)->create_tv.tv_sec >=180){
 			p = *sc;
 			*sc = (*sc)->next;
 			if(p->audio_socket>=0)
@@ -134,6 +134,18 @@ void check_cmd_socket()
 				close_socket(p->video_st , p->video_socket);
 			free(p);
 			continue;
+		}else if((*sc)->video_st == TCP_SOCKET&&!((*sc)->connected)&&(now.tv_sec - (*sc)->create_tv.tv_sec)>300){
+				dbg("##################the socket too long not conneted close it now################\n");
+				p = *sc;
+				*sc = (*sc)->next;
+				if(p->cmd_socket>=0)
+					close_socket(p->cmd_st , p->cmd_socket);
+				if(p->audio_socket>=0)
+					close_socket(p->audio_st , p->audio_socket);
+				if(p->video_socket>=0)
+					close_socket(p->video_st , p->video_socket);
+				free(p);
+				continue;	
 		}
 		sc = &((*sc)->next);
 	}
