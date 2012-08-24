@@ -244,6 +244,12 @@ static	int	open_ptz(void)
 		printf("Can't Open PTZ	\n");
 		return -1;
 	} else {
+		ioctl(fd , 15 , 0);
+		if(ioctl(fd, 16 ,0)<0)
+		{
+			printf("###########contrl ptz speed error############\n");
+		}else
+			printf("#################contrl ptz sucess#############\n");
 		return	0;
 	}
 }
@@ -251,6 +257,23 @@ static	int	open_ptz(void)
 static	void		close_ptz(void)
 {
 	close(fd);
+}
+
+/*
+*云台转动
+*
+*cmd: 16 垂直; 15 水平
+*
+*speed 0 - 10  , 0 最快 ， 10 最慢
+*/
+int	speed_ptz(int cmd, int speed)
+{
+	if(-1==fd)	{
+		if( open_ptz() )	{
+			return -1;
+		}
+	}
+	return	ioctl(fd, cmd ,speed);
 }
 
 int	write_ptz(char *buffer, int length)

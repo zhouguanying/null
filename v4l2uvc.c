@@ -132,6 +132,7 @@ init_videoIn (struct vdIn *vd, char *device, int width, int height,
 		goto error;
 	return 0;
 error:
+	//sleep(20);
 	free (vd->videodevice);
 	free (vd->status);
 	free (vd->pictName);
@@ -369,7 +370,10 @@ close_v4l2 (struct vdIn *vd)
 	/* If the memory maps are not released the device will remain opened even
 	   after a call to close(); */
 	for (i = 0; i < NB_BUFFER; i++) {
-		munmap (vd->mem[i], vd->buf.length);
+		if(munmap (vd->mem[i], vd->buf.length)!=0)
+		{
+			dbg("############error v4l2 munmap: %d#############\n" , errno);
+		}
 	}
 
 	if (vd->tmpbuffer)
@@ -383,7 +387,10 @@ close_v4l2 (struct vdIn *vd)
 	vd->videodevice = NULL;
 	vd->status = NULL;
 	vd->pictName = NULL;
-	close (vd->fd);
+	if(close (vd->fd)!=0)
+	{
+		dbg("###############error close v4l2:%d############## \n" , errno);
+	}
 	return 0;
 }
 

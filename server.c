@@ -1163,7 +1163,7 @@ retry:
 		trygrab --;
 		if(trygrab<=0){
 			close_v4l2 (vdin_camera);
-			if (init_videoIn(vdin_camera, (char *) videodevice, 640, 480, format, grabmethod) < 0) {
+			if (init_videoIn(vdin_camera, (char *) videodevice, vdin_camera->width, vdin_camera->height, format, grabmethod) < 0) {
 				printf("init camera device error\n");
 				exit(0);
 			}
@@ -2260,7 +2260,19 @@ static  void vs_msg_debug()
 }
 
 int snd_soft_restart();
-
+/*
+void *test_v4l2_restart(void *arg)
+{
+	sleep(30);
+	for(;;){
+		restart_v4l2(640, 480);
+		sleep(3);
+		restart_v4l2(320, 240);
+		sleep(3);
+	}
+	return NULL;
+}
+*/
 int start_video_record(struct sess_ctx* sess)
 {
 	//const char *videodevice = "/dev/video0";
@@ -2369,6 +2381,7 @@ int start_video_record(struct sess_ctx* sess)
 	printf("width ==%d , height == %d\n",width , height);
 	init_sensitivity_diff_size( width,  height);
 
+	//pthread_create(&mail_alarm_tid , NULL , test_v4l2_restart,NULL);
 	
 	if(threadcfg.email_alarm){
 		if(!threadcfg.mailbox[0]||!sender[0]||!senderpswd[0]||!mailserver[0]){
@@ -2383,7 +2396,6 @@ int start_video_record(struct sess_ctx* sess)
 				printf("mail alarm thread create sucess\n");
 		}
 	}
-
 
 	//pthread_mutex_lock(&threadcfg.threadcfglock);
 	usec_between_image = 0;
@@ -2490,9 +2502,7 @@ int start_video_record(struct sess_ctx* sess)
 			}
 			memcpy(&alive_old_time,&endtime,sizeof(struct timeval));
 		}
-		
 		buffer = get_data(&size,&width,&height);
-		
 		//mail alarm
 		if(email_alarm&&mail_alarm_tid){
 			pic_size[size_count] = size;
