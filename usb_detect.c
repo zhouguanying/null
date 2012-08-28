@@ -28,6 +28,7 @@ int	open_usbdet(void)
 		printf("Can't Open USBDET	\n");
 		return -1;
 	} else {
+		fcntl(fd , F_SETFD , 1); //close on exec
 		return	0;
 	}
 }

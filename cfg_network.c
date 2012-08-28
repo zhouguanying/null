@@ -800,7 +800,7 @@ int get_netlink_status(const char *if_name)
 		||strncmp(threadcfg.inet_mode,"inteligent",strlen("inteligent"))==0)
 		{
 			memset(buf,0,512);
-			sprintf(buf,"udhcpc -i %s &",inet_eth_device);
+			sprintf(buf,"udhcpc -i %s -nq&",inet_eth_device);
 			system(buf);
 		}
 
@@ -808,7 +808,7 @@ int get_netlink_status(const char *if_name)
 		||strncmp(threadcfg.inet_mode,"inteligent",strlen("inteligent"))==0)
 		{
 			memset(buf,0,512);
-			sprintf(buf,"udhcpc -i %s &",inet_wlan_device);
+			sprintf(buf,"udhcpc -i %s -nq&",inet_wlan_device);
 			system(buf);
 		}
  	}

@@ -151,6 +151,7 @@ init_v4l2 (struct vdIn *vd)
 		exit (1);
 	}
 	printf("****************open video fd==%d********************\n",vd->fd);
+	fcntl(vd->fd , F_SETFD , 1) ; //close on exec
 	memset (&vd->cap, 0, sizeof (struct v4l2_capability));
 	ret = ioctl (vd->fd, VIDIOC_QUERYCAP, &vd->cap);
 	if (ret < 0) {
