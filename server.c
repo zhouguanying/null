@@ -56,6 +56,7 @@
 #include "v4l2uvc.h"
 #include "sound.h"
 #include "picture_info.h"
+#include "video_cfg.h"
 
 /* Process ID file name */
 #define PID_FILE    "/var/run/v2ipd.pid"
@@ -1286,10 +1287,10 @@ void  del_sess(struct sess_ctx *sess)
  int do_net_update(void *arg){
  	struct sess_ctx *sess = (struct sess_ctx *)arg;
 	socklen_t fromlen;
-	int ret;
+	//int ret;
 	int socket = -1;
 	//char* buffer;
-	//int size;
+	int size;
 	FILE * kfp = NULL;
 	FILE * sfp = NULL;
 	char __scrc;
@@ -1314,15 +1315,26 @@ void  del_sess(struct sess_ctx *sess)
 	}
 	socket = sess->sc->video_socket;
 	printf("###################do update###################\n");
-	if(sess->is_tcp)
-		r = recv(socket , buf,1024,0);
-	else
-		r = udt_recv(socket ,SOCK_STREAM ,buf ,1024,NULL,NULL);
+	size = 0;
+	while(size <1024){
+		if(sess->is_tcp)
+			r = recv(socket , buf+ size,1024 - size,0);
+		else
+			r = udt_recv(socket ,SOCK_STREAM ,buf + size ,1024 - size,NULL,NULL);
+		if(r<=0)
+			break;
+		size += r;
+	}
+	r = size;
 	if(r!=1024){
 		printf(" do update recv data too small\n");
 		goto exit;
 	}
-	   p=buf;
+	/*version562 10bytes if it have this string*/
+	if(strncmp(buf , "version",7)==0)
+		p = buf + 10;
+	else
+	  	 p=buf;
 	   cmd = *p;
 	   p++;
 	   memcpy(&__system_f_size , p , sizeof(__system_f_size));

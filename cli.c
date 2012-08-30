@@ -436,6 +436,8 @@ NEW_SESSION:
                 	goto done;
        	 else if (strncmp(argv[0], "DeleteFile", 10) == 0)
                 	goto done;
+		 else if(strncmp(argv[0] , "getversion",10)==0)
+		 	goto done;
 		 pthread_mutex_unlock(&global_ctx_lock);
 		 return NULL;
 done:
@@ -2495,6 +2497,15 @@ static char *cli_playback_set_status(struct sess_ctx *sess, char *arg)
 	}
 	return rsp;
 }
+
+static char*GetVersion(int *rsp_len)
+{
+	char *buf;
+	*rsp_len = 10;
+	buf = (char *)malloc(10);
+	memcpy(buf ,app_version , 10);
+	return buf;
+}
 static char* GetConfig(char* arg , int *rsp_len)
 {
 	char ConfigType;
@@ -3316,6 +3327,8 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
                 return DeleteAllFiles(sess, param);
         else if (strncmp(cmd, "DeleteFile", 10) == 0)
                 return DeleteFile(sess, param);
+	else if(strncmp(cmd , "getversion",10)==0)
+		return GetVersion(rsp_len);
 	 /*the second class*/
         if (sess == NULL || cmd == NULL) return NULL;
 		//dbg("%s\n",cmd);
