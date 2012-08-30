@@ -327,7 +327,7 @@ int  close_socket_container(struct socket_container *sc)
 	return ret;
 }
 
-struct socket_container *get_socket_container(int cmdsocket)
+struct socket_container *get_socket_container(int cmdsocket , int waitsocket)
 {
 	
 	struct socket_container *sc;
@@ -339,7 +339,7 @@ struct socket_container *get_socket_container(int cmdsocket)
 		}
 		sc = sc->next;
 	}
-	if(sc&&(sc->audio_socket<0||sc->video_socket<0)){
+	if(waitsocket&&sc&&(sc->audio_socket<0||sc->video_socket<0)){
 		dbg("the socket is not built all  now wait for it\n");
 		wait_socket(sc);
 	}

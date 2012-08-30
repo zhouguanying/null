@@ -1265,9 +1265,12 @@ no_table:
 						memset(&internal_header , 0 ,sizeof(internal_header));
 						file_header = (nand_record_file_header *)buf;
 						memcpy(internal_header.head , file_header->head , sizeof(internal_header.head));
+						/*
 						internal_header.flag[0]  |=(1<<FLAG0_TS_CHANGED_BIT | 1<<FLAG0_FR_CHANGED_BIT | 
 							1<<FLAG0_FW_CHANGED_BIT | 1<<FLAG0_FH_CHANGED_BIT);
 						internal_header.flag[1] = 1;
+						*/
+						internal_header.flag[0] = internal_header.flag[1] = internal_header.flag[2] = internal_header.flag[3] = 0xff;
 						memcpy(internal_header.StartTimeStamp , file_header->StartTimeStamp , sizeof(internal_header.StartTimeStamp));
 						memcpy(internal_header.FrameRateUs , file_header->FrameRateUs , sizeof(internal_header.FrameRateUs));
 						memcpy(internal_header.FrameWidth , file_header->FrameWidth , sizeof(internal_header.FrameWidth));
@@ -1303,6 +1306,7 @@ no_table:
 								dbg("##########the flag[1] is wrong  it equal %d#############\n" , internal_header_p->flag[1]);
 							}else{
 								dbg("############ok we find video internal header###########\n");
+								internal_header_p->flag[0] = internal_header_p->flag[1] = internal_header_p->flag[2] = internal_header_p->flag[3] = 0xff;
 							}
 						}
 						else{
@@ -1355,6 +1359,7 @@ no_table:
 								dbg("##########the flag[1] is wrong  it equal %d#############\n" , internal_header_p->flag[1]);
 							}else{
 								dbg("############ok we find video internal header###########\n");
+								internal_header_p->flag[0] = internal_header_p->flag[1] = internal_header_p->flag[2] = internal_header_p->flag[3] = 0xff;
 							}
 						}else
 							dbg("#############error we not find internal header##############\n");

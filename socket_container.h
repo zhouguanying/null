@@ -38,7 +38,7 @@ void close_socket(SOCKET_TYPE st , int socket);
 void get_cmd_socket(cmd_socket_t*fds , int *nums);
 void check_cmd_socket();
 int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_TYPE st , char is_lan);
-struct socket_container *get_socket_container(int cmdsocket);
+struct socket_container *get_socket_container(int cmdsocket , int waitsocket);
 int  close_socket_container(struct socket_container *sc);
 void clean_socket_container(unsigned long long who , int need_lock);
 

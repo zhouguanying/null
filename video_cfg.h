@@ -10,7 +10,7 @@
 
 #define CURR_VIDEO_CFG_VERSION		"1.0.3"
 
-#define APP_VERSION 					"version=5.6.1\n"
+#define APP_VERSION 					"version=5.6.2\n"
 #define UDP_SERVER_ADDR  				"udp.iped.com.cn"
 
 #define CFG_VERSION						"cfg_v"
@@ -68,5 +68,6 @@
 #define CFG_VALUE_NORMAL				 "normal"
 #define CFG_VALUE_INTELLIGENT			 "inteligent"
 
+extern const char app_version[10];
 
 #endif

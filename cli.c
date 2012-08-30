@@ -637,7 +637,7 @@ LOOP_START:
 			do_cli_alive();
 			gettimeofday(&last_alive_time , NULL);
 			//check_cmd_socket();
-			close_socket_container(get_socket_container(sockfd));
+			close_socket_container(get_socket_container(sockfd , 0));
 			sleep(1);
 			goto LOOP_START;
 		}
@@ -1055,7 +1055,7 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
 	struct socket_container *sc;
 	playback_t *pb;
 	char *r;
-	 sc = get_socket_container(cli_socket);
+	 sc = get_socket_container(cli_socket , 1);
 	 if(!sc){
 		dbg("error not found socket container\n");
 		g_cli_ctx->arg = NULL;
