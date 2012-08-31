@@ -10,7 +10,7 @@
 
 #define CURR_VIDEO_CFG_VERSION		"1.0.3"
 
-#define APP_VERSION 					"version=5.6.6\n"
+#define APP_VERSION 					"version=6.0.0\n"
 #define UDP_SERVER_ADDR  				"udp.iped.com.cn"
 
 #define CFG_VERSION						"cfg_v"
@@ -67,6 +67,11 @@
 
 #define CFG_VALUE_NORMAL				 "normal"
 #define CFG_VALUE_INTELLIGENT			 "inteligent"
+
+/*this file mark if this kernel is a encryption kernel or no encryption kernel 
+*encryption kernel if this file exist , otherwise no encryption kernel
+*/
+#define ENCRYPTION_FILE_PATH 	"/encryption"
 
 extern const char app_version[10];
 

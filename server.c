@@ -1306,6 +1306,7 @@ void  del_sess(struct sess_ctx *sess)
 	unsigned int system_f_size;
 	unsigned int __kernal_f_size;
 	unsigned int __system_f_size;
+	struct stat	st;
 
 	add_sess( sess);
 	take_sess_up( sess);
@@ -1330,11 +1331,21 @@ void  del_sess(struct sess_ctx *sess)
 		printf(" do update recv data too small\n");
 		goto exit;
 	}
-	/*version562 10bytes if it have this string*/
-	if(strncmp(buf , "version",7)==0)
+	/*version562 10bytes if it have this string , it mark the update file is a encryption file*/
+	if(strncmp(buf , "version",7)==0){
 		p = buf + 10;
-	else
+		if(stat(ENCRYPTION_FILE_PATH , &st)!=0){
+			printf("###############error no encryption kernal get a encryption update file#################\n");
+			goto exit;
+		}
+	}
+	else{
 	  	 p=buf;
+		 if(stat(ENCRYPTION_FILE_PATH , &st)==0){
+		 	printf("#################error encryption kernal get a no encyption update file###############\n");
+			goto exit;
+		 }
+	}
 	   cmd = *p;
 	   p++;
 	   memcpy(&__system_f_size , p , sizeof(__system_f_size));
@@ -1554,19 +1565,8 @@ void  del_sess(struct sess_ctx *sess)
 			goto exit;
 	   }
 exit:
-	if(reboot_flag){
-		system("reboot &");
-		exit(0);
-	}
-	if(sfp){
-		system("reboot &");
-		exit(0);
-	}
-	if(kfp){
-		system("reboot &");
-		exit(0);	
-	}
-	if(socket>=0){
+	if(reboot_flag||sfp||kfp||socket>=0){
+		clean_socket_container(0xffffffffffffffffULL, 1);
 		system("reboot &");
 		exit(0);
 	}

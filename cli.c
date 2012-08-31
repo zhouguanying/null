@@ -2501,9 +2501,15 @@ static char *cli_playback_set_status(struct sess_ctx *sess, char *arg)
 static char*GetVersion(int *rsp_len)
 {
 	char *buf;
-	*rsp_len = 10;
+	struct stat st;
 	buf = (char *)malloc(10);
-	memcpy(buf ,app_version , 10);
+	if(stat(ENCRYPTION_FILE_PATH , &st)==0){
+		*rsp_len = 10;
+		memcpy(buf ,app_version , 10);
+	}else{
+		*rsp_len = 3;
+		memcpy(buf , app_version + 7 , 3);
+	}
 	return buf;
 }
 static char* GetConfig(char* arg , int *rsp_len)
