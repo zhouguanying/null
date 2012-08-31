@@ -909,7 +909,7 @@ int main()
 				system(buf);
 			}
 		}
-
+		ioctl_usbdet_led(1);
 	open_hid:	
 		if((hid_fd = open("/dev/hidg0", O_RDWR)) != -1 && set_fl( hid_fd, O_NONBLOCK ) != -1 ){
 			while( 1 ){
