@@ -73,6 +73,6 @@
 */
 #define ENCRYPTION_FILE_PATH 	"/encryption"
 
-extern const char app_version[10];
+char *get_version_in_binary();
 
 #endif

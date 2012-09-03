@@ -2502,13 +2502,14 @@ static char*GetVersion(int *rsp_len)
 {
 	char *buf;
 	struct stat st;
-	buf = (char *)malloc(10);
+	buf= get_version_in_binary();
 	if(stat(ENCRYPTION_FILE_PATH , &st)==0){
 		*rsp_len = 10;
-		memcpy(buf ,app_version , 10);
 	}else{
 		*rsp_len = 3;
-		memcpy(buf , app_version + 7 , 3);
+		buf[0] = buf[7];
+		buf[1] = buf[8];
+		buf[2] = buf[9];
 	}
 	return buf;
 }
