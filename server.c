@@ -2285,6 +2285,7 @@ void *test_v4l2_restart(void *arg)
 	return NULL;
 }
 */
+#define NO_RECORD_FILE   "/data/norecord"
 int start_video_record(struct sess_ctx* sess)
 {
 	//const char *videodevice = "/dev/video0";
@@ -2353,6 +2354,7 @@ int start_video_record(struct sess_ctx* sess)
 	int size_count = 0;
 	int pic_to_alarm = 0;
 	int j;
+	struct stat st;
 	//char *audio_internal_header_p;
 	//char *video_internal_header_p;
 
@@ -2411,8 +2413,10 @@ int start_video_record(struct sess_ctx* sess)
 
 	//pthread_mutex_lock(&threadcfg.threadcfglock);
 	usec_between_image = 0;
-	if(strncmp(threadcfg.record_mode,"no_record",strlen("no_record")) ==0)
+	if(strncmp(threadcfg.record_mode,"no_record",strlen("no_record")) ==0){
 		record_mode = 0;
+		threadcfg.sdcard_exist = 0;
+	}
 	else if(strncmp(threadcfg.record_mode,"inteligent",strlen("inteligent")) ==0){
 		printf("record_mode ==inteligent , now we not support change to normal mode\n");
 		goto NORMAL_MODE;
@@ -2432,6 +2436,12 @@ int start_video_record(struct sess_ctx* sess)
 		usec_between_image=(unsigned long long )1000000/threadcfg.record_normal_speed;
 		//memcpy(record_resolution,threadcfg.resolution,32);
 	}
+	if(stat(NO_RECORD_FILE , &st)==0){
+		dbg("##############no record file found################\n");
+		threadcfg.sdcard_exist = 0;
+		record_mode = 0;
+	}
+	
 	record_normal_speed = threadcfg.record_normal_speed;
 	email_alarm = threadcfg.email_alarm;
 	sensitivity_index = threadcfg.record_sensitivity;
