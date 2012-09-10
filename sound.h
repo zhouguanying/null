@@ -39,7 +39,6 @@ char *new_get_sound_data(int sess_id, int * size);
 void reset_syn_buf();
 void set_syn_sound_data_clean(int sess_id);
 
-int test_sound_tcp_transport(struct sess_ctx * sess);
 int play_cop_sound_data(char *buffer,ssize_t length);
 int grab_sound_thread();
 int start_audio_monitor(struct sess_ctx*sess);

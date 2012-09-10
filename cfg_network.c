@@ -25,6 +25,11 @@
 #include "cfg_network.h"
 #include "server.h"
 
+#define dbg(fmt, args...)  \
+    do { \
+        printf(__FILE__ ": %s: " fmt , __func__, ## args); \
+    } while (0)
+
 char w_ssid[64];
 char w_key[64];
 
@@ -340,11 +345,15 @@ int set_dns(char  *dns1 , char *dns2)
 		return -1;
 	}
 	memset(buf,0,512);
-	sprintf(buf,"nameserver  %s\n",dns1);
-	fwrite(buf,1,strlen(buf),dnsfp);
+	if(dns1[0]){
+		sprintf(buf,"nameserver  %s\n",dns1);
+		fwrite(buf,1,strlen(buf),dnsfp);
+	}
 	memset(buf,0,512);
-	sprintf(buf,"nameserver  %s\n",dns2);
-	fwrite(buf,1,strlen(buf),dnsfp);
+	if(dns2[0]){
+		sprintf(buf,"nameserver  %s\n",dns2);
+		fwrite(buf,1,strlen(buf),dnsfp);
+	}
 	fflush(dnsfp);
 	fclose(dnsfp);
 	return 0;
@@ -372,12 +381,18 @@ int config_wifi()
 	}
 	if(stat("/data/wpa.conf",&st)<0)
 		system("cp /etc/wpa.conf  /data/wpa.conf");
-	system("mkdir /tmp/wpa_supplicant");
-	system("killall wpa_supplicant");
-	sleep(1);
-	system("wpa_supplicant -Dwext -iwlan0 -c/data/wpa.conf -B");
-	sleep(5);
 
+	system("ps -efww |grep wpa_supplicant | grep -v grep > /tmp/twpa");
+	if(stat("/tmp/twpa", &st)<0||st.st_size <=0){
+		printf("##########start wpa_supplicant############\n");
+		system("mkdir /tmp/wpa_supplicant");
+		system("killall wpa_supplicant");
+		sleep(1);
+		system("wpa_supplicant -Dwext -iwlan0 -c/data/wpa.conf -B");
+		sleep(5);
+	}
+	system("rm /tmp/twpa");
+	
 	memset(buf,0,256);
 	//extract_value(conf_p, lines, CFG_WLAN_SSID, 1, buf);
 	memcpy(buf ,w_ssid , sizeof(w_ssid));
@@ -586,11 +601,15 @@ int config_wifi()
 			//sprintf(argv[1],"0");
 			sprintf(argv[1],"%s",network_id);
 			sprintf(argv[2],"wep_key0");
-			sprintf(argv[3],"\"%s\"",buf);
+			sprintf(argv[3],"%s",buf);
 			printf("try wep_key0\n");
 			mywpa_cli(4,  argv );
 			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-				goto error;
+				memset(scanresult , 0 , 32);
+				sprintf(argv[3] , "\"%s\"",buf);
+				mywpa_cli(4 ,argv);
+				if(strncmp(scanresult,"OK",strlen("OK"))!=0)
+					goto error;
 			}
 		}
 
@@ -793,7 +812,45 @@ int get_netlink_status(const char *if_name)
 
  void cfg_network()
  {
+ 	int numssid;
  	char buf[512];
+	if(strncmp(threadcfg.inet_mode,"wlan_only",strlen("wlan_only"))==0
+		||strncmp(threadcfg.inet_mode,"inteligent",strlen("inteligent"))==0)
+	{
+		free(get_parse_scan_result(&numssid,NULL));
+		dbg("###############config wifi################\n");
+		if(config_wifi()<0)
+			return ;
+		if(!threadcfg.inet_udhcpc)
+		{
+			memset(buf,0,512);
+					
+			if(w_dns1[0]||w_dns2[0]){
+				set_dns(w_dns1, w_dns2);
+				memset(buf,0,512);
+				sprintf(buf,"ifconfig %s down",inet_wlan_device);
+				system(buf);
+				sleep(1);
+				sprintf(buf,"ifconfig %s up",inet_wlan_device);
+				system(buf);
+				sleep(1);
+			}
+			memset(buf,0,512);	
+			if(w_ip[0]&&w_mask[0]){
+				sprintf(buf,"ifconfig %s %s netmask %s",inet_wlan_device,w_ip, w_mask);
+				printf("before set ip and mask buf==%s\n",buf);
+				system(buf);
+				sleep(1);
+			}
+			memset(buf,0,512);
+			
+			printf("inet_wlan_gateway = %s\n",inet_wlan_gateway);
+			
+			sprintf(buf,"route add default   gw  %s  %s",inet_wlan_gateway,inet_wlan_device);
+			printf("before set gateway buf==%s\n",buf);
+			system(buf);
+		}
+	}
  	if(threadcfg.inet_udhcpc){
 		system("killall udhcpc");
 		if(strncmp(threadcfg.inet_mode,"eth_only",strlen("eth_only"))==0
@@ -812,99 +869,7 @@ int get_netlink_status(const char *if_name)
 			system(buf);
 		}
  	}
- 	/*
-	char buf[512];
-	system("killall udhcpc");
-	if(strncmp(threadcfg.inet_mode,"eth_only",strlen("eth_only"))==0
-		||strncmp(threadcfg.inet_mode,"inteligent",strlen("inteligent"))==0){
-		printf("------------configure eth----------------\n");
-			if(threadcfg.inet_udhcpc){
-			eth_dhcp:
-				memset(buf,0,512);
-				sprintf(buf,"udhcpc -i %s &",inet_eth_device);
-				system(buf);
-			}else{
-				if(e_dns1[0]||e_dns2[0]){
-					set_dns(e_dns1, e_dns2);
-					memset(buf,0,512);
-					sprintf(buf,"ifconfig %s down",inet_eth_device);
-					system(buf);
-					sleep(1);
-					sprintf(buf,"ifconfig %s up",inet_eth_device);
-					system(buf);
-					sleep(1);
-				}else{
-					printf("it is not dhcp mode but the dns is not set , something wrong\n");
-					goto eth_dhcp;
-				}
-				if(e_ip[0]&&e_mask[0]){
-					sprintf(buf,"ifconfig %s %s netmask %s",inet_eth_device,e_ip, e_mask);
-					printf("before set ip and mask buf==%s\n",buf);
-					system(buf);
-					sleep(1);
-				}else{
-					printf("it is not dhcp mode but the ip or mask not set , something wrong\n");
-					goto eth_dhcp;
-				}
-				printf("inet_eth_gateway = %s\n",inet_eth_gateway);
-				if(!inet_eth_gateway[0]){
-					printf("it is not dhcp mode but the gateway not set\n");
-				}else{
-					sprintf(buf,"route add default   gw  %s  %s",inet_eth_gateway,inet_eth_device);
-					printf("before set gateway buf==%s\n",buf);
-					system(buf);
-					sleep(1);
-				}
-			}
-	}
-	if(strncmp(threadcfg.inet_mode,"wlan_only",strlen("wlan_only"))==0
-		||strncmp(threadcfg.inet_mode,"inteligent",strlen("inteligent"))==0){
-		printf("------------configure wlan----------------\n");
-		if(config_wifi()<0){	
-			printf("configure wifi error check your data\n");
-		}else{
-			if(threadcfg.inet_udhcpc){
-			wlan_udhcpc:
-				memset(buf,0,512);
-				sprintf(buf,"udhcpc -i %s &",inet_wlan_device);
-				system(buf);
-			}else{
-				
-				if(w_dns1[0]||w_dns2[0]){
-					set_dns(w_dns1, w_dns2);
-					memset(buf,0,512);
-					sprintf(buf,"ifconfig %s down",inet_wlan_device);
-					system(buf);
-					sleep(1);
-					sprintf(buf,"ifconfig %s up",inet_wlan_device);
-					system(buf);
-					sleep(1);
-				}else{
-					printf("it is not dhcpc mode but the dns not set\n");
-					goto wlan_udhcpc;
-				}
-				
-				if(w_ip[0]&&w_mask[0]){
-					sprintf(buf,"ifconfig %s %s netmask %s",inet_wlan_device,w_ip, w_mask);
-					printf("before set ip and mask buf==%s\n",buf);
-					system(buf);
-					sleep(1);
-				}else{
-					printf("it is not udhcpc mode but the ip or mask not set\n");
-					goto wlan_udhcpc;
-				}
-				
-				printf("inet_wlan_gateway = %s\n",inet_wlan_gateway);
-				
-				sprintf(buf,"route add default   gw  %s  %s",inet_wlan_gateway,inet_wlan_device);
-				printf("before set gateway buf==%s\n",buf);
-				system(buf);
-				sleep(1);
-				
-			}
-		}
-	}
-	*/
+ 	
  }
 
 void *network_thread(void *arg)
@@ -921,7 +886,7 @@ void *network_thread(void *arg)
 			goto done;
 		cfg_network();
 	done:
-		sleep(60 *5);
+		sleep(5*60 );
 	}
 	return NULL;
 }
