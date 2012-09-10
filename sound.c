@@ -1558,38 +1558,7 @@ __error:
 		free(audiothreadparams.params);
 	return -1;
 }
-/*
-char* get_cop_sound_data(ssize_t *size)
-{
-	char *buffer;
-	int i;
-	int canuse=0;
-	*size=0;
-__retry:
-	pthread_mutex_lock(&audiothreadparams.cop_data_lock);
-	for(i=0;i<MAX_CONNECTIONS;i++){
-		if(audiothreadparams.readed_t[i]==0)
-			canuse=i;
-		else if(audiothreadparams.readed_t[i]==pthread_self()){
-			pthread_mutex_unlock(&audiothreadparams.cop_data_lock);
-			goto __readed;
-		}
-	}
-	buffer=malloc(audiothreadparams.cop_data_length);
-	if(!buffer){
-		pthread_mutex_unlock(&audiothreadparams.cop_data_lock);
-		return NULL;
-	}
-	memcpy(buffer,audiothreadparams.cop_data_buf,audiothreadparams.cop_data_length);
-	*size=audiothreadparams.cop_data_length;
-	audiothreadparams.readed_t[canuse]=pthread_self();
-	pthread_mutex_unlock(&audiothreadparams.cop_data_lock);
-	return buffer;
-__readed:
-	usleep(50);
-	goto __retry;
-}
-*/
+
 int play_cop_sound_data(char *buffer,ssize_t length)
 {/*
 	ssize_t r=0;
@@ -1635,24 +1604,7 @@ int play_cop_sound_data(char *buffer,ssize_t length)
 	*/
 	return 0;
 }
-/*
-int grab_sound_data()
-{
-	int r;
-	r=pcm_read((u_char*)audiothreadparams.rdthread.audiobuf,audiothreadparams.params->chunk_size);
-	if(r<0){
-		printf("grab sound data error\n");
-		return -1;
-	}
-	pthread_mutex_lock(&audiothreadparams.cop_data_lock);
-	r=amrcoder(audiothreadparams.rdthread.audiobuf, audiothreadparams.params->chunk_bytes, audiothreadparams.cop_data_buf, & audiothreadparams.cop_data_length,AMR_MODE,2);
-	memset(audiothreadparams.readed_t,0,sizeof(audiothreadparams.readed_t));
-	pthread_mutex_unlock(&audiothreadparams.cop_data_lock);
-	if(r<0)
-		return -1;
-	return 0;
-}
-*/
+
 char *new_get_sound_data(int sess_id , int *size)
 {
 	int us_pos;

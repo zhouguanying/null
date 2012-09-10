@@ -586,7 +586,7 @@ int config_wifi()
 			//sprintf(argv[1],"0");
 			sprintf(argv[1],"%s",network_id);
 			sprintf(argv[2],"wep_key0");
-			sprintf(argv[3],"%s",buf);
+			sprintf(argv[3],"\"%s\"",buf);
 			printf("try wep_key0\n");
 			mywpa_cli(4,  argv );
 			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
