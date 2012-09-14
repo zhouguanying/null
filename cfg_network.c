@@ -512,15 +512,27 @@ int config_wifi()
 	*/
 	//memset(buf,0,256);
 	//extract_value(conf_p, lines, "inet_wlan_key_mgmt", 1, buf);
-	printf("inet_wlan_key_mgmt = %s\n",key_mgmt);
-	sprintf(argv[0],"set_network");
-	sprintf(argv[1],"%s",network_id);
-	sprintf(argv[2],"key_mgmt");
-	sprintf(argv[3],"%s",key_mgmt);
-	printf("try key_mgmt\n");
-	mywpa_cli(4,  argv );
-	if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-		goto error;
+	if(key_mgmt[0]){
+		printf("inet_wlan_key_mgmt = %s\n",key_mgmt);
+		sprintf(argv[0],"set_network");
+		sprintf(argv[1],"%s",network_id);
+		sprintf(argv[2],"key_mgmt");
+		sprintf(argv[3],"%s",key_mgmt);
+		printf("try key_mgmt\n");
+		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
+	}else{
+		sprintf(argv[0],"set_network");
+		sprintf(argv[1],"%s",network_id);
+		sprintf(argv[2],"key_mgmt");
+		sprintf(argv[3],"NONE");
+		printf("try key_mgmt\n");
+		mywpa_cli(4,  argv );
+		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
+			goto error;
+		}
 	}
 
 	
@@ -591,7 +603,8 @@ int config_wifi()
 				goto error;
 			}
 		}
-	}else{
+	}
+	else if(strncmp(key_mgmt , "NONE",4)==0){
 		memset(buf,0,256);
 		//extract_value(conf_p, lines, CFG_WLAN_KEY, 1, buf);
 		memcpy(buf , w_key , sizeof(w_key));
