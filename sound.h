@@ -10,9 +10,9 @@ extern "C"
 *the video and audio record
 */
 #include "cli.h"
-#define NUM_BUFFERS           	10
-#define  SIZE_OF_AMR_PER_PERIOD  416
-#define STEP  128  /*the unit size write to buf each time*/
+#define NUM_BUFFERS           	100
+#define  SIZE_OF_AMR_PER_PERIOD  32
+#define  PERIOD_TO_WRITE_EACH_TIME	1
 
 /*before we send data we store sound data in 3 sec at first*/
 #define BOOT_SOUND_STORE_SIZE 8000
@@ -30,16 +30,28 @@ struct __syn_sound_buf{
 	char *cache; /*for the grab sound thread to use*/
 	char *absolute_start_addr; /*the absolute start address of buffer  */
 };
+
+typedef struct __play_sound_unit_buf{
+	int datalen;
+	int maxlen;
+	char *buf;
+}play_sound_unit_buf_t;
+
+struct play_sound_buf{
+	char *absolute_start_addr;
+	play_sound_unit_buf_t  p_sound_array[MAX_NUM_IDS];
+	char *cache;
+	int curr_play_pos;
+};
+
 int init_and_start_sound();
-
-char* get_cop_sound_data(ssize_t *size);
-int grab_sound_data();
-
 char *new_get_sound_data(int sess_id, int * size);
 void reset_syn_buf();
 void set_syn_sound_data_clean(int sess_id);
 
-int play_cop_sound_data(char *buffer,ssize_t length);
+int put_play_sound_data(int sess_id , char *buf , int len);
+char *get_play_sound_data(int * len);
+
 int grab_sound_thread();
 int start_audio_monitor(struct sess_ctx*sess);
 #ifdef __cplusplus
