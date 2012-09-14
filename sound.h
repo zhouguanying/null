@@ -40,8 +40,10 @@ typedef struct __play_sound_unit_buf{
 struct play_sound_buf{
 	char *absolute_start_addr;
 	play_sound_unit_buf_t  p_sound_array[MAX_NUM_IDS];
-	char *cache;
 	int curr_play_pos;
+	char *cache;
+	int cache_data_len;
+	int cache_play_pos;
 };
 
 int init_and_start_sound();

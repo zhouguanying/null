@@ -904,7 +904,8 @@ int init_and_start_sound(){
           	goto __error;
    	 }	
    	 */
-   	 
+
+	
    	 syn_buf.buffsize = NUM_BUFFERS * SIZE_OF_AMR_PER_PERIOD;
 	syn_buf.absolute_start_addr = (char *)malloc(syn_buf.buffsize);
 	if(!syn_buf.absolute_start_addr){
@@ -925,11 +926,12 @@ int init_and_start_sound(){
 	syn_buf.end = 0;
 	pthread_rwlock_init(&syn_buf.syn_buf_lock , NULL);
 
+
 	memset(&p_sound_buf , 0 ,sizeof(p_sound_buf));
 	p_sound_buf.absolute_start_addr = (char *)malloc(SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME*MAX_NUM_IDS);
 	if(!p_sound_buf.absolute_start_addr)
 		goto __error;
-	p_sound_buf.cache = (char *)malloc(SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME);
+	p_sound_buf.cache = (char *)malloc(SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME*MAX_NUM_IDS);
 	if(!p_sound_buf.cache)
 		goto __error;
 	for(i = 0 ; i < MAX_NUM_IDS ; i++){
@@ -938,6 +940,8 @@ int init_and_start_sound(){
 		p_sound_buf.p_sound_array[i].datalen = 0;
 	}
 	p_sound_buf.curr_play_pos = 0;
+	p_sound_buf.cache_data_len = 0;
+	p_sound_buf.cache_play_pos = 0;
 
 	init_amrdecoder();
 	
@@ -1081,24 +1085,52 @@ int put_play_sound_data(int sess_id , char *buf , int len)
 	return len;
 }
 
+int clear_play_sound_data(int sess_id)
+{
+	while(p_sound_buf.p_sound_array[sess_id].datalen>=p_sound_buf.p_sound_array[sess_id].maxlen)
+		usleep(1000);
+	if(p_sound_buf.p_sound_array[sess_id].datalen)
+		p_sound_buf.p_sound_array[sess_id].datalen = 0;
+	return 0;
+}
+
 char *get_play_sound_data(int *len)
 {
 	int i;
 	i = p_sound_buf.curr_play_pos;
+	p_sound_buf.cache_data_len = 0;
 	if(p_sound_buf.p_sound_array[i].datalen>=p_sound_buf.p_sound_array[i].maxlen)
-		goto FOUND;
+	{
+		memcpy(p_sound_buf.cache +p_sound_buf.cache_data_len, p_sound_buf.p_sound_array[i].buf , p_sound_buf.p_sound_array[i].datalen);
+		p_sound_buf.cache_data_len += p_sound_buf.p_sound_array[i].datalen;
+		p_sound_buf.p_sound_array[i].datalen = 0;
+	}
 	for( i = (i+1)%MAX_NUM_IDS; i !=p_sound_buf.curr_play_pos; i =( i+1)%MAX_NUM_IDS)
 	{
 		if(p_sound_buf.p_sound_array[i].datalen>=p_sound_buf.p_sound_array[i].maxlen)
-			goto FOUND;
+		{
+			memcpy(p_sound_buf.cache +p_sound_buf.cache_data_len, p_sound_buf.p_sound_array[i].buf , p_sound_buf.p_sound_array[i].datalen);
+			p_sound_buf.cache_data_len += p_sound_buf.p_sound_array[i].datalen;
+			p_sound_buf.p_sound_array[i].datalen = 0;
+		}
+	}
+	if(p_sound_buf.cache_data_len)
+	{
+		p_sound_buf.curr_play_pos = (p_sound_buf.curr_play_pos + 1)%MAX_NUM_IDS;
+		return p_sound_buf.cache;
 	}
 	return NULL;
-FOUND:
-	memcpy(p_sound_buf.cache , p_sound_buf.p_sound_array[i].buf , p_sound_buf.p_sound_array[i].datalen);
-	*len = p_sound_buf.p_sound_array[i].datalen;
-	p_sound_buf.curr_play_pos = (i + 1)%MAX_NUM_IDS;
-	p_sound_buf.p_sound_array[i].datalen = 0;
-	return p_sound_buf.cache;
+}
+
+int p_sound_buf_have_data()
+{
+	int i;
+	for(i = 0; i<MAX_NUM_IDS; i++)
+	{
+		if(p_sound_buf.p_sound_array[i].datalen>=p_sound_buf.p_sound_array[i].maxlen)
+			return 1;
+	}
+	return 0;
 }
 
 char *new_get_sound_data(int sess_id , int *size)
