@@ -2089,12 +2089,12 @@ int start_video_monitor(struct sess_ctx* sess)
 	take_sess_up( sess);
 	sess->ucount = 1;
 	socket = sess->sc->video_socket;
-	
+	/*
 	if(threadcfg.sound_duplex){
 		if (pthread_create(&tid, NULL, (void *) start_audio_monitor, sess) < 0) {
 			goto exit;
 		} 
-	}
+	}*/
 	attempts = 0;
 	for(;;){
 		buffer = get_video_data(&size);
@@ -2154,7 +2154,7 @@ exit:
 #define RECORD_STATE_SLOW	 	1
 #define RECORD_STATE_FAST		2
 #define RECORD_STATE_NORMAL	3
-extern struct __syn_sound_buf syn_buf;
+//extern struct __syn_sound_buf syn_buf;
 static nand_record_file_header *record_header;
 static nand_record_file_internal_header video_internal_header={
 		{0,0,0,1,0xc},
@@ -2232,6 +2232,7 @@ static inline void write_syn_sound(int *need_video_internal_head)
 	char *buf;
 	int ret;
 	int size;
+	return ;
 	if(!threadcfg.sdcard_exist)
 		return ;
 	*need_video_internal_head=0;

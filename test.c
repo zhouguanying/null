@@ -237,13 +237,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 		return -1;
 	} 
 	*/
-	
-	
-	if (pthread_create(&tid, NULL, (void *) grab_sound_thread, NULL) < 0) {
-		return -1;
-	} 
-	
-	
+	//start_sound_thread();
 	sleep(1);
 	if (pthread_create(&tid, NULL, (void *) start_video_record, system_sess) < 0) {
 		free_system_session(system_sess);
@@ -1675,12 +1669,21 @@ read_config:
 //	test_video_monitor(system_sess);
 //	uvc_test_main(1,NULL);
 
+	test_set_sound_card();
+/*
+      char *echo_argv[2];
+	echo_argv[0] = malloc(32);
+	echo_argv[1] = malloc(32);
+	sprintf(echo_argv[0] , "yyf_echo");
+	sprintf(echo_argv[1] , "-s");
+	yyf_echo(2, echo_argv);
+	return -1;
+*//*
 	if((init_and_start_sound())<0){
 		printf("start sound error\n");
 		return -1;
 	}
-	
-	test_set_sound_card();
+	*/
 
 	test_video_record_and_monitor(NULL);
 

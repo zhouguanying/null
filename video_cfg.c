@@ -15,3 +15,4 @@ char *get_version_in_binary()
 	v[9] = (char)v3;
 	return v;
 }
+
