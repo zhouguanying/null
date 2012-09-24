@@ -116,7 +116,7 @@ struct timeval writetime , aectime;
 */
 
 #define NN  160
-#define TAIL NN*10
+#define TAIL NN*4
 static inline void init_speex_echo()
 {
 	int sampleRate = DEFAULT_SPEED;
@@ -1274,7 +1274,7 @@ int start_play_sound_thread(struct sess_ctx * sess)
 	int sockfd = sess->sc->audio_socket;
 	sess->ucount ++;
 	size = 0;
-	sleep(3);
+	sleep(1);
 	for(;;){
 		if(!sess->running)
 			goto __exit;
@@ -1839,10 +1839,10 @@ void *handle_echo_buf_thead(void *arg)
 	
 	init_speex_echo();
 
-	FILE*mic_fp , *ref_fp , *out_fp;
-	mic_fp = fopen("/sdcard/mic.sw","w");
-	ref_fp = fopen("/sdcard/ref.sw","w");
-	out_fp = fopen("/sdcard/out.sw","w");
+	//FILE*mic_fp , *ref_fp , *out_fp;
+	//mic_fp = fopen("/sdcard/mic.sw","w");
+	//ref_fp = fopen("/sdcard/ref.sw","w");
+	//out_fp = fopen("/sdcard/out.sw","w");
 	for(;;)
 	{
 		while(echo_buf.mic_cancel_pos != echo_buf.mic_wrpos)
@@ -1854,12 +1854,12 @@ void *handle_echo_buf_thead(void *arg)
 			}
 			else
 			{
-				fwrite(echo_buf.mic_buf[echo_buf.mic_cancel_pos] , chunk_bytes ,1 , mic_fp);
-				fwrite(echo_buf.echo_buf[echo_buf.echo_cancel_pos] , chunk_bytes , 1 , ref_fp);
+				//fwrite(echo_buf.mic_buf[echo_buf.mic_cancel_pos] , chunk_bytes ,1 , mic_fp);
+				//fwrite(echo_buf.echo_buf[echo_buf.echo_cancel_pos] , chunk_bytes , 1 , ref_fp);
 				TwoCHtoOne((short *)(echo_buf.mic_buf[echo_buf.mic_cancel_pos]), mic_buf , chunk_size);
 				TwoCHtoOne((short *)(echo_buf.echo_buf[echo_buf.echo_cancel_pos]), ref_buf , chunk_size);
 				do_speex_echo( mic_buf,  ref_buf, (short*)(enc_data.p_in_buf), chunk_size);
-				fwrite(enc_data.p_in_buf , chunk_bytes/channels , 1 , out_fp);
+				//fwrite(enc_data.p_in_buf , chunk_bytes/channels , 1 , out_fp);
 				echo_buf.echo_cancel_pos++;
 				if(echo_buf.echo_cancel_pos>=ECHO_BUFFER_NUMS)
 					echo_buf.echo_cancel_pos = 0;

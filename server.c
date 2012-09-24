@@ -2089,12 +2089,12 @@ int start_video_monitor(struct sess_ctx* sess)
 	take_sess_up( sess);
 	sess->ucount = 1;
 	socket = sess->sc->video_socket;
-	/*
+	
 	if(threadcfg.sound_duplex){
 		if (pthread_create(&tid, NULL, (void *) start_audio_monitor, sess) < 0) {
 			goto exit;
 		} 
-	}*/
+	}
 	attempts = 0;
 	for(;;){
 		buffer = get_video_data(&size);

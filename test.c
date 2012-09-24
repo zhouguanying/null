@@ -237,7 +237,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 		return -1;
 	} 
 	*/
-	//start_sound_thread();
+	start_sound_thread();
 	sleep(1);
 	if (pthread_create(&tid, NULL, (void *) start_video_record, system_sess) < 0) {
 		free_system_session(system_sess);

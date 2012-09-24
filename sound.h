@@ -19,20 +19,20 @@ extern "C"
 #define DEFAULT_SPEED 		 8000 
 #define DEFAULT_CHANNELS	 2	
 #define CHAUNK_BYTES_MAX	 (4096*100)  
-#define PERIODS_SIZE 		2080
-#define PERIODS_PER_BUFFSIZE  8
+#define PERIODS_SIZE 		160
+#define PERIODS_PER_BUFFSIZE  128
 #define PCM_NAME			 "plughw:0,0"  
 #define AMR_MODE			7 
 
-#define ECHO_BUFFER_NUMS     50
+#define ECHO_BUFFER_NUMS     128
 
 /*
 * buffer to store sound for syn video and sound record 
 * also send sound thread will get sound from this buffer
 */
-#define NUM_BUFFERS           	10
-#define  SIZE_OF_AMR_PER_PERIOD  416
-#define  PERIOD_TO_WRITE_EACH_TIME	1
+#define NUM_BUFFERS           	128
+#define  SIZE_OF_AMR_PER_PERIOD  32
+#define  PERIOD_TO_WRITE_EACH_TIME	13
 /*before we send data we store sound data in 3 sec at first*/
 #define BOOT_SOUND_STORE_SIZE 8000
 typedef struct __sound_buf
