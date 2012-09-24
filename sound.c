@@ -115,8 +115,8 @@ int first_aec = 1;
 struct timeval writetime , aectime;
 */
 
-#define NN  80
-#define TAIL NN*4
+#define NN  160
+#define TAIL NN*10
 static inline void init_speex_echo()
 {
 	int sampleRate = DEFAULT_SPEED;
@@ -748,7 +748,187 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, int *bufsize)
          return 0;
  }
 
+static int init_handle(snd_pcm_t **handle, snd_pcm_stream_t stream)
+{
+    snd_pcm_hw_params_t *params = NULL;
+    int                  result = 0;
+    int                  r;
+    unsigned int         buffer_time;
+    unsigned int         period_time;
 
+    rate= 8000;
+   format = DEFAULT_FORMAT;
+    if (stream == SND_PCM_STREAM_PLAYBACK)
+        printf("@ playback stream:\n");
+    else if (stream == SND_PCM_STREAM_CAPTURE)
+        printf("@ capture stream:\n");
+
+    if ((r = snd_pcm_open(handle, "plughw:0,0", stream, 0)) < 0)
+    {
+        fprintf(stderr, "failed to open audio device (%s)\n",
+                snd_strerror(r));
+        *handle = NULL;
+        return -1;
+    }
+
+    if ((r = snd_pcm_hw_params_malloc(&params)) < 0)
+    {
+        fprintf(stderr, "failed to allocate hardware parameters (%s)\n",
+                snd_strerror(r));
+		snd_pcm_close(*handle);
+        *handle = NULL;
+        return -1;
+    }
+
+    if ((r = snd_pcm_hw_params_any(*handle, params)) < 0)
+    {
+        fprintf(stderr, "failed to initialize hardware parameters (%s)\n",
+                snd_strerror(r));
+        result = -1;
+        goto end;
+    }
+
+    if ((r = snd_pcm_hw_params_set_access(*handle, params,
+                 SND_PCM_ACCESS_RW_INTERLEAVED)) < 0)
+    {
+        fprintf(stderr, "cannot set access type (%s)\n",
+                snd_strerror(r));
+        result = -1;
+        goto end;
+    }
+
+    if ((r = snd_pcm_hw_params_set_format(*handle, params,
+                 SND_PCM_FORMAT_S16_LE)) < 0)
+    {
+        fprintf(stderr, "cannot set sample format (%s)\n",
+                snd_strerror(r));
+        result = -1;
+        goto end;
+    }
+
+    if ((r = snd_pcm_hw_params_set_rate_near(*handle, params,
+                 &rate, NULL)) < 0)
+    {
+        fprintf(stderr, "cannot set sample rate (%s)\n",
+                snd_strerror(r));
+        result = -1;
+        goto end;
+    }
+
+    if ((r = snd_pcm_hw_params_set_channels(*handle, params, 1)) < 0)
+    {
+        fprintf(stderr, "cannot set channel count (%s)\n",
+                snd_strerror(r));
+        result = -1;
+        goto end;
+    }
+
+    // get parameters
+
+    // If we were to xxx_get_period_size() here, it would return negative
+    // error code due to "the configuration space does not contain a
+    // single value". However, if we call xxx_get_period_size() after
+    // snd_pcm_hw_params(), we can get the actual value set into the
+    // handler. The same is true for other 3 functions that follow.
+    if ((r = snd_pcm_hw_params_get_period_size_min(params,
+                 &period_frames, NULL)) < 0)
+    {
+        fprintf(stderr, "cannot get period size (%s)\n",
+                snd_strerror(r));
+        result = -1;
+        goto end;
+    }
+    printf("==> min period frames: %li\n", period_frames);
+
+    if ((r = snd_pcm_hw_params_get_period_size_max(params,
+                 &period_frames, NULL)) < 0)
+    {
+        fprintf(stderr, "cannot get period size (%s)\n",
+                snd_strerror(r));
+        result = -1;
+        goto end;
+    }
+    printf("==> max period frames: %li\n", period_frames);
+
+    if ((r = snd_pcm_hw_params_get_buffer_size_min(params,
+                 &buffer_frames)) < 0)
+    {
+        fprintf(stderr, "cannot get buffer size (%s)\n",
+                snd_strerror(r));
+        result = -1;
+        goto end;
+    }
+    printf("==> min buffer frames: %li\n", buffer_frames);
+
+    if ((r = snd_pcm_hw_params_get_buffer_size_max(params,
+                 &buffer_frames)) < 0)
+    {
+        fprintf(stderr, "cannot get buffer size (%s)\n",
+                snd_strerror(r));
+        result = -1;
+        goto end;
+    }
+    printf("==> max buffer frames: %li\n", buffer_frames);
+
+    // It is recommended to use a frame size in the order of 20 ms
+    // (or equal to the codec frame size) and make sure it is easy
+    // to perform an FFT of that size (powers of two are better than
+    // prime sizes).
+    period_frames = PERIODS_SIZE ;
+    snd_pcm_hw_params_set_period_size(*handle, params, period_frames, 0);
+
+    // the max buffer frames
+    snd_pcm_hw_params_set_buffer_size(*handle, params, buffer_frames);
+
+    // After this call, snd_pcm_prepare() is called automatically and
+    // the stream is brought to SND_PCM_STATE_PREPARED state.
+    if ((r = snd_pcm_hw_params(*handle, params)) < 0)
+    {
+        fprintf(stderr, "cannot set parameters (%s)\n",
+                snd_strerror(r));
+        result = -1;
+        goto end;
+    }
+
+    if (stream == SND_PCM_STREAM_CAPTURE)
+    {
+        // period is a group of frames
+        snd_pcm_hw_params_get_period_size(params, &period_frames, NULL);
+        snd_pcm_hw_params_get_period_time(params, &period_time, NULL);
+        printf("period_frames: %li, period_time %i us\n",
+               period_frames, period_time);
+
+        snd_pcm_hw_params_get_buffer_size(params, &buffer_frames);
+        snd_pcm_hw_params_get_buffer_time(params, &buffer_time, NULL);
+        printf("buffer_frames: %li, buffer_time %i us\n",
+               buffer_frames, buffer_time);
+
+        snd_pcm_hw_params_get_rate(params, &rate, NULL);
+        printf("capture rate: %i\n", rate);
+
+	channels = 1;
+        chunk_bytes = period_frames * 2*channels;
+       // circular_size   = period_size * 256; // 65k buffer
+
+        //far_end_buffer  = circular_init(circular_size, period_size);
+       // near_end_buffer = circular_init(circular_size, period_size);
+      //  echo_buffer     = circular_init(circular_size, period_size);
+    }
+    else if (stream == SND_PCM_STREAM_PLAYBACK)
+    {
+        snd_pcm_hw_params_get_rate(params, &rate, NULL);
+        printf("playback rate: %i\n", rate);
+    }
+
+end:
+    snd_pcm_hw_params_free(params);
+    if (result == -1)
+    {
+		snd_pcm_close(*handle);
+        *handle = NULL;
+    }
+    return result;
+}
 /* I/O suspend handler */
 static int  xrun(snd_pcm_t*handle)
 {

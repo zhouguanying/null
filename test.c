@@ -1678,12 +1678,11 @@ read_config:
 	sprintf(echo_argv[1] , "-s");
 	yyf_echo(2, echo_argv);
 	return -1;
-*//*
+*/
 	if((init_and_start_sound())<0){
 		printf("start sound error\n");
 		return -1;
 	}
-	*/
 
 	test_video_record_and_monitor(NULL);
 
