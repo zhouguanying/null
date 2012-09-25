@@ -1,0 +1,8 @@
+* cmake
+* eliminate useless files & functions
+* eliminate warnings
+* static analysis
+* valgrind
+* pc version
+* github
+* error/statistics report, more info report
