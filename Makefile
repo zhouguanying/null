@@ -1,8 +1,8 @@
 
 CC=$(CROSS_COMPILE)gcc
 LD=$(CROSS_COMPILE)g++
-CFLAGS +=-Wall -c -mcpu=arm926ej-s -O2  -I/root/ipcam/alsa/include/
-LDFLAGS += -lpthread    -L/root/ipcam/alsa/lib/ -lasound   -ludt -L./ -lstdc\+\+ -L./ -lm -L./    -lspeexdsp -L./
+CFLAGS +=-Wall -c -mcpu=arm926ej-s -O2  -I./alsa/include/
+LDFLAGS += -lpthread    -L./alsa/lib/ -lasound   -ludt -L./ -lstdc\+\+ -L./ -lm -L./    -lspeexdsp -L./
 
 SRCS = $(wildcard *.c)
 OBJS = $(patsubst %c, %o, $(SRCS))
