@@ -114,7 +114,7 @@ int first_write = 1;
 int first_aec = 1;
 struct timeval writetime , aectime;
 */
-
+#define AEC_DELAY 3
 #define NN  160
 #define TAIL NN*4
 static inline void init_speex_echo()
@@ -372,8 +372,12 @@ int init_echo_buffer()
 	new_pos ++;
 	if(new_pos>=ECHO_BUFFER_NUMS)
 		new_pos= 0;
-	while(new_pos == echo_buf.echo_cancel_pos)
-		usleep(10000);
+	if(new_pos == echo_buf.echo_cancel_pos){
+		printf("echo buffer over run\n");
+		echo_buf.echo_cancel_pos++;
+		if(echo_buf.echo_cancel_pos>=ECHO_BUFFER_NUMS)
+			echo_buf.echo_cancel_pos = 0;
+	}
 	echo_buf.echo_wrpos = new_pos;
 }
 void put_mic_data(char *buf)
@@ -1156,7 +1160,7 @@ int init_and_start_sound(){
 
 	playback_buffer = (char *)malloc(chunk_bytes);
 	capture_buffer = (char *)malloc(chunk_bytes);
-	delay_buffer = (char *)malloc(chunk_bytes);
+	delay_buffer = (char *)malloc(chunk_bytes*AEC_DELAY);
   	if(!playback_buffer || !capture_buffer||!delay_buffer)
   	{
   		printf("cannot malloc buffer for playback and capture\n");
@@ -1274,7 +1278,7 @@ int start_play_sound_thread(struct sess_ctx * sess)
 	int sockfd = sess->sc->audio_socket;
 	sess->ucount ++;
 	size = 0;
-	sleep(1);
+	sleep(2);
 	for(;;){
 		if(!sess->running)
 			goto __exit;
@@ -1756,6 +1760,35 @@ void *write_sound_data(void *arg)
 	int frames;
 	snd_pcm_sframes_t   pdelay;
 	turn_on_speaker();
+	int n = 0;
+	int i;
+	CHP_MEM_FUNC_T mem_func;
+	CHP_AUD_ENC_INFO_T audio_info;
+	CHP_AUD_ENC_DATA_T enc_data;
+	CHP_U32 bl_handle;
+	CHP_RTN_T error_flag;
+	//int i;
+	mem_func.chp_malloc = (CHP_MALLOC_FUNC)malloc;
+	mem_func.chp_free = (CHP_FREE_FUNC)free;
+	mem_func.chp_memset = (CHP_MEMSET)memset;
+	mem_func.chp_memcpy = (CHP_MEMCPY)memcpy;
+	audio_info.audio_type = CHP_DRI_CODEC_AMRNB;
+	audio_info.bit_rate = 12200;
+	//audio_info.sample_rate = 8000;
+	//audio_info.sample_size = 16;
+	//audio_info.channel_mode = 1;
+	error_flag = amrnb_encoder_init( &mem_func, &audio_info, & bl_handle);
+	if(error_flag!=CHP_RTN_SUCCESS){
+		printf("error init new amr encoder\n");
+		exit(0);
+	}
+	enc_data.p_in_buf = malloc(chunk_bytes/channels);
+	enc_data.p_out_buf = syn_buf.cache;
+	enc_data.frame_cnt = SIZE_OF_AMR_PER_PERIOD /32;
+	enc_data.in_buf_len = chunk_bytes/channels;
+	enc_data.out_buf_len = SIZE_OF_AMR_PER_PERIOD;
+	enc_data.used_size = 0;
+	enc_data.enc_data_len = 0;
 	for(;;)
 	{
 		if(p_sound_buf.cache_play_pos >=p_sound_buf.cache_data_len)
@@ -1769,6 +1802,7 @@ void *write_sound_data(void *arg)
 				reset_pcm();
 				turn_on_speaker();
 				init_speex_echo();
+				n = AEC_DELAY;
 			}
 			amrdecoder(p_sound_buf.cache +p_sound_buf.cache_play_pos, SIZE_OF_AMR_PER_PERIOD,playback_buffer, &frames, channels);
 			p_sound_buf.cache_play_pos += SIZE_OF_AMR_PER_PERIOD;
@@ -1776,7 +1810,39 @@ void *write_sound_data(void *arg)
 				printf("pcm write error\n");
 				exit(0);
 			}
-			put_echo_data(playback_buffer);
+			if(n>0)
+			{
+				memcpy(delay_buffer+(AEC_DELAY-n)*chunk_bytes , playback_buffer , chunk_bytes);
+				n--;
+				if(n==0)
+				{
+					for(i = 0 ; i < AEC_DELAY ; i++)
+						put_echo_data(delay_buffer+i*chunk_bytes);
+				}
+			}else
+				put_echo_data(playback_buffer);
+			if(n>0)
+				goto no_aec;
+			else
+			{
+				if(echo_buf.mic_cancel_pos != echo_buf.mic_wrpos&&
+					echo_buf.echo_cancel_pos != echo_buf.echo_wrpos)
+				{
+					do_speex_echo((short *)(echo_buf.mic_buf[echo_buf.mic_cancel_pos]), 
+					(short *)(echo_buf.echo_buf[echo_buf.echo_cancel_pos]), (short*)(enc_data.p_in_buf), chunk_size);
+					echo_buf.echo_cancel_pos++;
+					if(echo_buf.echo_cancel_pos>=ECHO_BUFFER_NUMS)
+						echo_buf.echo_cancel_pos = 0;
+					echo_buf.mic_cancel_pos ++;
+					if(echo_buf.mic_cancel_pos >= ECHO_BUFFER_NUMS)
+						echo_buf.mic_cancel_pos = 0;
+					if(encode_and_syn_data( bl_handle, &enc_data)<0)
+					{
+						printf("encode and syn data error\n");
+						exit(0);
+					}
+				}
+			}
 		}
 		else
 		{
@@ -1787,10 +1853,23 @@ void *write_sound_data(void *arg)
 					printf("pcm write error\n");
 					exit(0);
 				}
+				printf("write silence\n");
 				destroy_speex_echo();
 				first_write = 1;
 			}
-			usleep(10000);
+			no_aec:
+			if(echo_buf.mic_cancel_pos != echo_buf.mic_wrpos)
+			{
+				TwoCHtoOne((short *)(echo_buf.mic_buf[echo_buf.mic_cancel_pos]), (short *)(enc_data.p_in_buf) , chunk_size);
+				if(encode_and_syn_data( bl_handle, &enc_data)<0)
+				{
+					printf("encode and syn data error\n");
+					exit(0);
+				}
+				echo_buf.mic_cancel_pos ++;
+				if(echo_buf.mic_cancel_pos >= ECHO_BUFFER_NUMS)
+					echo_buf.mic_cancel_pos = 0;
+			}
 		}
 	}
 	return NULL;
@@ -1826,17 +1905,17 @@ void *handle_echo_buf_thead(void *arg)
 	enc_data.used_size = 0;
 	enc_data.enc_data_len = 0;
 
-
+/*
 	ref_buf = (short *)malloc(chunk_bytes/channels);
 	mic_buf = (short *)malloc(chunk_bytes/channels);
 	//out_buf = (short *)malloc(chunk_bytes);
 	
-	if(!ref_buf||!mic_buf/*||!out_buf*/)
+	if(!ref_buf||!mic_buf)
 	{
 		printf("error malloc buff for new encoder\n");
 		exit(0);
 	}
-	
+	*/
 	init_speex_echo();
 
 	//FILE*mic_fp , *ref_fp , *out_fp;
@@ -1856,9 +1935,10 @@ void *handle_echo_buf_thead(void *arg)
 			{
 				//fwrite(echo_buf.mic_buf[echo_buf.mic_cancel_pos] , chunk_bytes ,1 , mic_fp);
 				//fwrite(echo_buf.echo_buf[echo_buf.echo_cancel_pos] , chunk_bytes , 1 , ref_fp);
-				TwoCHtoOne((short *)(echo_buf.mic_buf[echo_buf.mic_cancel_pos]), mic_buf , chunk_size);
-				TwoCHtoOne((short *)(echo_buf.echo_buf[echo_buf.echo_cancel_pos]), ref_buf , chunk_size);
-				do_speex_echo( mic_buf,  ref_buf, (short*)(enc_data.p_in_buf), chunk_size);
+				//TwoCHtoOne((short *)(echo_buf.mic_buf[echo_buf.mic_cancel_pos]), mic_buf , chunk_size);
+				//TwoCHtoOne((short *)(echo_buf.echo_buf[echo_buf.echo_cancel_pos]), ref_buf , chunk_size);
+				do_speex_echo((short *)(echo_buf.mic_buf[echo_buf.mic_cancel_pos]), 
+					(short *)(echo_buf.echo_buf[echo_buf.echo_cancel_pos]), (short*)(enc_data.p_in_buf), chunk_size);
 				//fwrite(enc_data.p_in_buf , chunk_bytes/channels , 1 , out_fp);
 				echo_buf.echo_cancel_pos++;
 				if(echo_buf.echo_cancel_pos>=ECHO_BUFFER_NUMS)
@@ -1880,9 +1960,8 @@ void *handle_echo_buf_thead(void *arg)
 }
 
 int start_sound_thread()
-{
+{/*
 	pthread_attr_t attr;
-	pthread_t tid;
 	struct sched_param param;
 	pthread_attr_init(&attr);
 	pthread_attr_setschedpolicy(&attr , SCHED_RR);
@@ -1890,12 +1969,15 @@ int start_sound_thread()
 	{
 		return -1;
 	}
-	pthread_attr_setschedparam(&attr , &param);
+	pthread_attr_setschedparam(&attr , &param);*/
+	pthread_t tid;
 	pthread_create(&capture_tid, NULL , read_sound_data , NULL);
 	pthread_create(&playback_tid ,NULL , write_sound_data , NULL);
-	if (pthread_create(&tid, &attr, (void *) handle_echo_buf_thead, NULL) < 0) {
+	/*
+	if (pthread_create(&tid, NULL, (void *) handle_echo_buf_thead, NULL) < 0) {
 		return -1;
 	} 
+	*/
 	return 0;
 }
 
