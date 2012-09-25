@@ -1,21 +1,3 @@
-/*
- * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
- *
- * Copyright (c) 2006, Chips & Media.  All rights reserved.
- * 
- * Author Erik Anvik "Au-Zone Technologies, Inc."  All rights reserved.
- * based on sampled Chips & Media demo application code base
- */
-
-/*
- * The code contained herein is licensed under the GNU Lesser General 
- * Public License.  You may obtain a copy of the GNU Lesser General 
- * Public License Version 2.1 or later at the following locations:
- *
- * http://www.opensource.org/licenses/lgpl-license.html
- * http://www.gnu.org/copyleft/lgpl.html
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -41,7 +23,6 @@ static struct camera_buf overlay_channel_buf[CAMERA_CHANNEL_BUFFER_NUM];
 
 int camera_open()
 {
-//	printf("%s: enter\n", __func__);
 	if(open_count == 0){
 		camera_fd = open("/dev/v4l/video0", O_RDWR);
 		if(camera_fd < 0){
@@ -52,7 +33,6 @@ int camera_open()
 		capture_on = 0;
 	}
 	open_count++;
-//	printf("%s: leave\n", __func__);
 	return camera_fd;
 }
 int camera_init_channel(camera_channel channel, int width, int height)
@@ -62,8 +42,6 @@ int camera_init_channel(camera_channel channel, int width, int height)
 	struct camera_buf* camera_buf;
 	struct v4l2_format format;
 	struct v4l2_requestbuffers request;
-
-//	printf("%s: enter\n", __func__);
 
 	//Set format
 	if(channel == capture_channel){
@@ -125,12 +103,9 @@ int camera_init_channel(camera_channel channel, int width, int height)
 		}
 	}
 	return 0;
-//	printf("%s: leave\n", __func__);
 }
 int camera_start_channel(camera_channel channel)
 {
-//	printf("%s: enter\n", __func__);
-	
 	if(channel == capture_channel){
 		if(capture_on == 0){
 			enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -151,7 +126,6 @@ int camera_start_channel(camera_channel channel)
 		}
 	}
 
-//	printf("%s: leave\n", __func__);
 	return 0;
 }
 int camera_stop_channel(camera_channel channel)
@@ -177,8 +151,6 @@ struct camera_buf* camera_get_data(camera_channel channel)
 	struct camera_buf* camera_buf;
 	struct v4l2_buffer buf;
 
-	//printf("%s: enter\n", __func__);
-	
 	memset(&buf, 0, sizeof(buf));
 	if(channel == capture_channel)
 		buf.type= V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -196,8 +168,6 @@ struct camera_buf* camera_get_data(camera_channel channel)
 	else
 		camera_buf = overlay_channel_buf;
 
-	//printf("%s: leave\n", __func__);
-	
 	return &camera_buf[buf.index]; 
 }
 
@@ -230,17 +200,13 @@ int camera_destroy_channel(camera_channel channel)
 
 int camera_close()
 {
-//	printf("%s: enter\n", __func__);
 	open_count--;
 	if(open_count == 0){
-		//camera_stop_channel(capture_channel);
-		//camera_stop_channel(overlay_channel);
 		close(camera_fd);
 		camera_fd = 0;
 		capture_on = 0;
 		overlay_on = 0;
 	}
 	return 0;
-//	printf("%s: leave\n", __func__);
 }
 

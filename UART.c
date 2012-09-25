@@ -1,4 +1,3 @@
-
 #include     <stdio.h>      /*标准输入输出定义*/
 #include     <stdlib.h>     /*标准函数库定义*/
 #include     <unistd.h>     /*Unix 标准函数定义*/
@@ -14,42 +13,9 @@
 
 //******************************************************************
 
-#if	0
-struct termio
-{	unsigned short  c_iflag;		/* 输入模式标志 */	
-	unsigned short  c_oflag;		/* 输出模式标志 */	
-	unsigned short  c_cflag;		/* 控制模式标志*/	
-	unsigned short  c_lflag;		/* local mode flags */	
-	unsigned char  c_line;		    	/* line discipline */	
-	unsigned char  c_cc[NCC];    	/* control characters */
-};
-/*      Termios成员中共定义
-c_cflag 控制项 c_lflag 线路项 
-c_iflag 输入项 c_oflag 输出项 
-c_cc 控制字符
-c_ispeed 输入波特 c_ospeed 输出波特 
-*/
-//------------------------------------------------------------------
-int tcgetattr(int fd, struct termios *termios_p);
-int tcsetattr(int fd, int optional_actions, struct termios *termios_p); 
-int tcsendbreak(int fd, int duration); 
-int tcdrain(int fd); 
-int tcflush(int fd, int queue_selector); 
-int tcflow(int fd, int action); 
-int cfmakeraw(struct termios *termios_p); 
-speed_t cfgetispeed(struct termios *termios_p); 
-speed_t cfgetospeed(struct termios *termios_p); 
-int cfsetispeed(struct termios *termios_p, speed_t speed); 
-int cfsetospeed(struct termios *termios_p, speed_t speed); 
-
-#endif
-//***************************************************************************
-
 #define	TRUE	0
 #define	FALSE	-1
 
-//#define	perror	printf
-//#define	fprintf	printf
 //---------------------------------------------------------------------------
 /***@brief  设置串口通信速率
 *@param  fd     类型 int  打开串口的文件句柄
@@ -197,20 +163,6 @@ static	int 	set_Parity(int fd,int databits,int stopbits,int parity)
 //ICRNL   : map CR to NL (otherwise a CR input on the other computer will not  
 //CRTSCTS : 输出硬件流控(只能在具完整线路的缆线下工作，参考 Serial-HOWTO 第七节)
 //---------------------------------------------------------------------------
-	#if	0
-	options.c_iflag &= ~(IGNBRK | IGNCR | INLCR | ICRNL | IUCLC );
-   	options.c_iflag |= (BRKINT | IGNPAR);
-    	options.c_lflag &= ~(XCASE|ECHONL|NOFLSH);
-	#endif
-	
-	#if	0
-	options.c_cflag |=   CRTSCTS | CLOCAL | CREAD;
-	options.c_iflag = IGNPAR;
-	options.c_oflag = 0;
-	options.c_lflag = 0;       		//ICANON;
-	options.c_cc[VMIN]=1;
-	options.c_cc[VTIME]=0;
-	#endif
 //-------------------------------------------------------------------------------
 
 	tcflush(fd,TCIFLUSH); 
@@ -268,7 +220,6 @@ int	UartWrite(char *buffer, int length)
 }
 #else
 
-#if	1
 extern	int	write_ptz(char *buffer, int length);
 extern	int	read_ptz(char *buffer, int length);
 
@@ -281,9 +232,6 @@ int	UartWrite(char *buffer, int length)
 
 }
 extern	int	UartWrite(char *buffer, int length);
-#else
-extern	int	UartWrite(char *buffer, int length);
-#endif
 
 #endif
 //==================================================

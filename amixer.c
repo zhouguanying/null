@@ -1,23 +1,3 @@
-/*
- *   ALSA command line mixer utility
- *   Copyright (c) 1999-2000 by Jaroslav Kysela <perex@perex.cz>
- *
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
- *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
- *
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,87 +36,7 @@ static void error(const char *fmt,...)
 	fprintf(stderr, "\n");
 	va_end(va);
 }
-/*
-static int help(void)
-{
-	printf("Usage: amixer <options> [command]\n");
-	printf("\nAvailable options:\n");
-	printf("  -h,--help       this help\n");
-	printf("  -c,--card N     select the card\n");
-	printf("  -D,--device N   select the device, default '%s'\n", card);
-	printf("  -d,--debug      debug mode\n");
-	printf("  -n,--nocheck    do not perform range checking\n");
-	printf("  -v,--version    print version of this program\n");
-	printf("  -q,--quiet      be quiet\n");
-	printf("  -i,--inactive   show also inactive controls\n");
-	printf("  -a,--abstract L select abstraction level (none or basic)\n");
-	printf("  -s,--stdin      Read and execute commands from stdin sequentially\n");
-	printf("\nAvailable commands:\n");
-	printf("  scontrols       show all mixer simple controls\n");
-	printf("  scontents	  show contents of all mixer simple controls (default command)\n");
-	printf("  sset sID P      set contents for one mixer simple control\n");
-	printf("  sget sID        get contents for one mixer simple control\n");
-	printf("  controls        show all controls for given card\n");
-	printf("  contents        show contents of all controls for given card\n");
-	printf("  cset cID P      set control contents for one control\n");
-	printf("  cget cID        get control contents for one control\n");
-	return 0;
-}
 
-static int info(void)
-{
-	int err;
-	snd_ctl_t *handle;
-	snd_mixer_t *mhandle;
-	snd_ctl_card_info_t *info;
-	snd_ctl_elem_list_t *clist;
-	snd_ctl_card_info_alloca(&info);
-	snd_ctl_elem_list_alloca(&clist);
-	
-	if ((err = snd_ctl_open(&handle, card, 0)) < 0) {
-		error("Control device %s open error: %s", card, snd_strerror(err));
-		return err;
-	}
-	
-	if ((err = snd_ctl_card_info(handle, info)) < 0) {
-		error("Control device %s hw info error: %s", card, snd_strerror(err));
-		return err;
-	}
-	printf("Card %s '%s'/'%s'\n", card, snd_ctl_card_info_get_id(info),
-	       snd_ctl_card_info_get_longname(info));
-	printf("  Mixer name	: '%s'\n", snd_ctl_card_info_get_mixername(info));
-	printf("  Components	: '%s'\n", snd_ctl_card_info_get_components(info));
-	if ((err = snd_ctl_elem_list(handle, clist)) < 0) {
-		error("snd_ctl_elem_list failure: %s", snd_strerror(err));
-	} else {
-		printf("  Controls      : %i\n", snd_ctl_elem_list_get_count(clist));
-	}
-	snd_ctl_close(handle);
-	if ((err = snd_mixer_open(&mhandle, 0)) < 0) {
-		error("Mixer open error: %s", snd_strerror(err));
-		return err;
-	}
-	if (smixer_level == 0 && (err = snd_mixer_attach(mhandle, card)) < 0) {
-		error("Mixer attach %s error: %s", card, snd_strerror(err));
-		snd_mixer_close(mhandle);
-		return err;
-	}
-	if ((err = snd_mixer_selem_register(mhandle, smixer_level > 0 ? &smixer_options : NULL, NULL)) < 0) {
-		error("Mixer register error: %s", snd_strerror(err));
-		snd_mixer_close(mhandle);
-		return err;
-	}
-	err = snd_mixer_load(mhandle);
-	if (err < 0) {
-		error("Mixer load %s error: %s", card, snd_strerror(err));
-		snd_mixer_close(mhandle);
-		return err;
-	}
-	printf("  Simple ctrls  : %i\n", snd_mixer_get_count(mhandle));
-	snd_mixer_close(mhandle);
-	return 0;
-}
-*/
 static const char *control_iface(snd_ctl_elem_id_t *id)
 {
 	return snd_ctl_elem_iface_name(snd_ctl_elem_id_get_interface(id));
@@ -166,27 +66,6 @@ static const char *control_access(snd_ctl_elem_info_t *info)
 
 #define check_range(val, min, max) \
 	(no_check ? (val) : ((val < min) ? (min) : (val > max) ? (max) : (val))) 
-#if 0
-static int convert_range(int val, int omin, int omax, int nmin, int nmax)
-{
-	int orange = omax - omin, nrange = nmax - nmin;
-	
-	if (orange == 0)
-		return 0;
-	return rint((((double)nrange * ((double)val - (double)omin)) + ((double)orange / 2.0)) / ((double)orange + (double)nmin));
-}
-#endif
-
-#if 0
-static int convert_db_range(int val, int omin, int omax, int nmin, int nmax)
-{
-	int orange = omax - omin, nrange = nmax - nmin;
-	
-	if (orange == 0)
-		return 0;
-	return rint((((double)nrange * ((double)val - (double)omin)) + ((double)orange / 2.0)) / (double)orange + (double)nmin);
-}
-#endif
 
 /* Fuction to convert from volume to percentage. val = volume */
 
@@ -216,19 +95,6 @@ static const char *get_percent(int val, int min, int max)
 	sprintf(str, "%i [%i%%]", val, p);
 	return str;
 }
-
-#if 0
-static const char *get_percent1(int val, int min, int max, int min_dB, int max_dB)
-{
-	static char str[32];
-	int p, db;
-
-	p = convert_prange(val, min, max);
-	db = convert_db_range(val, min, max, min_dB, max_dB);
-	sprintf(str, "%i [%i%%] [%i.%02idB]", val, p, db / 100, abs(db % 100));
-	return str;
-}
-#endif
 
 static long get_integer(char **ptr, long min, long max)
 {
@@ -863,13 +729,6 @@ static int show_selem(snd_mixer_t *handle, snd_mixer_selem_id_t *id, const char 
 		        (snd_mixer_selem_is_capture_mono(elem) || 
 			 (!snd_mixer_selem_has_capture_volume(elem) &&
 			  !snd_mixer_selem_has_capture_switch(elem)));
-#if 0
-		printf("pmono = %i, cmono = %i (%i, %i, %i, %i)\n", pmono, cmono,
-				snd_mixer_selem_has_capture_channel(elem, SND_MIXER_SCHN_MONO),
-				snd_mixer_selem_is_capture_mono(elem),
-				snd_mixer_selem_has_capture_volume(elem),
-				snd_mixer_selem_has_capture_switch(elem));
-#endif
 		if (pmono || cmono) {
 			if (!mono_ok) {
 				printf("%s%s:", space, "Mono");
@@ -2041,8 +1900,6 @@ int alsa_set_volume(int value)
 	free(argv[1]);
 	free(argv[2]);
 	volume_percent = -1;
-	//usleep(1000);
-	//controls(LEVEL_BASIC | level) ;
 	return 0;
 }
 

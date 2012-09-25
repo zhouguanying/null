@@ -143,22 +143,11 @@ int	PELCO_P_frame(char *buffer, int address, int command)
 	*buffer++ = 0xAF ;
 
 
-	#if	0
-	pCheck += 1;
-	check = 0;
-	for(i=0; i<5; i++) {
-		check ^= *pCheck++;
-	}
-	*buffer++ = check ;
-	
-	#else
-	//pCheck += 1;
 	check = 0;
 	for(i=0; i<7; i++) {
 		check ^= *pCheck++;
 	}
 	*buffer++ = check ;	
-	#endif
 
 
 	return 	8 ;

@@ -78,115 +78,6 @@ static inline char * gettimestamp()
                 curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
 	 return timestamp;
 }
-/*
-int test_file_write()
-{
-	int i,j; 
-	int * p;
-	char* buf;
-	int ret;
-
-	buf = malloc(BUF_SIZE);
-	if( !buf ){
-		printf("malloc buf error\n");
-		return -1;
-	}
-
-#if 1
-		for( i = 0; i < 1000; i++ ){
-			p = (int*)buf;
-			for( j = 0; j < BUF_SIZE/4; j++ ){
-				p[j] = i;
-			}
-	retry:
-			ret = nand_write(buf, BUF_SIZE);
-		//	dbg("ret=%d\n",ret);
-			if( ret == 0 ){
-		//		dbg("record_file_size=%d\n",record_file_size);
-			}
-			else if( ret == VS_MESSAGE_NEED_START_HEADER ){
-				nand_prepare_record_header(&record_header);
-				nand_write_start_header(&record_header);
-				goto retry;
-			}
-			else if( ret == VS_MESSAGE_NEED_END_HEADER ){
-				nand_prepare_close_record_header(&record_header);
-				nand_write_end_header(&record_header);
-				goto retry;
-			}
-		}
-		nand_prepare_close_record_header(&record_header);
-		nand_write_end_header(&record_header);
-		nand_write(buf, BUF_SIZE);
-		nand_flush();
-#endif
-#if 0
-		int fd;
-		FILE* fp;
-		fd = open("/sdcard/ipcam_record/RECORD1.DAT", O_RDWR|O_CREAT);
-		if( fd == -1 ){
-			printf("open file error\n");
-			return -1;
-		}
-		for( i = 0; i < 1024*100; i++ ){
-			write(fd, buf, BUF_SIZE);
-		}
-		close(fd);
-#endif
-	return 0;
-}
-
-int test_jpeg_file_write()
-{
-	int ret;
-	char* buf;
-	int i; 
-	int fd;
-	struct stat st;
-
-	fd = open(test_jpeg_file, O_RDONLY);
-	if(fd==-1){
-		printf("can not open input file\n");
-		return -1;
-	}
-	
-	if (stat(test_jpeg_file, &st) != 0) {
-		return -1;
-	}
-	buf = malloc(st.st_size);
-	if( !buf ){
-		printf("malloc buf error\n");
-		return -1;
-	}
-	read( fd, buf, st.st_size );
-	close( fd );
-
-	for( i = 0; i < 5000; i++ ){
-retry:
-		ret = nand_write(buf, st.st_size);
-	//	dbg("ret=%d\n",ret);
-		if( ret == 0 ){
-	//		dbg("record_file_size=%d\n",record_file_size);
-		}
-		else if( ret == VS_MESSAGE_NEED_START_HEADER ){
-			nand_prepare_record_header(&record_header);
-			nand_write_start_header(&record_header);
-			goto retry;
-		}
-		else if( ret == VS_MESSAGE_NEED_END_HEADER ){
-			nand_prepare_close_record_header(&record_header);
-			nand_write_end_header(&record_header);
-			goto retry;
-		}
-	}
-	nand_prepare_close_record_header(&record_header);
-	nand_write_end_header(&record_header);
-
-	return 0;
-
-}
-
-*/
 
 int test_cli(struct sess_ctx* system_sess)
 {
@@ -230,12 +121,6 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 		exit (0);
 	}
 	
-	/*
-	if (pthread_create(&tid, NULL, (void *) start_video_monitor, system_sess) < 0) {
-		free_system_session(system_sess);
-		return -1;
-	} 
-	*/
 	start_sound_thread();
 	sleep(1);
 	if (pthread_create(&tid, NULL, (void *) start_video_record, system_sess) < 0) {
@@ -246,14 +131,6 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 		free_system_session(system_sess);
 		return -1;
 	} 
-	/*
-	if(strncmp(threadcfg.inet_mode,"inteligent",strlen("inteligent"))==0){
-		if (pthread_create(&tid, NULL, (void *) check_net_thread, NULL) < 0) {
-			printf("unable to create check net thread\n");
-			return -1;
-		} 
-	}
-	*/
 	playback_init();
 	printf("video monitor and record is running\n");
 	start_udt_lib();
@@ -268,25 +145,6 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 		return -1;
 	} 
 	
-	/*
-	sleep(1);
-	in_addr_t to;
-	to = inet_addr("192.168.1.121");
-	audiosess_add_dstaddr(to,htons(49150),htons(49151));
-	*/
-	
-
-/*	
-#define MONITOR 0
-#if MONITOR
-	monitor_try_connected_thread();
-#else
-	if( start_udp_transfer()<0){
-		printf("start_udp_transfer error\n");
-		exit(0);
-	}
-#endif
-*/
 	msg.msg_type = VS_MESSAGE_ID;
 	msg.msg[0] = VS_MESSAGE_MAIN_PROCESS_START;
 	msg.msg[1] = 0;
@@ -512,9 +370,6 @@ int set_system_time(char * time)
 	timep = mktime(&_tm);
 	tv.tv_sec = timep;
 	tv.tv_usec = 0;
-	//vs_msg_update_system_time();
-	//sleep(5);
-	//tv.tv_sec+=3;
 	if(settimeofday(&tv , NULL)<0){
 		printf("settime fail\n");
 		return -1;
@@ -598,21 +453,6 @@ int set_raw_config_value(char * buffer)
 			s++;
 		if(strncmp(name,"system_time",strlen("system_time"))==0)
 			/*set_system_time(value)*/;
-		/*
-		else if(strncmp(name, CFG_PSWD ,strlen(CFG_PSWD))==0){
-			printf("#################we found pswd now set it###############\n");
-			printf("############pswd=%s################\n",value);
-			if(strlen(value)!=0){
-				FILE*pswdfp = fopen(PASSWORD_FILE , "w");
-				if(pswdfp){
-					fwrite(value,1,strlen(value),pswdfp);
-					fclose(pswdfp);
-					printf("##################set pswd ok##############\n");
-				}else{
-					printf("##################set pswd fail#################\n");
-				}
-			}
-		}*/
 		else
 			set_value(conf_p,lines, name, 1,  value);
 	}
@@ -711,13 +551,6 @@ int prepare_record()
 	fclose(fp);
 	usleep(50000);
 	system("rm /tmp/sdcard_mount");
-	/*
-	if(stat("/sdcard/ipcam_record",&st)==0){
-		dbg("rm ipcam_record\n");
-		system("rm -rf /sdcard/ipcam_record");
-		system("sync");
-	}
-	*/
 	s=buf;
 	while(*s&&(*s==' '||*s=='\t'))s++;
 	if(!*s){
@@ -762,8 +595,6 @@ int prepare_record()
 	dbg("prepare record file ok\n");
 	for(i=0;i<3;i++)
 		free(argv[i]);
-	//system("mount -t auto /dev/mmcblk0p1 /sdcard/");
-	//sleep(10);
 	return 0;
 }
 
@@ -836,11 +667,6 @@ int main()
 	char *ip=NULL;
 	char *mask=NULL;
 	
-	//sleep(1);
-	//signal(SIGINT , sig_handle);
-	/*dbg malloc*/
-	//init_mem_hook();
-
 	if( open_usbdet() != 0 ){
 		printf("open usb detect error\n");
 		return -1;
@@ -860,8 +686,6 @@ int main()
 		char *s;
 		int i;
 		int ret;
-		//unsigned long long sd_maxsize;
-		//unsigned long long sd_freesize;
 		int cmd;
 		int size;
 		char *hid_buf;
@@ -1266,17 +1090,8 @@ read_config:
 
 		read_pswd();
 		
-		//extract_value(conf_p, lines, "name", 1, threadcfg.name);
-		//printf("name = %s\n",threadcfg.name);
-
 		sprintf(threadcfg.name,"ipcam");
 
-		//extract_value(conf_p, lines, CFG_PSWD, 1, threadcfg.password);
-		//printf("password = %s\n",threadcfg.password);
-
-		//extract_value(conf_p, lines, "server_addr", 1, threadcfg.server_addr);
-		//printf("server_addr = %s\n",threadcfg.server_addr);
-		
 		sprintf(threadcfg.server_addr , UDP_SERVER_ADDR);
 		
 		extract_value(conf_p, lines, CFG_MONITOR_MODE , 1, threadcfg.monitor_mode);
@@ -1388,25 +1203,11 @@ read_config:
 
 		if(threadcfg.record_slow_speed<1||threadcfg.record_slow_speed>25)
 			threadcfg.record_slow_speed = 1;
-		/*
-		extract_value(conf_p, lines, "record_slow_resolution", 1, threadcfg.record_slow_resolution);
-		printf("record_slow_resolution = %s\n",threadcfg.record_slow_resolution);
-		
-		if(!(int)threadcfg.record_slow_resolution[0])
-			sprintf(threadcfg.record_slow_resolution,"qvga");
-		*/
 		extract_value(conf_p, lines, CFG_RECORD_FAST_SPEED, 0, (void *)&threadcfg.record_fast_speed);
 		printf("record_fast_speed = %d\n",threadcfg.record_fast_speed);
 
 		if(threadcfg.record_fast_speed<1||threadcfg.record_fast_speed>25)
 			threadcfg.record_fast_speed = 25;
-		/*
-		extract_value(conf_p, lines, "record_fast_resolution", 1, threadcfg.record_fast_resolution);
-		printf("record_fast_resolution = %s\n",threadcfg.record_fast_resolution);
-		
-		if(!(int)threadcfg.record_fast_resolution[0])
-			sprintf(threadcfg.record_fast_resolution,"vga");
-		*/
 		extract_value(conf_p, lines, CFG_RECORD_FAST_DURATION, 0, (void *)&threadcfg.record_fast_duration);
 		printf("record_fast_duration = %d\n",threadcfg.record_fast_duration);
 
@@ -1663,21 +1464,8 @@ read_config:
 		printf("open disk error\n");
 	}
 
-//	test_jpeg_file_write();
-//	test_cli(system_sess);
-//	test_video_monitor(system_sess);
-//	uvc_test_main(1,NULL);
 
 	test_set_sound_card();
-/*
-      char *echo_argv[2];
-	echo_argv[0] = malloc(32);
-	echo_argv[1] = malloc(32);
-	sprintf(echo_argv[0] , "yyf_echo");
-	sprintf(echo_argv[1] , "-s");
-	yyf_echo(2, echo_argv);
-	return -1;
-*/
 	if((init_and_start_sound())<0){
 		printf("start sound error\n");
 		return -1;

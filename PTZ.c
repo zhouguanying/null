@@ -146,66 +146,6 @@ int		ptzGetCommand(int *com)	//从ETHERNET 获得一个有效命令
 }
 //*************************************************************************
 
-#if	0
-// PTZ 应用程序
-int	PTZ(void)
-{
-	char	temp[100] ;
-	int	com = UP;
-	
-	ptzOpen();			// 打开RS485 设备,指向默认的目标设备
-
-
-
-
-	ptzDest(RS485_ADDRESS, PELCO_P);	//设置通讯对象的RS485 地址与通讯协议	
-
-	return;
-	
-	while(0){
-		while(0){
-    			if( ptzGetCommand(&com) )	{
-					ptzCommand(com);	//发送命令
-    			}
-		}
-
-		if( !( (com==SET_PRESET)||(com==DEL_PRESET)||(com==SET_PRESET95)||(com==DEL_PRESET95) ) )
-		{
-			printf("press any key to send command : %d \n",com);
- 	   		getchar();	
-			ptzCommand(com);	//发送命令
-		
-		
-			printf("press any key to stop \n");
- 	   		getchar();	
- 	   		ptzCommand(STOP);				//让停止转动
-		}
-		
- 	   	com ++;
-		if(com > 25 ) com = 0 ;
-
-	}
-
-	while(1){
-			printf("press  key to send command :d+d+enter  \n");
- 	   		gets(temp);
-			com = atoi(temp);
-			if( !( (com==SET_PRESET)||(com==DEL_PRESET)||(com==SET_PRESET95)||(com==DEL_PRESET95) ) ){
-				printf("send command :%d  \n", com);
-				ptzCommand(com);	//发送命令
-			}
-			
-	}
-
-	
-	ptzClose();		// 关闭
-	return 0;
-}
-
-//****************************************************************************
-
-#else
-
 
 
 #include     <stdio.h>      /*标准输入输出定义*/
@@ -310,6 +250,4 @@ int	PTZ(void)
 }
 
 //****************************************************************************
-
-#endif
 

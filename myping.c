@@ -57,12 +57,6 @@ void statistics(int signo)
    close(sockfd);
    exit(1);
 }
-/*
-int device_cmp()
-{
-	return (strncmp(curr_device,device,strlen(curr_device)));
-}
-*/
 /*校验和算法*/
 unsigned short cal_chksum(unsigned short *addr,int len)
 {

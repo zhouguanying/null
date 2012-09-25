@@ -394,7 +394,6 @@ int config_wifi()
 	system("rm /tmp/twpa");
 	
 	memset(buf,0,256);
-	//extract_value(conf_p, lines, CFG_WLAN_SSID, 1, buf);
 	memcpy(buf ,w_ssid , sizeof(w_ssid));
 	printf("inet_wlan_ssid = %s\n",buf);
 	if(!buf[0]){
@@ -493,25 +492,6 @@ int config_wifi()
 	if(strncmp(scanresult,"OK",strlen("OK"))!=0){
 		goto error;
 	}
-	/*
-	memset(buf,0,256);
-	extract_value(conf_p, lines, "inet_wlan_mode", 1, buf);
-	printf("inet_wlan_mode = %s\n",buf);
-	if(buf[0]){
-		sprintf(argv[0],"set_network");
-		//sprintf(argv[1],"0");
-		sprintf(argv[1],"%s",network_id);
-		sprintf(argv[2],"mode");
-		sprintf(argv[3],"%s",buf);
-		printf("try mode\n");
-		mywpa_cli(4,  argv );
-		if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-			goto error;
-		}
-	}
-	*/
-	//memset(buf,0,256);
-	//extract_value(conf_p, lines, "inet_wlan_key_mgmt", 1, buf);
 	if(key_mgmt[0]){
 		printf("inet_wlan_key_mgmt = %s\n",key_mgmt);
 		sprintf(argv[0],"set_network");
@@ -537,8 +517,6 @@ int config_wifi()
 
 	
 	if(strncmp(key_mgmt, "WPA-PSK",7)==0){
-		//memset(buf,0,256);
-		//extract_value(conf_p, lines, "inet_wlan_proto", 1, buf);
 		printf("inet_wlan_proto = %s\n",proto);
 		if(*proto){
 			sprintf(argv[0],"set_network");
@@ -553,8 +531,6 @@ int config_wifi()
 			}
 		}
 
-		//memset(buf,0,256);
-		//extract_value(conf_p, lines, "inet_wlan_group", 1, buf);
 		printf("inet_wlan_group = %s\n",group);
 		if(*group){
 			sprintf(argv[0],"set_network");
@@ -569,8 +545,6 @@ int config_wifi()
 			}
 		}
 
-	//	memset(buf,0,256);
-		//extract_value(conf_p, lines, "inet_wlan_pairwise", 1, buf);
 		printf("inet_wlan_pairwise = %s\n",pairwise);
 		if(*pairwise){
 			sprintf(argv[0],"set_network");
@@ -580,20 +554,13 @@ int config_wifi()
 			sprintf(argv[3],"%s",pairwise);
 			printf("try pairwise\n");
 			mywpa_cli(4,  argv );
-			/*
-			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-				goto error;
-			}
-			*/
 		}
 
 		memset(buf,0,256);
-		//extract_value(conf_p, lines, CFG_WLAN_KEY, 1, buf);
 		memcpy(buf , w_key , sizeof(w_key));
 		printf("inet_wlan_psk = %s\n",buf);
 		if(buf[0]){
 			sprintf(argv[0],"set_network");
-			//sprintf(argv[1],"0");
 			sprintf(argv[1],"%s",network_id);
 			sprintf(argv[2],"psk");
 			sprintf(argv[3],"\"%s\"",buf);
@@ -606,12 +573,10 @@ int config_wifi()
 	}
 	else if(strncmp(key_mgmt , "NONE",4)==0){
 		memset(buf,0,256);
-		//extract_value(conf_p, lines, CFG_WLAN_KEY, 1, buf);
 		memcpy(buf , w_key , sizeof(w_key));
 		printf("inet_wlan_wep_key0 = %s\n",buf);
 		if(buf[0]){
 			sprintf(argv[0],"set_network");
-			//sprintf(argv[1],"0");
 			sprintf(argv[1],"%s",network_id);
 			sprintf(argv[2],"wep_key0");
 			sprintf(argv[3],"%s",buf);
@@ -626,43 +591,8 @@ int config_wifi()
 			}
 		}
 
-		/*
-		memset(buf,0,256);
-		extract_value(conf_p, lines, "inet_wlan_wep_key1", 1, buf);
-		printf("inet_wlan_wep_key1 = %s\n",buf);
-		if(buf[0]){
-			sprintf(argv[0],"set_network");
-			//sprintf(argv[1],"0");
-			sprintf(argv[1],"%s",network_id);
-			sprintf(argv[2],"wep_key1");
-			sprintf(argv[3],"%s",buf);
-			printf("try wep_key1\n");
-			mywpa_cli(4,  argv );
-			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-				goto error;
-			}
-		}
-
-		memset(buf,0,256);
-		extract_value(conf_p, lines, "inet_wlan_wep_key2", 1, buf);
-		printf("inet_wlan_wep_key2 = %s\n",buf);
-		if(buf[0]){
-			sprintf(argv[0],"set_network");
-			//sprintf(argv[1],"0");
-			sprintf(argv[1],"%s",network_id);
-			sprintf(argv[2],"wep_key2");
-			sprintf(argv[3],"%s",buf);
-			printf("try wep_key2\n");
-			mywpa_cli(4,  argv );
-			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-				goto error;
-			}
-		}
-		*/
 		if(buf[0]){
 			memset(buf,0,256);
-			//extract_value(conf_p, lines, "inet_wlan_wep_tx_keyindx", 1, buf);
-			//printf("inet_wlan_wep_tx_keyindx = %s\n",buf);
 			if(!buf[0])
 				sprintf(buf,"0");
 			if(buf[0]){
@@ -679,28 +609,10 @@ int config_wifi()
 			}
 		}
 
-		/*
-		memset(buf,0,256);
-		extract_value(conf_p, lines, "inet_wlan_auth_alg", 1, buf);
-		printf("inet_wlan_auth_alg = %s\n",buf);
-		if(buf[0]){
-			sprintf(argv[0],"set_network");
-			//sprintf(argv[1],"0");
-			sprintf(argv[1],"%s",network_id);
-			sprintf(argv[2],"auth_alg");
-			sprintf(argv[3],"%s",buf);
-			printf("try auth_alg\n");
-			mywpa_cli(4,  argv );
-			if(strncmp(scanresult,"OK",strlen("OK"))!=0){
-				goto error;
-			}
-		}
-		*/
 	}
 	
 	
 	sprintf(argv[0],"select_network");
-	//sprintf(argv[1],"0");
 	sprintf(argv[1],"%s",network_id);
 	printf("try select_network\n");
 	mywpa_cli(2,argv);

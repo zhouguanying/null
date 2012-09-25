@@ -1,17 +1,3 @@
-/*
- * wpa_supplicant/hostapd control interface library
- * Copyright (c) 2004-2007, Jouni Malinen <j@w1.fi>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * Alternatively, this software may be distributed under the terms of BSD
- * license.
- *
- * See README and COPYING for more details.
- */
-
 #include "includes.h"
 
 #include <sys/un.h>
@@ -20,15 +6,6 @@
 
 
 
-/**
- * struct wpa_ctrl - Internal structure for control interface library
- *
- * This structure is used by the wpa_supplicant/hostapd control interface
- * library to store internal data. Programs using the library should not touch
- * this data directly. They can only use the pointer to the data structure as
- * an identifier for the control interface connection and use this as one of
- * the arguments for most of the control interface library functions.
- */
 struct wpa_ctrl {
 	int s;
 	struct sockaddr_un local;

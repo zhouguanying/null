@@ -48,48 +48,6 @@ static int nand_shm_id;
 
 static pthread_rwlock_t  file_index_table_lock;
 
-#if 0
-int nand_find_start_sector()
-{
-	int sectors;
-	int ret = 0;
-	int sequence = 0;
-	nand_record_file_header header;
-	int cur_max_sequence = -1;
-	
-	if( partition_sector_num == 0 )
-		return -1;
-
-	for( sectors = 0 ; sectors < partition_sector_num; sectors += NAND_RECORD_FILE_SECTOR_SIZE ){
-		lseek64(fd, (int64_t)sectors*(int64_t)512, SEEK_SET);
-		read( fd, (char*)&header, sizeof(header));
-		if( header.head[0]!=0 || header.head[1]!=0 || header.head[2]!=0 || header.head[3]!=1 || header.head[4] != 0xc ){
-			ret = sectors;
-			max_sequence = cur_max_sequence+1;
-//			dbg("find start sector 0\n");
-			goto found;
-		}
-		sequence = hex_string_to_int(header.PackageSequenceNumber, sizeof(header.PackageSequenceNumber));
-//		dbg("sequence:%d,cur_max_sequence:%d\n",sequence, cur_max_sequence);
-		if( sequence >= cur_max_sequence ){
-			cur_max_sequence = sequence;
-		}
-		else{
-			ret = sectors;
-			max_sequence = cur_max_sequence+1;
-//			dbg("find start sector 1\n");
-			goto found;
-		}
-	}
-	sectors = 0;
-	ret = sectors;
-	max_sequence = cur_max_sequence+1;
-	
-found:
-//	printf("found the start sector at %d, sequence=%d\n", ret, max_sequence);
-	return ret;
-}
-#else
 static int nand_get_sequence( int sectors )
 {
 	nand_record_file_header header;
@@ -175,7 +133,6 @@ found:
 	//dbg("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^find the start of sector:%d, sequence=%d\n", sectors, max_sequence);
 	return ret;
 }
-#endif
 
 //return the free disk size, unit is M = 1024*1024
 int get_disk_free_size(char* disk)
@@ -884,7 +841,6 @@ char* nand_get_file_time(int file_start_sector)
 	}
 	memcpy(&end, buf, sizeof( header ));
 
-#if 1
 	req.buf = buf;
 	req.start = file_start_sector;
 	req.sector_num = 1;
@@ -893,34 +849,8 @@ char* nand_get_file_time(int file_start_sector)
 		return (char *)0xffffffff;
 	}
 	memcpy(&header, req.buf, sizeof( header ));
-#else
-	lseek64(fd, (int64_t)file_start_sector*(int64_t)512, SEEK_SET);
-	read( fd, (char*)&header, sizeof(header));
-#endif
 	
 	memset(file_time_buffer,0,64);
-/*
-	last_sector = file_start_sector + NAND_RECORD_FILE_SECTOR_SIZE;
-	if( last_sector >= partition_sector_num ){
-		last_sector = partition_sector_num;
-	}
-	last_sector -= END_HEADER_LOCATION*512/512;
-*/
-#if 1
-/*
-	req.buf = buf;
-	req.start = last_sector;
-	req.sector_num = 1;
-	//ioctl(fd, BLK_NAND_READ_DATA, &req);
-	if(read_file_segment(&req)<0){
-		return (char *)0xffffffff;
-	}
-	memcpy(&end, req.buf, sizeof( header ));
-	*/
-#else
-	lseek64(fd, (int64_t)last_sector*(int64_t)512, SEEK_SET);
-	read( fd, (char*)&end, sizeof(end));
-#endif
 	if( header.head[0]!=0 || header.head[1]!=0 || header.head[2]!=0 || header.head[3]!=1 || header.head[4] != 0xc ){
 		memcpy(&data, header.head, 4);
 		//dbg("-----------------can't find sequence at START sector:%d, head=%x\n", file_start_sector,data);
@@ -1155,17 +1085,11 @@ int nand_prepare_close_record_header(nand_record_file_header* header)
 	dbg("record_file_size=%d\n", record_file_size);
 	memcpy( header->TotalPackageSize, buffer, sizeof(header->TotalPackageSize));
 	record_file_size = 0;
-//	dbg("file size=%s\n", buffer);
 	
 	time (&timep);
 	gtm = localtime(&timep);
-//	dbg("year:%d,month:%d,day:%d,hour:%d,minute:%d,second:%d\n", gtm->tm_year+1900,gtm->tm_mon+1,gtm->tm_mday,gtm->tm_hour,gtm->tm_min,gtm->tm_sec);
 	sprintf(buffer,"%04d%02d%02d%02d%02d%02d",gtm->tm_year+1900,gtm->tm_mon+1,gtm->tm_mday,gtm->tm_hour,gtm->tm_min,gtm->tm_sec);
 	memcpy((char*)header->LastTimeStamp, buffer, sizeof(header->LastTimeStamp));	
-#if 1
-//	end_time = get_us();
-//	dbg("total time of packet = %d minutes %d senconds\n", ( end_time - start_time )/1000000/60, ( end_time - start_time )/1000000%60);
-#endif
 	return 0;
 }
 

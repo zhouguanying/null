@@ -125,16 +125,7 @@ void check_cmd_socket()
 				continue;
 			}
 		}
-		/*else if(((*sc)->cmd_socket<0||(*sc)->video_socket<0||(*sc)->audio_socket<0)&&now.tv_sec - (*sc)->create_tv.tv_sec >=180){
-			p = *sc;
-			*sc = (*sc)->next;
-			if(p->audio_socket>=0)
-				close_socket(p->audio_st , p->audio_socket);
-			if(p->video_socket>=0)
-				close_socket(p->video_st , p->video_socket);
-			free(p);
-			continue;
-		}*/else if(/*(*sc)->video_st == TCP_SOCKET&&*/!((*sc)->connected)&&(now.tv_sec - (*sc)->create_tv.tv_sec)>300){
+		else if(/*(*sc)->video_st == TCP_SOCKET&&*/!((*sc)->connected)&&(now.tv_sec - (*sc)->create_tv.tv_sec)>300){
 				dbg("##################the socket too long not conneted close it now################\n");
 				p = *sc;
 				*sc = (*sc)->next;
@@ -152,27 +143,6 @@ void check_cmd_socket()
 	pthread_mutex_unlock(&container_list_lock);
 }
 
-/*
-int  new_socket_container(int who)
-{
-	struct socket_container*sc;
-	sc = (struct socket_container *)malloc(sizeof(struct socket_container));
-	if(!sc) return -1;
-	gettimeofday(&(sc->create_tv) , NULL);
-	sc ->who = who;
-	sc->cmd_socket = -1;
-	sc->video_socket = -1;
-	sc ->audio_socket = -1;
-	sc->cmd_st = NON_SOCKET;
-	sc ->video_st = NON_SOCKET;
-	sc->audio_st = NON_SOCKET;
-	pthread_mutex_lock(&container_list_lock);
-	sc->next = socket_clist;
-	socket_clist = sc;
-	pthread_mutex_unlock(&container_list_lock);
-	return 0;
-}
-*/
 int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_TYPE st , char is_lan)
 {
 	struct socket_container **scp;

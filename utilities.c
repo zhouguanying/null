@@ -74,16 +74,6 @@ int dec_string_to_int(char* string, int num)
 
 long long dec_string_to_int64(char* string, int num)
 {
-#if 0
-	char buffer[20];
-	char* end;
-	if( num >= 20 )
-		return 0;
-	memcpy( buffer, string, num );
-	buffer[num] = 0;
-//	dbg("sequence:%s\n",buffer);
-	return strtol(buffer,&end,10);
-#endif
 	return 0;
 }
 

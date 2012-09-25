@@ -1,19 +1,3 @@
-/*
- * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
- * 
- * Author Erik Anvik "Au-Zone Technologies, Inc."  All rights reserved.
- */
-
-/*
- * The code contained herein is licensed under the GNU Lesser General 
- * Public License.  You may obtain a copy of the GNU Lesser General 
- * Public License Version 2.1 or later at the following locations:
- *
- * http://www.opensource.org/licenses/lgpl-license.html
- * http://www.gnu.org/copyleft/lgpl.html
- */
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
@@ -80,94 +64,6 @@ static struct cli_handler cli_cmd_handler;
 static int cli_socket = -1; 
 SOCKET_TYPE cli_st;
 
-/*
-struct  UDT_SELECT_SET{
-	int array[MAX_CONNECTIONS];
-	int fdnums;
-	pthread_mutex_t setlock;
-};
-
-static struct UDT_SELECT_SET  fdset;
-
-void init_udt_fdset()
-{
-	int i;
-	for(i = 0 ; i<MAX_CONNECTIONS ; i++)
-		fdset.array[i] = -1;
-	fdset.fdnums = 0;
-	pthread_mutex_init(&fdset.setlock , NULL);
-}
-
-int  udt_add_socket_to_set(int sockfd)
-{
-	int ret,i;
-	if(sockfd <0)
-		return -1;
-	ret = -1;
-	pthread_mutex_lock(&fdset.setlock);
-	if(fdset.fdnums<MAX_CONNECTIONS){
-		for(i = 0 ; i<MAX_CONNECTIONS; i++){
-			if(fdset.array[i]<0){
-				fdset.array[i] = sockfd;
-				fdset.fdnums ++;
-				ret = 0;
-				break;
-			}
-		}
-	}
-	pthread_mutex_unlock(&fdset.setlock);
-	return ret;
-}
-
-void udt_del_socket_from_set(int sockfd)
-{
-	int  i ;
-	if(sockfd <0)
-		return;
-	pthread_mutex_lock(&fdset.setlock);
-	if(fdset.fdnums>0){
-		for(i = 0; i<MAX_CONNECTIONS ; i++){
-			if(fdset.array[i] == sockfd){
-				fdset.array[i] = -1;
-				fdset.fdnums --;
-				break;
-			}
-		}
-	}
-	pthread_mutex_unlock(&fdset.setlock);
-}
-
-void copy_udt_socket_set(int *array , int *nums)
-{
-	int i,j;
-	pthread_mutex_lock(&fdset.setlock);
-	for(i = 0, j=0;i<MAX_CONNECTIONS ; i++){
-		if(fdset.array[i]>=0){
-			array[j] = fdset.array[i];
-			j++;
-		}
-	}
-	pthread_mutex_unlock(&fdset.setlock);
-	*nums = j;
-}
-
-void check_udt_fdset()
-{
-	int i;
-	pthread_mutex_lock(&fdset.setlock);
-	for(i = 0 ; i < MAX_CONNECTIONS ; i++){
-		if(fdset.array[i] > 0){
-			if(udt_socket_ok(fdset.array[i])<0){
-				udt_close(fdset.array[i]);
-				fdset.array[i] = -1;
-				fdset.fdnums --;
-			}
-		}
-	}
-	pthread_mutex_unlock(&fdset.setlock);
-}
-
-*/
 
 static inline char * gettimestamp()
 {
@@ -215,48 +111,6 @@ static int free_session(struct cli_sess_ctx *sess)
 }
 
 extern char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int* rsp_len);
-/*
-static int save_config_value(char *name , char *value)
-{
-	FILE*fp;
-	char *buf;
-	char *p;
-	int pos;
-	fp = fopen(RECORD_PAR_FILE , "r");
-	if(!fp){
-		dbg("open config file error\n");
-		return -1;
-	}
-	buf = (char *)malloc(4096);
-	if(!buf){
-		dbg("malloc buf error\n");
-		fclose(fp);
-		return -1;
-	}
-	memset(buf,0,4096);
-	pos = 0;
-	while(fgets(buf+pos,4096-pos,fp)!=NULL){
-		p = buf+pos;
-		if(strncmp(p,name,strlen(name))==0){
-			memset(p,0,strlen(p));
-			sprintf(p,"%s=%s\n",name,value);
-		}
-		pos+=strlen(p);
-	}
-	fclose(fp);
-	usleep(1000);
-	fp = fopen(RECORD_PAR_FILE,"w");
-	if(!fp){
-		dbg("error open config file\n");
-		free(buf);
-		return -1;
-	}
-	fwrite(buf,1,pos,fp);
-	fclose(fp);
-	dbg("write config file ok\n");
-	return 0;
-}
-*/
 char *set_transport_type_rsp(struct sess_ctx * sess ,int *size)
 {
 	char *buf;
@@ -322,11 +176,6 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
     }
 		
     memcpy(cmd, req, req_len);
-#if 0	
-    argv[i] = strtok(cmd, delims);
-	while (argv[i] != NULL && i < N_ARGS-1)
-		argv[++i] = strtok(NULL, delims);
-#else
 	argv[0] = argv[1] = 0;
 	ptr = cmd;
 	i = req_len;
@@ -345,7 +194,6 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 		}
 		ptr++;
 	}
-#endif
     /* Pass command and param back to processer */
    printf("argv[0]==%s\n",argv[0]);
    printf("argv[1]==%s\n",argv[1]);
@@ -707,133 +555,6 @@ LOOP_START:
 	}
 	return 0;
 }
-/*
-static int do_cli(struct cli_sess_ctx *sess)
-{
-#define BUF_SZ 1024    
-    u8 req[BUF_SZ];
-    char *rsp;
-    socklen_t fromlen;
-    struct sockaddr_in from;
-     struct sockaddr_in cliaddr;
-	struct timeval timeout;
-	struct timeval old_snd_alive_time,currtime;
-    ssize_t req_len;
-	int rsp_len;
-	int ret = 0;
-	int s;
-	int on;
-
-    //dbg("Starting CLI sid(%08X)", (u32) sess);
-
-    
-    if ((sess->sock = create_udp_socket()) < 0) {
-        perror("Error creating socket");
-        return -1;
-    }
-	on = 1;
-       if (setsockopt(sess->sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0){
-              printf("Error enabling sess->sock address reuse");
-        }
-	      timeout.tv_sec=3;
-	  timeout.tv_usec=0;
-	   if (setsockopt(sess->sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0){
-              printf("Error enabling socket rcv time out \n");
-        }
-    if ((sess->saddr = bind_udp_socket(sess->sock, sess->port)) == NULL) {
-        printf("****************************Error binding udp socket****************************");
-        close(sess->sock);
-	 force_reset_v2ipd();
-        return -1;
-    }
-    //dbg("sock %d bound to port %d\n", sess->sock, sess->port);    
-
-    sess->running = 1;
-    fromlen = sizeof(struct sockaddr_in);
-   do_cli_start();
-   gettimeofday(&old_snd_alive_time , NULL);
-	
-    while (sess->running) {
-		dbg("try to get cli cmd\n");
-		//memset(req,0,BUF_SZ);
-try_get_cmd:
-        req_len = recvfrom(sess->sock, req, sizeof(req), 0, (struct sockaddr *) &from, &fromlen);
-		if(is_do_update()){
-			dbg("is do update exit now\n");
-			for(;;){
-				do_cli_alive();
-				sleep(3);
-			}
-		}
-		gettimeofday(&currtime, NULL);
-		if(abs(currtime.tv_sec - old_snd_alive_time.tv_sec)>=3){
-			do_cli_alive();
-			memcpy(&old_snd_alive_time , &currtime , sizeof(struct timeval));
-		}
-		if(req_len<=0)
-			goto try_get_cmd;
-		req[req_len] = 0;
-		dbg("get cli cmd: %s ip ==%s  ,  port ==%d\n",req , inet_ntoa(from.sin_addr) , ntohs(from.sin_port));
-        if (req_len <= 0) 
-            dbg("socket error\n");
-		else {
-			rsp_len = 0;
-			rsp = handle_cli_request(sess, req, req_len, NULL, &rsp_len,from);
-			dbg("rsp=%s\n",rsp);
-			if (rsp != NULL) { 
-			//dbg("sent rsp");
-				fromlen = sizeof(struct sockaddr_in);
-				if( rsp_len ){
-					//1  it seems never occur
-					//printf("enter seen never happen rsp_len==%d\n",rsp_len);
-					s = 0;
-					while(rsp_len>0){
-						if(rsp_len>1000){
-							ret =sendto(sess->sock, rsp+s, 1000, 0,(struct sockaddr *) &sess->from, fromlen);
-							s+=1000;
-							rsp_len-=1000;
-						}else{
-							ret =sendto(sess->sock, rsp+s, rsp_len, 0,(struct sockaddr *) &sess->from, fromlen);
-							rsp_len = 0;
-						}
-					}
-					printf("sendto return ==%d dst ip==%s , port ==%d\n",ret , inet_ntoa(sess->from.sin_addr), ntohs(sess->from.sin_port));
-				}
-				else{
-					rsp_len = strlen(rsp);
-					s = 0;
-					while(rsp_len>0){
-						if(rsp_len>1000){
-							ret =sendto(sess->sock, rsp+s, 1000, 0,(struct sockaddr *) &sess->from, fromlen);
-							s+=1000;
-							rsp_len-=1000;
-						}else{
-							ret =sendto(sess->sock, rsp+s, rsp_len, 0,(struct sockaddr *) &sess->from, fromlen);
-							rsp_len = 0;
-						}
-					}
-					//ret = sendto(sess->sock, rsp, strlen(rsp), 0,(struct sockaddr *) &sess->from, fromlen);
-					printf("send to addr ip:%s ; port: %d\n",inet_ntoa(sess->from.sin_addr),ntohs(sess->from.sin_port));
-					printf("sendto return == %d\n",ret);
-					fromlen = sizeof(struct sockaddr_in);
-					 if(getsockname(sess->sock,(struct sockaddr*)&cliaddr,&fromlen) <0){
-						 printf("cannot get sock name\n");
-						close(sess->sock);
-						return -1;
-					}
-					 printf("used cli ip:%s , port: %d\n",inet_ntoa(cliaddr.sin_addr),ntohs(cliaddr.sin_port));
-				}
-				free(rsp);
-			}
-		}
-    }
-
-	dbg("Exitting CLI");
-    pthread_exit(NULL);
-
-    return 0;
-}
-*/
 
 /**
  * cli_init - init cli session
@@ -1158,224 +879,6 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
 	return r;
 	
 }
-
-/*
-static char * set_transport_type(struct sess_ctx *sess, char *arg , int *rsp_len)
-{
-    int on;
-    char *r;
-  //  struct sess_ctx*tmp;
-    if (sess == NULL || arg == NULL) {
-            dbg("error\n");
-            return NULL;
-    }
-    if(check_cli_pswd( arg, & r)!=0){
-		  g_cli_ctx->arg=NULL;
-		  free_system_session(sess);
-		return r;
-    	}
-	//dbg("##############sess->id=%d################\n",sess->id);
-    if (strlen(arg) == 3 && strncmp(arg, "tcp", 3) == 0) {
-        
-		if(sess->s1<0){
-      		       if ((sess->s1 = create_tcp_socket()) < 0) {
-                   		  printf("Error creating socket");
-				  g_cli_ctx->arg=NULL;
-				  free_system_session(sess);
-                 	         return NULL;
-            		}
-		
-        
-            		on = 1;
-          	       if (setsockopt(sess->s1, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0){
-                    		 printf("Error enabling socket address reuse");
-            		}
-
-          	       if ((sess->myaddr = bind_tcp_socket(sess->s1, SERVER_PORT)) == NULL){
-              		  printf("Error binding socket");
-				 g_cli_ctx->arg=NULL;
-				  free_system_session(sess);
-                		  return NULL;
-            		}
-
-            		if (listen(sess->s1, MAX_CONNECTIONS) < 0){
-               		 printf("Error listening for connection");
-				 g_cli_ctx->arg=NULL;
-				  free_system_session(sess);
-                		return NULL;
-            		}
-            		dbg("created tcp socket\n");
-		}else{
-			printf("%s: already binded.\n", __func__);
-			g_cli_ctx->arg=NULL;
-			free_system_session(sess);
-			return NULL;
-		}
-		
-		sess->running = 1;
-		sess->is_tcp = 1;
-		sess->ucount=1;
-		//dbg("##############sess->id=%d################\n",sess->id);
-		if (pthread_create(&sess->tid, NULL, (void *) start_video_monitor, sess) < 0) {
-			g_cli_ctx->arg=NULL;
-			free_system_session(sess);
-			return NULL;
-		} 
-		dbg("start_video_monitor run now\n");
-		r = (char *)malloc(6);
-		if(!r)return NULL;
-		sprintf(r,"tcp");
-		r[3] = (char)threadcfg.brightness;
-		r[4] = (char)threadcfg.contrast;
-		r[5] = (char)threadcfg.volume;
-		*rsp_len = 6;
-		return r;
-	} 
-	else if(strlen(arg) == 3 && strncmp(arg, "rtp", 3) == 0){
-		printf("********************rtp type*****************\n");
-		sess->running=1;
-		sess->is_rtp=1;
-		sess->ucount=0;
-		printf("cli ip ==%s\n",inet_ntoa(sess->from.sin_addr));
-		printf("cli port==%d\n",ntohs(sess->from.sin_port));
-		if (pthread_create(&sess->tid, NULL, (void *) udt_sess_thread, sess) < 0) {
-			if((struct sess_ctx*)g_cli_ctx->arg==sess)
-				g_cli_ctx->arg=NULL;
-			printf("**********create udt_sess_thread error****************\n");
-			free_system_session(sess);
-			return NULL;
-		} 
-		dbg("create udt_sess_thread sucess\n");
-		r = (char *)malloc(6);
-		if(!r)return NULL;
-		sprintf(r,"rtp");
-		r[3] = (char)threadcfg.brightness;
-		r[4] = (char)threadcfg.contrast;
-		r[5] = (char)threadcfg.volume;
-		*rsp_len = 6;
-		return r;
-	}else if(strlen(arg)==6&&strncmp(arg,"update",6) == 0){
-		printf("###################do update################\n");
-		sess->running = 1;
-		sess->ucount = 0;
-		if (pthread_create(&sess->tid, NULL, (void *) udp_do_update, sess) < 0) {
-			if((struct sess_ctx*)g_cli_ctx->arg==sess)
-				g_cli_ctx->arg=NULL;
-			printf("**********create udt_do_update error****************\n");
-			free_system_session(sess);
-			return NULL;
-		} 
-	}else if(strlen(arg)==9&&strncmp(arg,"updatetcp",9) == 0){
-		printf("###################do update tcp################\n");
-		if(sess->s1<0){
-      		       if ((sess->s1 = create_tcp_socket()) < 0) {
-                   		  printf("Error creating socket");
-				  g_cli_ctx->arg=NULL;
-				  free_system_session(sess);
-                 	         return NULL;
-            		}
-		
-           
-            		on = 1;
-          	       if (setsockopt(sess->s1, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0){
-                    		 printf("Error enabling socket address reuse");
-            		}
-
-          	       if ((sess->myaddr = bind_tcp_socket(sess->s1, SERVER_PORT)) == NULL){
-              		  printf("Error binding socket");
-				 g_cli_ctx->arg=NULL;
-				  free_system_session(sess);
-                		  return NULL;
-            		}
-
-            		if (listen(sess->s1, MAX_CONNECTIONS) < 0){
-               		 printf("Error listening for connection");
-				 g_cli_ctx->arg=NULL;
-				  free_system_session(sess);
-                		return NULL;
-            		}
-            		dbg("created tcp socket\n");
-		}else{
-			printf("%s: already binded.\n", __func__);
-			g_cli_ctx->arg=NULL;
-			free_system_session(sess);
-			return NULL;
-		}
-		
-		sess->running = 1;
-		//sess->is_tcp = 1;
-		sess->ucount=1;
-		//dbg("##############sess->id=%d################\n",sess->id);
-		if (pthread_create(&sess->tid, NULL, (void *) tcp_do_update, sess) < 0) {
-			g_cli_ctx->arg=NULL;
-			free_system_session(sess);
-			return NULL;
-		} 
-	}else{
-		if((struct sess_ctx*)g_cli_ctx->arg==sess)
-				g_cli_ctx->arg=NULL;
-		free_system_session(sess);
-		printf("******************************** set_transport_type , unknow parameter***********************\n");
-		return NULL;
-	}
-	
-	else if (strlen(arg) == 3 && strncmp(arg, "udp", 3) == 0) {
-         //We do this so the CLI can set the destination 
-        //  ip and port 
-        if ((sess->s1 = create_udp_socket()) < 0) {
-                perror("Error creating socket");
-                return -1;
-        }
-
-        //Create base inet address - used later for 
-         // setting destination 
-        if ((sess->to = create_inet_addr(0)) == NULL) {
-                perror("Error creating socket addr");
-                close(sess->s1);
-                return -1;
-        }
-
-        sess->is_udp = 1;
-        //dbg("created udp socket\n");
-	} 
-	else if (strncmp(arg, "fifo", 4) == 0) { 
-        // Create a named pipe - Note named pipes are 
-         // always pre-pended with fifo 
-        if (mkfifo(arg, 0666) == -1) {
-                perror("error creating named pipe");
-                return -1;
-        }
-
-       // Open the pipe for writing 
-        if ((sess->pipe_fd = open(arg, O_WRONLY)) < 0) {
-                dbg("error");
-                perror("error opening named pipe - unlinking");
-                unlink(arg);
-                return -1;
-        }
-        sess->pipe_name = strdup(arg);
-
-        sess->is_pipe = 1;
-        //dbg("created named pipe at %s\n", sess->pipe_name);
-	} 
-	else { //Default to file storage 
-        if ((sess->file_fd = open(arg, O_CREAT | O_RDWR | O_TRUNC,
-                                        0666)) < 0) {
-                dbg("error");
-                perror("error opening file - exitting");
-                return -1;
-        }
-        sess->file_name = strdup(arg);
-
-        sess->is_file = 1;
-        //dbg("opened file %s", sess->file_name);
-    }
-     
-    //dbg("ok\n");
-    return NULL;
-}
-
-*/
 
 /**
  * get_transport_type - gets the session transport type (tcp, udp, rtp)
@@ -1971,12 +1474,6 @@ static char *get_firmware_info(struct sess_ctx *sess, char *arg)
         char *resp;
 	printf("ok enter firmware_info now\n");
         if (1/*sess != NULL*/) {
-		//printf("enter if(1)\n");
-		  /*
-                if ((resp = strdup(FIRMWARE_BUILD)) == NULL)
-                        return NULL;
-	         dbg("Firmware build==%s", resp);  
-	         */
 	         resp = malloc(64);
 		if(!resp)
 			return NULL;
@@ -2059,27 +1556,7 @@ static char *get_motion_state(struct sess_ctx *sess, char *arg)
  */
 static char *get_motion_detection(struct sess_ctx *sess, char *arg)
 {
-#if 0
-        char *resp;
-        char *state;
-
-        if (sess != NULL) {
-                if (vpu_GetMotionDetection(sess))
-                        state = "is_enabled";
-                else
-                        state = "is_disabled";
-
-                if ((resp = strdup(state)) == NULL)
-                        return NULL;
-                dbg("motion detection is %s", resp);        
-                return resp;
-        } else {
-                dbg("error");
-                return NULL;
-        }
-#else
 	return NULL;
-#endif
 }
 
 /**
@@ -2111,15 +1588,6 @@ static int enable_motion_detection(struct sess_ctx *sess, char *arg)
 static int disable_motion_detection(struct sess_ctx *sess, char *arg)
 {
 	return NULL;
-#if 0
-        if (sess != NULL) {
-                sess->motion_detected = 0;
-                return vpu_DisableMotionDetection(sess);
-        } else {
-                dbg("error");
-                return -1;
-        }
-#endif
 }
 
 static int SetRs485BautRate(char* arg)
@@ -2187,103 +1655,9 @@ char *search_wifi(char *arg)
 	}
 	return NULL;
 }
-int snd_soft_restart();
-/*
-int querryfs(char *fs , unsigned long long*maxsize,unsigned long long* freesize)
-{
-    struct statfs st; 
-   *maxsize = 0;
-   *freesize = 0;
-  // printf("###############before statfs##############\n");
-    if(statfs(fs,&st)<0){
-        printf("error querry fs %s\n",fs);
-        return -1; 
-    }   
-  //  printf("##############after statfs################\n");
-    *maxsize = st.f_blocks*st.f_bsize;
-    *freesize = st.f_bfree *st.f_bsize;
-   //  printf("##############querryfs ok###############\n");
-    return 0;
-}
-*/
-/*
-extern char inet_eth_device[64];
-extern char inet_wlan_device[64];
-extern char inet_eth_gateway[64];
-extern char inet_wlan_gateway[64];
-int get_ip(char * device, char * ip, char * mask);
-int get_gateway(char * device, char * gateway);
-int get_dns(char * dns1, char * dns2);
 
-static int fix_video_line(char *buf)
-{
-	char *p;
-	char *v;
-	char ip[32];
-	char mask[32];
-	char dns1[32];
-	char dns2[32];
-	p = buf;
-	if(!buf||!*p)return -1;
-	while(*p&&(*p==' '||*p=='\t'))p++;
-	v= p;
-	while(*v&&*v!='=')v++;
-	if(!*v){
-		*v='=';
-	}
-	v++;
-	if(!*v||*v=='\n'){
-		if(strncmp(p , CFG_WLAN_IP,strlen(CFG_WLAN_IP))==0){
-			memset(ip,0,32);
-			get_ip(inet_wlan_device , ip , mask);
-			memcpy(v,ip,32);
-		}else if(strncmp(p , CFG_WLAN_MASK,strlen(CFG_WLAN_MASK))==0){
-			memset(mask,0,32);
-			get_ip(inet_wlan_device , ip , mask);
-			memcpy(v,mask,32);
-		}else if(strncmp(p, CFG_WLAN_DNS1 , strlen(CFG_WLAN_DNS1)) == 0){
-			memset(dns1,0,32);
-			get_dns(dns1,dns2);
-			memcpy(v,dns1,32);
-		}else if(strncmp(p,CFG_WLAN_DNS2, strlen(CFG_WLAN_DNS2))==0){
-			memset(dns2,0,32);
-			get_dns(dns1,dns2);
-			memcpy(v,dns2,32);
-		}else if(strncmp(p,CFG_WLAN_GATEWAY , strlen(CFG_WLAN_GATEWAY))==0){
-			memset(ip , 0 ,32);
-			get_gateway(inet_wlan_device, ip);
-			memcpy(v,ip,32);
-			memcpy(inet_wlan_gateway ,ip ,32);
-		}else if(strncmp(p , CFG_ETH_IP,strlen(CFG_ETH_IP))==0){
-			memset(ip,0,32);
-			get_ip(inet_eth_device , ip , mask);
-			memcpy(v,ip,32);
-		}else if(strncmp(p , CFG_ETH_MASK,strlen(CFG_ETH_MASK))==0){
-			memset(mask,0,32);
-			get_ip(inet_eth_device , ip , mask);
-			memcpy(v,mask,32);
-		}else if(strncmp(p, CFG_ETH_DNS1 , strlen(CFG_ETH_DNS1)) == 0){
-			memset(dns1,0,32);
-			get_dns(dns1,dns2);
-			memcpy(v,dns1,32);
-		}else if(strncmp(p,CFG_ETH_DNS2, strlen(CFG_ETH_DNS2))==0){
-			memset(dns2,0,32);
-			get_dns(dns1,dns2);
-			memcpy(v,dns2,32);
-		}else if(strncmp(p,CFG_ETH_GATEWAY , strlen(CFG_ETH_GATEWAY))==0){
-			memset(ip , 0 ,32);
-			get_gateway(inet_eth_device, ip);
-			memcpy(v,ip,32);
-			memcpy(inet_eth_gateway , ip , 32);
-		}else{
-			return -1;
-		}
-		buf[strlen(buf)] = '\n';
-		return 0;
-	}
-	return -1;
-}  
-*/
+int snd_soft_restart();
+
 char * get_clean_video_cfg(int *size)
 {
 	FILE * fp;
@@ -2317,50 +1691,6 @@ char * get_clean_video_cfg(int *size)
 	return cfg_buf;
 }
 
-/*
-char * get_clean_video_cfg()
-{
-	char buf[256];
-	FILE * fp;
-	int length;
-	char *cfg_buf;
-	char *p;
-	int write_back = 0;
-	fp =fopen(RECORD_PAR_FILE, "r");
-	if(!fp){
-		system("cp /video.cfg  /data/video.cfg");
-		usleep(100000);
-		fp =fopen(RECORD_PAR_FILE, "r");
-		if(!fp)
-			return NULL;
-	}
-	cfg_buf = (char *)malloc(2048);
-	if(!cfg_buf){
-		printf("malloc buf for config file error\n");
-		fclose(fp);
-		return NULL;
-	}
-	memset(cfg_buf , 0 , 2048);
-	length = 0;
-	memset(buf , 0 ,256);
-	while(fgets(buf ,256 , fp)!=NULL){
-		//if(fix_video_line( buf)==0)
-			//write_back = 1;
-		memcpy(cfg_buf+length , buf ,strlen(buf));
-		length +=strlen(buf);
-		memset(buf , 0 ,256);
-	}
-	fclose(fp);
-	if(write_back){
-		usleep(50000);
-		fp = fopen(RECORD_PAR_FILE, "w");
-		fwrite(cfg_buf , length , 1,fp);
-		fflush(fp);
-		fclose(fp);
-	}
-	return cfg_buf;
-}
-*/
 static char *SetPswd(char*arg)
 {
 	FILE *fp;
@@ -2579,105 +1909,14 @@ static char* GetConfig(char* arg , int *rsp_len)
 		
 		sprintf(slength,"%4d",size - 4);
 		memcpy(ret , slength , 4);
-		/*
-		p = ret;
-		while(size>0){
-			if(size>1000){
-				length = 1000 - 4;
-				sprintf(slength,"%4d",length);
-				memcpy(p,slength,4);
-				p+=1000;
-				memmove(p+4,p,size - 1000);
-				(*rsp_len)+=4;
-				size+=4;
-				size -=1000;
-			}else{
-				length = size-4;
-				sprintf(slength , "%4d",length);
-				memcpy(p,slength,4);
-				size = 0;
-			}	
-		}
-		*/
 	}else{
 		free(ret);
 		printf("#####################GetConfig invalid parmeter#########\n");
 		printf("ConfigType==%c\n",ConfigType);
 		return NULL;
 	}
-	/*
-	if( ConfigType == '1' ){
-		fd = fopen(RECORD_PAR_FILE, "r");
-		if( fd == 0 ){
-			length = 0;
-			ret = malloc(4+4);
-			memset(ret,0,8);
-			sprintf(ret,"%4d",length);
-		}
-		else{
-			fseek(fd, 0, SEEK_END);
-			length = ftell(fd);
-			fseek(fd, 0, SEEK_SET);
-			ret = malloc(length+4+4);
-			memset(ret,0,length+4+4);
-			sprintf(ret,"%4d",length);
-			fread(&ret[4],length,1,fd);
-			fclose(fd);
-		}
-	}
-	if( ConfigType == '3' ){
-		fd = fopen(MONITOR_PAR_FILE, "r");
-		if( fd == 0 ){
-			length = 0;
-			ret = malloc(4+4);
-			memset(ret,0,8);
-			sprintf(ret,"%4d",length);
-		}
-		else{
-			fseek(fd, 0, SEEK_END);
-			length = ftell(fd);
-			fseek(fd, 0, SEEK_SET);
-			ret = malloc(length+4+4);
-			memset(ret,0,length+4+4);
-			sprintf(ret,"%4d",length);
-			fread(&ret[4],length,1,fd);
-			fclose(fd);
-		}
-	}
-	*/
-	//printf("#########################RET#####################\n");
-	//printf("%s",ret);
-	//printf("#########################END#####################\n");
 	return ret;	
 }
-/*
-int test_printf_getConfig()
-{
-	int id ='1';
-	int rsp_len;
-	char *buf;
-	char *p;
-	char data_len[5];
-	data_len[4]=0;
-	buf=GetConfig(&id, &rsp_len);
-	if(!buf){
-		printf("**************get Config error*******************\n");
-		return 0;
-	}
-	printf("######################CONFIG RESULTS#########################\n");
-	printf("strlen(buf)==%d rsp_len==%d\n",strlen(buf),rsp_len);
-	p = buf;
-	memcpy(data_len , p,4);
-	p+=4;
-	p+=atoi(data_len);
-	p+=4;
-	printf("second data_len==%d\n",strlen(p));
-	printf("%s",buf);
-	free(buf);
-	printf("######################END#############################\n");
-	return 0;
-}
-*/
 int set_raw_config_value(char * buffer);
 extern char force_close_file ;
 static char * SetConfig(char* arg)
@@ -2796,17 +2035,6 @@ static void SetTime(char* arg)
 	if(!arg)
 		return;
 	set_system_time(arg);
-	/*
-	p1 = arg;
-	memset(cmd,0,40);
-	memset(buffer,0,20);
-	sprintf(buffer, "%02d%02d%02d%02d%04d.%02d",  dec_string_to_int(&p1[4], 2), dec_string_to_int(&p1[6], 2),dec_string_to_int(&p1[8], 2),dec_string_to_int(&p1[10], 2),
-		dec_string_to_int(&p1[0], 4),dec_string_to_int(&p1[12], 2));
-	sprintf(cmd,"/rtc -s %s", buffer);
-	printf("SetTime: %s\n",cmd);
-	system(cmd);
-	system("/rtc -init");
-	*/
 	return;	
 }
 
@@ -2954,17 +2182,6 @@ search_finish:
 	memset(ret,0,total_file_number*50+8+4 + 1);
 	buffer = ret +4;
 	sprintf(buffer,"%08d", id);
-	/*
-	if( id >= 25 || id >= total_file_number ){
-		return buffer;
-	}
-	if( id >= total_file_number / MAX_ITEMS_ONE_SEND ){
-		max_count = total_file_number % MAX_ITEMS_ONE_SEND;
-	}
-	else{
-		max_count = MAX_ITEMS_ONE_SEND;
-	}
-	*/
 	max_count = total_file_number;
 	//dbg("###############max_count = %d###############\n",max_count);
 	for( i = 0; i < max_count; i++ ){	//4 每次传20个包
@@ -3182,12 +2399,6 @@ static void ReplayRecord(struct sess_ctx *sess,char* arg)
 		return;
 	file_id =(int) hex_string_to_uint(arg, 8);
 	seek = (int)hex_string_to_uint(&arg[8], 8);
-	/*
-	dbg("ready to replay file at sectors =%d, seek percent=%d\n", file_id,v2ipd_share_mem->replay_file_seek_percent);
-	v2ipd_share_mem->replay_file_start_sectors = file_id;
-	v2ipd_share_mem->replay_file_seek_percent = hex_string_to_int(&arg[8], 8);
-	v2ipd_share_mem->v2ipd_to_v2ipd_msg = VS_MESSAGE_START_REPLAY;
-	*/
 	printf("%s: address=0x%x, port=%d, seek=%d\n",
 			__func__, g_cli_ctx->from.sin_addr.s_addr,
 			ntohs(g_cli_ctx->from.sin_port), seek);
@@ -3235,49 +2446,7 @@ static char *reboot (void)
         return NULL;
 }
 
-#if 1
 static const char *cli_cmds = "null";
-#else
-static const char *cli_cmds = 
-    "set_dest_addr      - Set the destination ip address for INET transport\n"
-    "set_dest_port      - Set the destination port number for INET transport\n"
-    "start_video        - Start video capture\n"
-    "pause_video        - Pause video capture\n"
-    "stop_video         - Stop video capture\n"
-    "start_audio        - Start audio capture\n"
-    "stop_audio         - Stop audio capture\n"
-    "reboot             - Reboot the system\n"
-    "set_transport_type - Sets data transport type, (tcp, udp, or pipe)\n"
-    "set_gopsize        - Sets Group of Pictures size\n"
-    "set_bitrate        - Sets Sampling Bitrate\n"
-    "set_framerate      - Sets Video framerate\n"
-    "set_rotation_angle - Sets Video rotation angle\n"
-    "set_output_ratio   - Sets Video output rotation angle\n"
-    "set_mirror_angle   - Sets Video Mirror angle\n"
-    "set_compression    - Sets Video compression type\n"
-    "set_resolution     - Sets Video resolution\n"
-    "get_transport_type - Gets data transport type, (tcp, udp, or pipe)\n"
-    "get_gopsize        - Gets Group of Pictures size\n"
-    "get_bitrate        - Gets Sampling Bitrate\n"
-    "get_framerate      - Gets Video framerate\n"
-    "get_rotation_angle - Gets Video rotation angle\n"
-    "get_output_ratio   - Gets Video output rotation angle\n"
-    "get_mirror_angle   - Gets Video Mirror angle\n"
-    "get_compression    - Gets Video compression type\n"
-    "get_resolution     - Gets Video resolution\n"
-    "update_video_conf  - Update new Video encoder configuration\n"
-    "reset_video_conf   - Restores Video encoder configuration defaults\n"
-    "restart_server     - Soft restart of server\n"
-    "get_firmware_info  - Gets firmware build information\n"
-    "get_firmware_rev   - Gets firmware revision number\n"
-    "get_video_state    - Gets state of video server\n"
-    "set_camera_name    - Sets the camera name\n"
-    "get_camera_name    - Gets the camera name\n"
-    "get_motion_state   - Get motion detection status\n"
-    "get_motion_detection     - Get motion enable/disable state\n"
-    "enable_motion_detection  - Enable motion detection\n"
-    "disable_motion_detection - Disable motion detection\n";
-#endif
 /**
  * do_cli - handles CLI commands
  * @sess: session context
