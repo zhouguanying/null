@@ -32,7 +32,6 @@
 #include "sound.h"
 #include "playback.h"
 #include "amixer.h"
-#include "rtp.h"
 //#include "udp_transfer.h"
 #include "vpu_server.h"
 #include "video_cfg.h"

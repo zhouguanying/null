@@ -40,7 +40,6 @@
 #include "mail_alarm.h"
 #include "cli.h"
 #include "sockets.h"
-#include "rtp.h"
 //#include "mpegts.h"
 #include "config.h"
 //#include "encoder.h"
