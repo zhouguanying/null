@@ -1,8 +1,10 @@
-* cmake
+* make
 * eliminate dead files & functions
 * eliminate warnings
 * static analysis
 * valgrind
 * pc version
 * github
+* write test and continuous integration
 * error/statistics report, more info report
+* automatic batch upgrade
