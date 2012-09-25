@@ -1,17 +1,3 @@
-/*=================================================================
-  Copyright (c) 2003 by CHIPNUTS Incorporated. All Rights Reserved.
-  FileName: chp_comdef.h
-  
-  Author: Jerry       Date: 05/31/2006
-
-  Description: header file for common definition.
-  Version:     V1.0
-  
-  History:     
-  <author>  <time>       <version>        <desc>    
-  Jerry        05/31/2007     1.0        Initial Version  
-  baggio	   2007-10-31	      1.1  	     modify  the architecture
-==================================================================*/
 #ifndef _CHP_COMDEF_H
 #define _CHP_COMDEF_H
 

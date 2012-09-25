@@ -6,34 +6,6 @@
 #include <string.h>
 #include <stdlib.h> 
 
-int sem_wait_safe(sem_t *sem)
-{
-	while(sem_wait(sem) < 0);
-	return 0;
-}
-
-int get_us()
-{
-	struct timeval tp;
-
-	// get system time
-	gettimeofday(&tp, NULL);
-	
-	// convert to us
-	return (tp.tv_sec * 1000 * 1000 + tp.tv_usec);
-}
-
-int get_time_second()
-{
-	struct timeval tp;
-
-	// get system time
-	gettimeofday(&tp, NULL);
-	
-	// convert to us
-	return tp.tv_sec;
-}
-
 int hex_string_to_int(char* string, int num)
 {
 	char buffer[20];
@@ -92,19 +64,4 @@ int socket_set_nonblcok(int socket)
 
 	return 0;
 }
-int socket_reset_block(int socket)
-{
-	long arg;
-	if( (arg = fcntl(socket, F_GETFL, NULL)) < 0) { 
-		//fprintf(stderr, "Error fcntl(..., F_GETFL) (%s)\n", strerror(errno)); 
-		return -1;
-	} 
-	arg &=(~O_NONBLOCK);
-	if( fcntl(socket, F_SETFL, arg) < 0) { 
-		//fprintf(stderr, "Error fcntl(..., F_SETFL) (%s)\n", strerror(errno)); 
-		return -1;
-	}
-	return 0;
-}
-
 

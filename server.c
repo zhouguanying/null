@@ -24,7 +24,6 @@
 //#include <defines.h>
 #include "mail_alarm.h"
 #include "cli.h"
-#include "sockets.h"
 //#include "mpegts.h"
 #include "config.h"
 //#include "encoder.h"
@@ -1625,31 +1624,11 @@ static inline void write_syn_sound(int *need_video_internal_head)
 }
 #endif
 
-static  void vs_msg_debug()
-{
-	int ret;
-	vs_ctl_message msg;
-	msg.msg_type = VS_MESSAGE_ID;
-	msg.msg[0] = VS_MESSAGE_DEBUG;
-	msg.msg[1] = 0;
-	ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
-	if(ret == -1){
-		printf("send daemon message error\n");
-		system("reboot &");
-		exit(0);
-	}
-	printf(__FILE__":%s:CAMERA DEBUG\n",__func__);
-	exit(0);
-}
-
 int snd_soft_restart();
 
 #define NO_RECORD_FILE   "/data/norecord"
 int start_video_record(struct sess_ctx* sess)
 {
-	//const char *videodevice = "/dev/video0";
-	//int format = V4L2_PIX_FMT_MJPEG;
-	//int grabmethod = 1;
 	int ret;
 	char* buffer;
 	int size;
@@ -1658,9 +1637,6 @@ int start_video_record(struct sess_ctx* sess)
 	int size1=0;
 	int size2=0;
 	char *timestamp;
-	//struct timeval stop_time;
-	//struct timeval open_time;
-	//unsigned long long un_cpture_time;
 	struct timeval starttime,endtime;
 #ifdef RECORD_SOUND
 	struct timeval prev_write_sound_time;
@@ -2178,7 +2154,6 @@ retry:
 				goto FORCE_CLOSE_FILE;
 				//system("reboot &");
 				//exit(0);
-				//vs_msg_debug();
 			}
 		}
 		free(buffer);

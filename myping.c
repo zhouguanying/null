@@ -42,7 +42,6 @@ static pid_t pid;
 static struct sockaddr_in from;
 static struct timeval tvrecv;
 
-void statistics(int signo);
 unsigned short cal_chksum(unsigned short *addr,int len);
 int pack(int pack_no);
 int send_packet();
@@ -50,13 +49,6 @@ int recv_packet();
 int unpack(char *buf,int len);
 void tv_sub(struct timeval *out,struct timeval *in);
 
-void statistics(int signo)
-{
-   printf("\n--------------------PING statistics-------------------\n");
-   printf("%d packets transmitted, %d received , %%%d lost\n",nsend,nreceived,(int)((float)((nsend-nreceived)/nsend))*100);
-   close(sockfd);
-   exit(1);
-}
 /*校验和算法*/
 unsigned short cal_chksum(unsigned short *addr,int len)
 {
@@ -124,7 +116,6 @@ int recv_packet()
      int n;
      socklen_t fromlen;
      extern int errno;
-     //signal(SIGALRM,statistics);
      fromlen=sizeof(from);
      //  alarm(MAX_WAIT_TIME);
     __retry:
@@ -236,7 +227,6 @@ int check_net(char *ping_addr,char * __device)
     pid=getpid();
     printf("PING %s(%s): %d bytes data in ICMP packets.\n",argv[1],
     inet_ntoa(dest_addr.sin_addr),datalen);
-   // signal(SIGINT,statistics);
    for(n =0;n<3;n++){
    	send_packet();
 	if(recv_packet() ==0){
@@ -276,112 +266,6 @@ int snd_soft_restart()
 	printf("set soft reset\n");
 	//stop_udt_lib();
 	exit(0);
-}
-
-int check_net_thread()
-{
-	char ping_addr[32];
-	int crrconected;
-	int eth0_wan;
-	int eth0_lan;
-	int wlan0_wan;
-	int wlan0_lan;
-	while(1){
-		eth0_lan = -1;
-		eth0_wan =-1;
-		wlan0_lan = -1;
-		wlan0_wan=-1;
-		
-		/*check eth0 wan*/
-		memset(ping_addr,0,32);
-		sprintf(ping_addr,"www.baidu.com");
-		eth0_wan = check_net( ping_addr, inet_eth_device);
-		if(eth0_wan == 0)
-			goto __check_ok;
-
-		/*check wlan0 wan*/
-		if(enable_wlan0){
-			memset(ping_addr,0,32);
-			sprintf(ping_addr,"www.baidu.com");
-			wlan0_wan = check_net( ping_addr, inet_wlan_device);
-			if(wlan0_wan == 0)
-				goto __check_ok;
-		}
-		//check eth0 lan
-		memset(ping_addr,0,32);
-		memcpy(ping_addr , inet_eth_gateway,32);
-		eth0_lan = check_net( ping_addr, inet_eth_device);
-		if(eth0_lan == 0)
-			goto __check_ok;
-
-		//check wlan0 lan
-		if(enable_wlan0){
-			memset(ping_addr,0,32);
-			memcpy(ping_addr , inet_wlan_gateway,32);
-			wlan0_lan = check_net( ping_addr, inet_wlan_device);
-		}
-__check_ok:
-		//printf("check net return ok \n");
-		if(eth0_wan ==0 ){
-			printf("eth_wan ok\n");
-			if(strncmp(curr_device,inet_eth_device,strlen(curr_device))!=0){
-				pthread_mutex_lock(&global_ctx_lock);
-				crrconected =currconnections;
-				pthread_mutex_unlock(&global_ctx_lock);
-				if(crrconected<=0)
-					snd_soft_restart();
-				else
-					goto __done;
-			}else
-				goto __done;
-		}
-		if(wlan0_wan ==0){
-			printf("wlan_wan ok\n");
-			if(strncmp(curr_device,inet_wlan_device,strlen(curr_device))!=0){
-				pthread_mutex_lock(&global_ctx_lock);
-				crrconected =currconnections;
-				pthread_mutex_unlock(&global_ctx_lock);
-				if(crrconected<=0)
-					snd_soft_restart();
-				else
-					goto __done;
-			}else
-				goto __done;
-		}
-		if(eth0_lan ==0){
-			printf("eth_lan ok\n");
-			if(strncmp(curr_device,inet_eth_device,strlen(curr_device))!=0){
-				pthread_mutex_lock(&global_ctx_lock);
-				crrconected =currconnections;
-				pthread_mutex_unlock(&global_ctx_lock);
-				if(crrconected<=0)
-					snd_soft_restart();
-				else
-					goto __done;
-			}else
-				goto __done;
-		}
-		if(wlan0_lan == 0){
-			printf("wlan_lan ok\n");
-			if(strncmp(curr_device,inet_wlan_device,strlen(curr_device))!=0){
-				pthread_mutex_lock(&global_ctx_lock);
-				crrconected =currconnections;
-				pthread_mutex_unlock(&global_ctx_lock);
-				if(crrconected<=0)
-					snd_soft_restart();
-				else
-					goto __done;
-			}else
-				goto __done;
-		}
-		printf("bad netwrok\n");
-		/*all cannot connected ......*/
-		//printf("all disconnected  now reboot\n");
-		//system("reboot");
-__done:
-	sleep(10);
-	}
-	return 0;
 }
 
 int built_net(int check_wlan0,int check_eth0 , int ping_wlan0 , int ping_eth0)

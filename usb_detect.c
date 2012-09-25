@@ -33,35 +33,6 @@ int	open_usbdet(void)
 	}
 }
 
-void		close_usbdet(void)
-{
-	close(fd);
-}
-
-int	write_usbdet(char *buffer, int length)
-{
-
-	if(-1==fd)	{
-		if( open_usbdet() )	{
-			return -1;
-		}
-	}
-	return	write(fd, buffer ,length);
-}
-
-int	read_usbdet(char *buffer, int length)
-{
-   	int	nread;
-
-	if(-1==fd)	{
-		if( open_usbdet() )	{
-			return -1;
-		}
-	}	
-	nread = read(fd,buffer,length);
-	return	nread;
-}
-
 int	ioctl_usbdet_read(void)
 {
 	int	ret;
@@ -93,10 +64,6 @@ int	ioctl_usbdet_led(int led)
 }
 
 //----------------------------------------------------------------------------
-
-//============================================================
-extern	int	write_usbdet(char *buffer, int length);
-extern	int	read_usbdet(char *buffer, int length);
 
 extern	int	ioctl_usbdet_led(int led);
 extern	int	ioctl_usbdet_read(void);

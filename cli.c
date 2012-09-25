@@ -24,7 +24,6 @@
 //#include <defines.h>
 
 #include "cli.h"
-#include "sockets.h"
 //#include "mpegts.h"
 #include "config.h"
 //#include "encoder.h"

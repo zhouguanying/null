@@ -6,7 +6,6 @@
 #include <unistd.h>
 //#include "vpu_lib.h"
 //#include "vpu_io.h"
-#include "capture.h"
 #include "nand_file.h"
 #include "utilities.h"
 

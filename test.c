@@ -79,34 +79,6 @@ static inline char * gettimestamp()
 	 return timestamp;
 }
 
-int test_cli(struct sess_ctx* system_sess)
-{
-	if( start_cli(system_sess) == NULL ){
-		printf("cli start error\n");
-		return -1;
-	}
-	printf("cli is running\n");
-	while(1);
-}
-
-int test_video_monitor(struct sess_ctx* system_sess)
-{
-	pthread_t tid;
-
-	if( start_cli(system_sess) == NULL ){
-		printf("cli start error\n");
-		return -1;
-	}
-	printf("cli is running\n");
-//	start_video_monitor(system_sess);
-	if (pthread_create(&tid, NULL, (void *) start_video_monitor, system_sess) < 0) {
-		free_system_session(system_sess);
-		return -1;
-	} 
-	printf("video monitor is running\n");
-	while(1);
-}
-
 int test_video_record_and_monitor(struct sess_ctx* system_sess)
 {
 	pthread_t tid;

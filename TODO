@@ -1,6 +1,8 @@
 * make
 * eliminate dead files & functions
 * eliminate warnings
+* code beautifier
+
 * static analysis
 * valgrind
 * pc version

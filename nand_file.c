@@ -134,19 +134,6 @@ found:
 	return ret;
 }
 
-//return the free disk size, unit is M = 1024*1024
-int get_disk_free_size(char* disk)
-{
-	struct statfs s;
-	
-	if (statfs(disk, &s) != 0) {
-		printf("get disk stat error\n");
-		return -1;
-	}
-//	printf("block_size=%d, total_blocks=%d, free_blocks=%d\n", s.f_bsize, s.f_blocks, s.f_bfree);
-	return s.f_bfree * ( s.f_bsize / 1024 ) / 1024;
-}
-
 int mk_save_dir(char* dir)
 {
 	struct stat st;
@@ -375,14 +362,6 @@ int create_file_segments(int free_msize, char* fp_dir)
 		}
 	}
 	closedir(dp);
-/*	
-	while(( size = get_disk_free_size(fp_dir)) > FILE_SEGMENT_SIZE/(1024*1024) + 100 ){
-		if( create_new_file_segment(fp_dir) ){
-			printf("create file segment error\n");
-			return -1;
-		}
-	}
-*/	
 	return 0;
 }
 
@@ -407,8 +386,7 @@ int nand_open(char* name)
 	if( mk_save_dir(SAVE_FULL_PATH) ){
 		return -1;
 	}
-//	disk_free_size = get_disk_free_size(SAVE_DISK);
-	disk_free_size = 0;	//get_disk_free_size will last very long, so we skip it because yyf will promise the creation of record files
+	disk_free_size = 0;	//because yyf will promise the creation of record files
 	if( create_file_segments( disk_free_size, SAVE_FULL_PATH ) != 0 ){
 		return -1;
 	}

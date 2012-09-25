@@ -26,7 +26,6 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include "types.h"
-#include "sockets.h"
 #include "utilities.h"
 #include "amr.h"
 #include "cli.h"

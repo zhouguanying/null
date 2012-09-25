@@ -30,27 +30,6 @@ char *scanresult;
 int result_len;
 
 
-static void print_help();
-
-
-static void usage(void)
-{
-	printf("wpa_cli [-p<path to ctrl sockets>] [-i<ifname>] [-hvB] "
-	       "[-a<action file>] \\\n"
-	       "        [-P<pid file>] [-g<global ctrl>] [-G<ping interval>]  "
-	       "[command..]\n"
-	       "  -h = help (show this usage text)\n"
-	       "  -v = shown version information\n"
-	       "  -a = run in daemon mode executing the action file based on "
-	       "events from\n"
-	       "       wpa_supplicant\n"
-	       "  -B = run a daemon in the background\n"
-	       "  default path: /var/run/wpa_supplicant\n"
-	       "  default interface: first interface found in socket path\n");
-	print_help();
-}
-
-
 static int wpa_cli_open_connection(const char *ifname, int attach)
 {
 	char *cfile;
@@ -162,7 +141,6 @@ static int wpa_cli_cmd_pmksa(struct wpa_ctrl *ctrl, int argc, char *argv[])
 
 static int wpa_cli_cmd_help(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
-	print_help();
 	return 0;
 }
 
@@ -1476,34 +1454,6 @@ static struct wpa_cli_cmd wpa_cli_commands[] = {
 	{ NULL, NULL, cli_cmd_flag_none, NULL }
 };
 
-
-/*
- * Prints command usage, lines are padded with the specified string.
- */
-static void print_cmd_help(struct wpa_cli_cmd *cmd, const char *pad)
-{
-	char c;
-	size_t n;
-
-	printf("%s%s ", pad, cmd->cmd);
-	for (n = 0; (c = cmd->usage[n]); n++) {
-		printf("%c", c);
-		if (c == '\n')
-			printf("%s", pad);
-	}
-	printf("\n");
-}
-
-
-static void print_help(void)
-{
-	int n;
-	printf("commands:\n");
-	for (n = 0; wpa_cli_commands[n].cmd; n++)
-		print_cmd_help(&wpa_cli_commands[n], "  ");
-}
-
-
 static int wpa_request(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
 	struct wpa_cli_cmd *cmd, *match = NULL;
@@ -1547,249 +1497,6 @@ static int wpa_request(struct wpa_ctrl *ctrl, int argc, char *argv[])
 	return ret;
 }
 
-
-static int str_match(const char *a, const char *b)
-{
-	return strncmp(a, b, strlen(b)) == 0;
-}
-
-
-static int wpa_cli_exec(const char *program, const char *arg1,
-			const char *arg2)
-{
-	char *cmd;
-	size_t len;
-	int res;
-	int ret = 0;
-
-	len = strlen(program) + strlen(arg1) + strlen(arg2) + 3;
-	cmd = malloc(len);
-	if (cmd == NULL)
-		return -1;
-	res = snprintf(cmd, len, "%s %s %s", program, arg1, arg2);
-	if (res < 0 || (size_t) res >= len) {
-		free(cmd);
-		return -1;
-	}
-	cmd[len - 1] = '\0';
-	free(cmd);
-
-	return ret;
-}
-
-
-static void wpa_cli_action_process(const char *msg)
-{
-	const char *pos;
-	char *copy = NULL, *id, *pos2;
-
-	pos = msg;
-	if (*pos == '<') {
-		/* skip priority */
-		pos = strchr(pos, '>');
-		if (pos)
-			pos++;
-		else
-			pos = msg;
-	}
-
-	if (str_match(pos, WPA_EVENT_CONNECTED)) {
-		int new_id = -1;
-		unsetenv("WPA_ID");
-		unsetenv("WPA_ID_STR");
-		unsetenv("WPA_CTRL_DIR");
-
-		pos = strstr(pos, "[id=");
-		if (pos)
-			copy = strdup(pos + 4);
-
-		if (copy) {
-			pos2 = id = copy;
-			while (*pos2 && *pos2 != ' ')
-				pos2++;
-			*pos2++ = '\0';
-			new_id = atoi(id);
-			setenv("WPA_ID", id, 1);
-			while (*pos2 && *pos2 != '=')
-				pos2++;
-			if (*pos2 == '=')
-				pos2++;
-			id = pos2;
-			while (*pos2 && *pos2 != ']')
-				pos2++;
-			*pos2 = '\0';
-			setenv("WPA_ID_STR", id, 1);
-			free(copy);
-		}
-
-		setenv("WPA_CTRL_DIR", ctrl_iface_dir, 1);
-
-		if (!wpa_cli_connected || new_id != wpa_cli_last_id) {
-			wpa_cli_connected = 1;
-			wpa_cli_last_id = new_id;
-			wpa_cli_exec(action_file, ctrl_ifname, "CONNECTED");
-		}
-	} else if (str_match(pos, WPA_EVENT_DISCONNECTED)) {
-		if (wpa_cli_connected) {
-			wpa_cli_connected = 0;
-			wpa_cli_exec(action_file, ctrl_ifname, "DISCONNECTED");
-		}
-	} else if (str_match(pos, WPA_EVENT_TERMINATING)) {
-		printf("wpa_supplicant is terminating - stop monitoring\n");
-		wpa_cli_quit = 1;
-	}
-}
-
-static void wpa_cli_action_cb(char *msg, size_t len)
-{
-	wpa_cli_action_process(msg);
-}
-
-static void wpa_cli_reconnect(void)
-{
-	wpa_cli_close_connection();
-	wpa_cli_open_connection(ctrl_ifname, 1);
-}
-
-
-static void wpa_cli_recv_pending(struct wpa_ctrl *ctrl, int in_read,
-				 int action_monitor)
-{
-	int first = 1;
-	if (ctrl_conn == NULL) {
-		wpa_cli_reconnect();
-		return;
-	}
-	while (wpa_ctrl_pending(ctrl) > 0) {
-		char buf[256];
-		size_t len = sizeof(buf) - 1;
-		if (wpa_ctrl_recv(ctrl, buf, &len) == 0) {
-			buf[len] = '\0';
-			if (action_monitor)
-				wpa_cli_action_process(buf);
-			else {
-				if (in_read && first)
-					printf("\r");
-				first = 0;
-				printf("%s\n", buf);
-			}
-		} else {
-			printf("Could not read pending message.\n");
-			break;
-		}
-	}
-
-	if (wpa_ctrl_pending(ctrl) < 0) {
-		printf("Connection to wpa_supplicant lost - trying to "
-		       "reconnect\n");
-		wpa_cli_reconnect();
-	}
-}
-
-
-static void wpa_cli_interactive(void)
-{
-#define max_args 10
-	char cmdbuf[256], *cmd, *argv[max_args], *pos;
-	int argc;
-
-	printf("\nInteractive mode\n\n");
-
-	do {
-		wpa_cli_recv_pending(mon_conn, 0, 0);
-
-
-		printf("> ");
-		cmd = fgets(cmdbuf, sizeof(cmdbuf), stdin);
-		if (cmd == NULL)
-			break;
-		wpa_cli_recv_pending(mon_conn, 0, 0);
-		pos = cmd;
-		while (*pos != '\0') {
-			if (*pos == '\n') {
-				*pos = '\0';
-				break;
-			}
-			pos++;
-		}
-		argc = 0;
-		pos = cmd;
-		for (;;) {
-			while (*pos == ' ')
-				pos++;
-			if (*pos == '\0')
-				break;
-			argv[argc] = pos;
-			argc++;
-			if (argc == max_args)
-				break;
-			if (*pos == '"') {
-				char *pos2 = strrchr(pos, '"');
-				if (pos2)
-					pos = pos2 + 1;
-			}
-			while (*pos != '\0' && *pos != ' ')
-				pos++;
-			if (*pos == ' ')
-				*pos++ = '\0';
-		}
-		if (argc)
-			wpa_request(ctrl_conn, argc, argv);
-
-		if (cmd != cmdbuf)
-			free(cmd);
-	} while (!wpa_cli_quit);
-}
-
-
-static void wpa_cli_action(struct wpa_ctrl *ctrl)
-{
-	fd_set rfds;
-	int fd, res;
-	struct timeval tv;
-	char buf[256]; /* note: large enough to fit in unsolicited messages */
-	size_t len;
-
-	fd = wpa_ctrl_get_fd(ctrl);
-
-	while (!wpa_cli_quit) {
-		FD_ZERO(&rfds);
-		FD_SET(fd, &rfds);
-		tv.tv_sec = ping_interval;
-		tv.tv_usec = 0;
-		res = select(fd + 1, &rfds, NULL, NULL, &tv);
-		if (res < 0 && errno != EINTR) {
-			perror("select");
-			break;
-		}
-
-		if (FD_ISSET(fd, &rfds))
-			wpa_cli_recv_pending(ctrl, 0, 1);
-		else {
-			/* verify that connection is still working */
-			len = sizeof(buf) - 1;
-			if (wpa_ctrl_request(ctrl, "PING", 4, buf, &len,
-					     wpa_cli_action_cb) < 0 ||
-			    len < 4 || memcmp(buf, "PONG", 4) != 0) {
-				printf("wpa_supplicant did not reply to PING "
-				       "command - exiting\n");
-				break;
-			}
-		}
-	}
-}
-
-
-static void wpa_cli_cleanup(void)
-{
-	wpa_cli_close_connection();
-}
-
-static void wpa_cli_terminate(int sig)
-{
-	wpa_cli_cleanup();
-}
-
 static char * wpa_cli_get_default_ifname(void)
 {
 	char *ifname = NULL;
@@ -1830,7 +1537,7 @@ int mywpa_cli(int argc, char *argv[])
 	ret = wpa_request(ctrl_conn, argc , &argv[0]);
 
 	free(ctrl_ifname);
-	wpa_cli_cleanup();
+	wpa_cli_close_connection();
 
 	return ret;
 }
