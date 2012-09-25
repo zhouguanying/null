@@ -1848,22 +1848,3 @@ int mywpa_cli(int argc, char *argv[])
 
 	return ret;
 }
-/*
-int main(){
-	int i;
-	char *argv[4];
-	for(i=0;i<4;i++){
-		argv[i]=malloc(512);
-	}
-	sprintf(argv[0],"scan");
-	mywpa_cli(1,argv);
-	sleep(1);
-	sprintf(argv[0],"scan_results");
-	mywpa_cli(1,argv);
-	
-	for(i=0;i<4;i++)
-	  free(argv[i]);
-	return 0;
-}
-*/
-

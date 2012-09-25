@@ -347,42 +347,6 @@ int		SetUartDirection(int	direction)
 }
 //*****************************************************************************************************
 
-#if	0
-/**
-*@breif 	main()
-*/
-int main(int argc, char **argv)
-{
-	int fd;
-	int nread;
-	char buff[512];
-	char *dev ="/dev/ttyS1";
-	fd = OpenDev(dev);
-	if (fd>0)
-    set_speed(fd,19200);
-	else
-		{
-		printf("Can't Open Serial Port!\n");
-		exit(0);
-		}
-  if (set_Parity(fd,8,1,'N')== FALSE)
-  {
-    printf("Set Parity Error\n");
-    exit(1);
-  }
-  while(1)
-  	{
-   		while((nread = read(fd,buff,512))>0)
-   		{
-      		printf("\nLen %d\n",nread);
-      		buff[nread+1]='\0';
-      		printf("\n%s",buff);
-   	 	}
-  	}
-    //close(fd);
-    //exit(0);
-}
-#endif
 //****************************************************************************
 
 //首先定义uart_driver结构。形如
