@@ -581,7 +581,7 @@ int cmd_recv_msg(int sock , SOCKET_TYPE st , char *buf , int len , struct sockad
 			return stun_recvmsg( sock, buf, len , addr , addrlen);
 			break;
 		default:
-			dbg("#########socket type error#######\n");
+			dbg("#########socket type error#######\n");
 			break;
 	}
 	return -1;

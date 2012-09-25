@@ -1,5 +1,5 @@
 * cmake
-* eliminate useless files & functions
+* eliminate dead files & functions
 * eliminate warnings
 * static analysis
 * valgrind

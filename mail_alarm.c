@@ -49,7 +49,7 @@ static  struct  __attach_data_list_head{
 	int count;
 	int maxsize;  //max imge size,use to malloc buffer for text(include all this images)
 	pthread_mutex_t  mail_data_lock;
-	struct mail_attach_data *attach_data_list;
+	struct mail_attach_data *attach_data_list;
 	struct mail_attach_data *data_list_tail;
 }attach_data_list_head;
 
@@ -521,7 +521,7 @@ __end:
 		close(sockfd);
 	return -1;
 }
- int mail_alarm_thread(){
+ int mail_alarm_thread(){
  	struct mail_attach_data *ap;
  	dbg("###############mail alarm thread ok###################\n");
  	while(1){
