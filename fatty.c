@@ -626,8 +626,8 @@ void write_ipcam_file_16(uint16_t  sectors_per_fat,
 
     // cast to int32_t since it might be negative, see comments in the
     // 32-bit version
-    offset       = (int32_t) (fat_begin_sector * bytes_per_sector -
-                              fat_buffer_size);
+    offset       = (int32_t)(fat_begin_sector * bytes_per_sector -
+                             fat_buffer_size);
     offset_entry = (uint64_t) sector_of_cluster(next_cluster) *
                    bytes_per_sector;
 
@@ -798,8 +798,8 @@ end:
         uint16_t c     = start_cluster;
         uint16_t p;
 
-        offset = (int32_t) (fat_begin_sector * bytes_per_sector -
-                            fat_buffer_size);
+        offset = (int32_t)(fat_begin_sector * bytes_per_sector -
+                           fat_buffer_size);
         for (i = 0; i < max_fat_entries + 2; i++)
         {
             // time to read next segment
@@ -865,8 +865,8 @@ void write_ipcam_file_32(uint32_t  sectors_per_fat,
      *
      *  This will print "test = -29696, test2 = 4294937600".
      */
-    offset       = (int32_t) (fat_begin_sector * bytes_per_sector -
-                              fat_buffer_size);
+    offset       = (int32_t)(fat_begin_sector * bytes_per_sector -
+                             fat_buffer_size);
     offset_entry = (uint64_t) sector_of_cluster(next_cluster) *
                    bytes_per_sector;
 
@@ -1042,8 +1042,8 @@ end:
         uint32_t c     = start_cluster;
         uint32_t p;
 
-        offset = (int32_t) (fat_begin_sector * bytes_per_sector -
-                            fat_buffer_size);
+        offset = (int32_t)(fat_begin_sector * bytes_per_sector -
+                           fat_buffer_size);
         for (i = 0; i < max_fat_entries + 2; i++)
         {
             // time to read next segment

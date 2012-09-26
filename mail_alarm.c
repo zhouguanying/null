@@ -87,7 +87,7 @@ static inline char * gettimestamp()
     static char timestamp[32];
     time_t t;
     struct tm *curtm;
-    if(time(&t)==-1)
+    if (time(&t)==-1)
     {
         printf("get time error\n");
         exit(0);
@@ -111,14 +111,14 @@ int add_image_to_mail_attatch_list_no_block(char *image,int size)
 {
     struct mail_attach_data*p;
     pthread_mutex_lock(&attach_data_list_head.mail_data_lock);
-    if(attach_data_list_head.count>=MAX_DATA_IN_LIST)
+    if (attach_data_list_head.count>=MAX_DATA_IN_LIST)
     {
         pthread_mutex_unlock(&attach_data_list_head.mail_data_lock);
         free(image);
         return -1;
     }
     p=malloc(sizeof(struct mail_attach_data));
-    if(!p)
+    if (!p)
     {
         pthread_mutex_unlock(&attach_data_list_head.mail_data_lock);
         free(image);
@@ -127,9 +127,9 @@ int add_image_to_mail_attatch_list_no_block(char *image,int size)
     p->image=image;
     p->size=size;
     p->next=NULL;
-    if(size>attach_data_list_head.maxsize)
+    if (size>attach_data_list_head.maxsize)
         attach_data_list_head.maxsize=size;
-    if(attach_data_list_head.data_list_tail==NULL)
+    if (attach_data_list_head.data_list_tail==NULL)
     {
         attach_data_list_head.attach_data_list=p;
         attach_data_list_head.data_list_tail=p;
@@ -146,7 +146,7 @@ int add_image_to_mail_attatch_list_no_block(char *image,int size)
 
 static int checkreply(char *str,char *buf)
 {
-    if(strncmp(str,buf,3)!=0)
+    if (strncmp(str,buf,3)!=0)
     {
         printf("check replay faile str:%s\n",str);
         return -1;
@@ -165,7 +165,7 @@ static int en_base64(char *sbuf,int ssize,char dbuf[],int *dsize)
     flag=len%3;
     len=len/3;
     d=dbuf;
-    for(sid=0,did=0; len>0; len--)
+    for (sid=0,did=0; len>0; len--)
     {
         d[did]=(s[sid]&0xfc)>>2;
         d[did+1]=((s[sid]&0x3)<<4)|((s[sid+1]&0xf0)>>4);
@@ -175,9 +175,9 @@ static int en_base64(char *sbuf,int ssize,char dbuf[],int *dsize)
         did+=4;
     }
 
-    if(flag>0)
+    if (flag>0)
     {
-        if(flag==1)
+        if (flag==1)
         {
             d[did]=(s[sid]&0xfc)>>2;
             d[did+1]=(s[sid]&0x3)<<4;
@@ -186,7 +186,7 @@ static int en_base64(char *sbuf,int ssize,char dbuf[],int *dsize)
             did+=4;
         }
 
-        if(flag==2)
+        if (flag==2)
         {
             d[did]=(s[sid]&0xfc)>>2;
             d[did+1]=((s[sid]&0x3)<<4)|((s[sid+1]&0xf0)>>4);
@@ -197,12 +197,12 @@ static int en_base64(char *sbuf,int ssize,char dbuf[],int *dsize)
     }
 
     tlen=did;
-    for(did=0; did<tlen; did++)
+    for (did=0; did<tlen; did++)
     {
         d[did]=table[(int)d[did]];
     }
     d[did]='\0';
-    if(dsize!=NULL)
+    if (dsize!=NULL)
         *dsize=tlen;
     return 0;
 }
@@ -255,7 +255,7 @@ static int sendtext(int sockfd,char *ptext)
     /*mail attachment*/
     len=strlen(p);
     p+=len;
-    while(private_list_head.attach_data_list!=NULL)
+    while (private_list_head.attach_data_list!=NULL)
     {
         ap=private_list_head.attach_data_list;
         private_list_head.attach_data_list=private_list_head.attach_data_list->next;
@@ -288,12 +288,12 @@ static int sendtext(int sockfd,char *ptext)
         len+=strlen(p);
         p+=strlen(p);
         i = 0;
-        while(len> 0 )
+        while (len> 0)
         {
-            if( len >= 1000 )
+            if (len >= 1000)
             {
                 ret = send(sockfd, ptext+i, 1000,0);
-                if(ret==-1)
+                if (ret==-1)
                 {
                     len=-1;
                     goto __error;
@@ -304,7 +304,7 @@ static int sendtext(int sockfd,char *ptext)
             else
             {
                 ret = send(sockfd, ptext+i, len,0);
-                if(ret==-1)
+                if (ret==-1)
                 {
                     len=-1;
                     goto __error;
@@ -326,7 +326,7 @@ static int sendtext(int sockfd,char *ptext)
     len=send(sockfd,ptext,len,0);
 __error:
     //the memory may fail to malloc for sbuf or attachbuf,desert the last image that cannot send
-    while(private_list_head.attach_data_list!=NULL)
+    while (private_list_head.attach_data_list!=NULL)
     {
         ap=private_list_head.attach_data_list;
         private_list_head.attach_data_list=private_list_head.attach_data_list->next;
@@ -349,7 +349,7 @@ static int mail_alarm()
     char *ptext;
 
     sina_mail_ent=gethostbyname(mailserver);
-    if(sina_mail_ent==NULL)
+    if (sina_mail_ent==NULL)
     {
         printf("error get sina mail ent\n");
         goto __error;
@@ -362,7 +362,7 @@ static int mail_alarm()
     sockfd=-1;
     sockfd=socket(AF_INET,SOCK_STREAM,0);
     ret=connect(sockfd,(void *)&sina_mail_addr,sizeof(sina_mail_addr));
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("connect error!\n");
         goto __error;
@@ -370,7 +370,7 @@ static int mail_alarm()
     printf("connect sucess\n");
     memset(buf,0,sizeof(buf));
     ret=recv(sockfd,buf,sizeof(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("recv error!\n");
         goto __error;
@@ -378,59 +378,59 @@ static int mail_alarm()
     memset(buf,0,sizeof(buf));
     sprintf(buf,"EHLO Server\r\n");
     ret=send(sockfd,buf,strlen(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("send EHLO error\n");
         goto __error;
     }
     ret=recv(sockfd,buf,sizeof(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("after send EHLO recv error\n");
         goto __error;
     }
     buf[ret]='\0';
     ret=checkreply("250", buf);
-    if(ret<0)
+    if (ret<0)
     {
         goto __error;
     }
     memset(buf,0,sizeof(buf));
     sprintf(buf,"AUTH LOGIN\r\n");
     ret=send(sockfd,buf,strlen(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         printf("send login error\n");
         goto __error;
     }
     ret=recv(sockfd,buf,sizeof(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("after set login recv error\n");
         goto __error;
     }
     buf[ret]='\0';
     ret=checkreply("334",  buf);
-    if(ret<0)
+    if (ret<0)
         goto __error;
     memset(buf,0,sizeof(buf));
     en_base64(sendername,strlen(sendername),buf,NULL);
     strcat(buf,"\r\n");
     ret=send(sockfd,buf,strlen(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("send username error\n");
         goto __error;
     }
     ret=recv(sockfd,buf,sizeof(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("afer set username recv error\n");
         goto __error;
     }
     buf[ret]='\0';
     ret=checkreply("334", buf);
-    if(ret<0)
+    if (ret<0)
     {
         close(sockfd);
         printf(" user name fail try again\n");
@@ -440,20 +440,20 @@ static int mail_alarm()
     en_base64(senderpswd,strlen(senderpswd),buf,NULL);
     strcat(buf,"\r\n");
     ret=send(sockfd,buf,strlen(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("send passwd error\n");
         goto __error;
     }
     ret=recv(sockfd,buf,sizeof(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("after set passwd recv fail\n");
         goto __error;
     }
     buf[ret]='\0';
     ret=checkreply("235",  buf);
-    if(ret<0)
+    if (ret<0)
     {
         close(sockfd);
         printf("passwd fail try again\n");
@@ -463,99 +463,99 @@ static int mail_alarm()
     memset(buf,0,sizeof(buf));
     sprintf(buf,"MAIL FROM:<%s>\r\n",sender);
     ret=send(sockfd,buf,strlen(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("send MAIL FROM error\n");
         goto __error;
     }
     ret=recv(sockfd,buf,sizeof(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("after send MAIL FROM recv error\n");
         goto __error;
     }
     buf[ret]='\0';
     ret = checkreply("250", buf);
-    if(ret <0)
+    if (ret <0)
         goto __error;
     memset(buf,0,sizeof(buf));
     sprintf(buf,"RCPT TO:<%s>\r\n",receiver);
     ret=send(sockfd,buf,strlen(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         printf("send RCPT TO error\n");
         goto __error;
     }
     ret=recv(sockfd,buf,sizeof(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("after send RCPT TO recv error\n");
         goto __error;
     }
     buf[ret]='\0';
     ret=checkreply("250",  buf);
-    if(ret<0)
+    if (ret<0)
         goto __error;
     memset(buf,0,sizeof(buf));
     sprintf(buf,"DATA\r\n");
     ret=send(sockfd,buf,strlen(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         printf("send DATA error\n");
         goto __error;
     }
     ret=recv(sockfd,buf,sizeof(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("after send DATA recv error\n");
         goto __error;
     }
     buf[ret]='\0';
     ret=checkreply("354",  buf);
-    if(ret<0)
+    if (ret<0)
         goto __error;
     ptext=(char *)malloc(0x400+private_list_head.maxsize*2);
-    if(!ptext)
+    if (!ptext)
     {
         goto __error;
     }
     ret=sendtext(sockfd,ptext);
     free(ptext);
-    if(ret<0)
+    if (ret<0)
         goto __end;
     ret=recv(sockfd,buf,sizeof(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("after set mail recv data error\n");
         goto __end;
     }
     buf[ret]='\0';
     ret=checkreply("250", buf);
-    if(ret<0)
+    if (ret<0)
         goto __end;
     memset(buf,0,sizeof(buf));
     sprintf(buf,"QUIT\r\n");
     ret=send(sockfd,buf,strlen(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("send QUIT error!\n");
         goto __end;
     }
     ret=recv(sockfd,buf,sizeof(buf),0);
-    if(ret==-1)
+    if (ret==-1)
     {
         perror("after send QUIT recv error\n");
         goto __end;
     }
     buf[ret]='\0';
     ret=checkreply("221",  buf);
-    if(ret<0)
+    if (ret<0)
         goto __end;
     close(sockfd);
     printf("OK send mail sucess\n");
     return 0;
 __error:
-    while(private_list_head.attach_data_list!=NULL)
+    while (private_list_head.attach_data_list!=NULL)
     {
         ap=private_list_head.attach_data_list;
         private_list_head.attach_data_list=private_list_head.attach_data_list->next;
@@ -565,7 +565,7 @@ __error:
     }
 __end:
     printf("send mail fail\n");
-    if(sockfd>=0)
+    if (sockfd>=0)
         close(sockfd);
     return -1;
 }
@@ -573,10 +573,10 @@ int mail_alarm_thread()
 {
     struct mail_attach_data *ap;
     dbg("###############mail alarm thread ok###################\n");
-    while(1)
+    while (1)
     {
         pthread_mutex_lock(&attach_data_list_head.mail_data_lock);
-        if(!attach_data_list_head.attach_data_list||attach_data_list_head.count<=0)
+        if (!attach_data_list_head.attach_data_list||attach_data_list_head.count<=0)
         {
             pthread_mutex_unlock(&attach_data_list_head.mail_data_lock);
             usleep(500000);
@@ -590,7 +590,7 @@ int mail_alarm_thread()
         attach_data_list_head.attach_data_list=NULL;
         attach_data_list_head.data_list_tail=NULL;
         pthread_mutex_unlock(&attach_data_list_head.mail_data_lock);
-        if(receiver[0]&&sender[0]&&senderpswd[0]&&mailserver[0])
+        if (receiver[0]&&sender[0]&&senderpswd[0]&&mailserver[0])
         {
             printf("mail box =%s\n",receiver);
             mail_alarm();
@@ -598,7 +598,7 @@ int mail_alarm_thread()
         else
         {
             dbg("#############mail alarm receiver not found#################\n");
-            while(private_list_head.attach_data_list!=NULL)
+            while (private_list_head.attach_data_list!=NULL)
             {
                 ap=private_list_head.attach_data_list;
                 private_list_head.attach_data_list=private_list_head.attach_data_list->next;

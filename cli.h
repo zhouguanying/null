@@ -14,8 +14,8 @@ extern "C"
     struct cli_handler
     {
         char *cmds;
-        char * (*handler)(void *sess, char *cmd, char *param, int size, int* rsp_len );
-        char * (*handler_bin)(void *sess, char *cmd, int cmd_len, int size, int* rsp_len );
+        char * (*handler)(void *sess, char *cmd, char *param, int size, int* rsp_len);
+        char * (*handler_bin)(void *sess, char *cmd, int cmd_len, int size, int* rsp_len);
     };
 
 #define CLI_PORT 60000 /* Use unassigned port for remote support */

@@ -37,9 +37,9 @@ static    void     set_speed(int fd, int speed)
     struct termios     Opt; //定义了这样一个结构
 
     tcgetattr(fd, &Opt);     //用来得到机器原端口的默认设置
-    for ( i= 0; i < sizeof(speed_arr) / sizeof(int); i++)
+    for (i= 0; i < sizeof(speed_arr) / sizeof(int); i++)
     {
-        if(speed == name_arr[i])         //判断传进来是否相等
+        if (speed == name_arr[i])        //判断传进来是否相等
         {
             tcflush(fd, TCIOFLUSH);             //刷新输入输出缓冲
             cfsetispeed(&Opt, speed_arr[i]);     //这里分别设置
@@ -48,7 +48,7 @@ static    void     set_speed(int fd, int speed)
             // Opt.c_cflag |= (CLOCAL | CREAD);
 
             status = tcsetattr(fd, TCSANOW, &Opt);     //这是立刻把bote rates设置真正写到串口中去
-            if(status != 0)
+            if (status != 0)
             {
                 perror("uart set_speed err");         //设置错误
                 return;
@@ -72,7 +72,7 @@ static    int     set_Parity(int fd,int databits,int stopbits,int parity)
 {
     struct termios     options;     //定义一个结构
 
-    if( tcgetattr( fd,&options)!=0)     //首先读取系统默认设置options中,必须
+    if (tcgetattr(fd,&options)!=0)      //首先读取系统默认设置options中,必须
     {
         perror("uart set_Parity tcgetattr err");
         return(FALSE);
@@ -232,7 +232,7 @@ int    UartWrite(char *buffer, int length)
     //printf("linux UartWrite---length= %d, \n",length);
     //printf("linux UartWrite-----buffer = %x,%x,%x,%x,%x,%x,%x,%x \n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7]);
 
-    return    write_ptz( buffer ,length);
+    return    write_ptz(buffer ,length);
 
 }
 extern    int    UartWrite(char *buffer, int length);
@@ -271,7 +271,7 @@ int        SetUart(int speed, int databits, int stopbits, int parity)
 {
     set_speed(fd, speed);
 
-    if (set_Parity( fd,  databits, stopbits,  parity )== FALSE)
+    if (set_Parity(fd,  databits, stopbits,  parity)== FALSE)
     {
         printf("Set Parity Error\n") ;
         return     -1 ;
@@ -290,7 +290,7 @@ int        SetUartDirection(int    direction)
 
     /*use TIOCSBRK to control DE. 0 - low, 1 - high*/
     ret = ioctl(fd, TIOCSBRK, direction);
-    if(ret < 0)
+    if (ret < 0)
     {
         perror("uart TIOCSBRK error");
         return    -1;

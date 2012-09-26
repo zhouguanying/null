@@ -149,19 +149,19 @@ static int init_syn_buffer()
     int i;
     syn_buf.buffsize = NUM_BUFFERS * SIZE_OF_AMR_PER_PERIOD;
     syn_buf.absolute_start_addr = (char *)malloc(syn_buf.buffsize);
-    if(!syn_buf.absolute_start_addr)
+    if (!syn_buf.absolute_start_addr)
     {
         printf("error malloc syn_sound_buffer\n");
         return -1;
     }
     syn_buf.cache = (char *)malloc(SIZE_OF_AMR_PER_PERIOD);
-    if(!syn_buf.cache)
+    if (!syn_buf.cache)
     {
         printf("malloc syn_buf cache error\n");
         free(syn_buf.absolute_start_addr);
         return -1;
     }
-    for(i=0; i<NUM_BUFFERS; i++)
+    for (i=0; i<NUM_BUFFERS; i++)
     {
         syn_buf.c_sound_array[i].buf = syn_buf.absolute_start_addr+i*SIZE_OF_AMR_PER_PERIOD;
         memset(syn_buf.c_sound_array[i].sess_clean_mask,1,sizeof(syn_buf.c_sound_array[i].sess_clean_mask));
@@ -184,7 +184,7 @@ void set_syn_sound_data_clean(int sess_id)
     int us_pos;
     pthread_rwlock_rdlock(&syn_buf.syn_buf_lock);
     us_pos = syn_buf.start;
-    while(us_pos!=syn_buf.end)
+    while (us_pos!=syn_buf.end)
     {
         syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id] = 1;
         us_pos = (us_pos +1)%NUM_BUFFERS;
@@ -198,24 +198,24 @@ char *new_get_sound_data(int sess_id , int *size)
     char *buf;
     pthread_rwlock_rdlock(&syn_buf.syn_buf_lock);
     us_pos = syn_buf.start;
-    while(us_pos!=syn_buf.end)
+    while (us_pos!=syn_buf.end)
     {
-        if(!syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id])
+        if (!syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id])
         {
             break;
         }
         us_pos= (us_pos+1)%NUM_BUFFERS;
     }
-    if(us_pos == syn_buf.end)
+    if (us_pos == syn_buf.end)
     {
         pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
         return NULL;
     }
-    if(syn_buf.end>us_pos)
+    if (syn_buf.end>us_pos)
     {
         *size = syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.c_sound_array[us_pos].buf;
         buf = (char *)malloc(*size);
-        if(!buf)
+        if (!buf)
         {
             printf("malloc sound buffer fail\n");
             pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
@@ -227,7 +227,7 @@ char *new_get_sound_data(int sess_id , int *size)
     {
         *size = syn_buf.buffsize -(syn_buf.c_sound_array[us_pos].buf - syn_buf.absolute_start_addr);
         buf = (char *)malloc(*size +(syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr));
-        if(!buf)
+        if (!buf)
         {
             printf("malloc sound buffer fail\n");
             pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
@@ -237,9 +237,9 @@ char *new_get_sound_data(int sess_id , int *size)
         memcpy(buf +*size,syn_buf.absolute_start_addr,syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr);
         (*size)+=(syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr);
     }
-    while(us_pos!=syn_buf.end)
+    while (us_pos!=syn_buf.end)
     {
-        if(syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id])
+        if (syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id])
         {
             printf("*************BUG we have read the newer one?************************\n");
         }
@@ -255,18 +255,18 @@ static int init_playback_buffer()
     int i;
     memset(&p_sound_buf , 0 ,sizeof(p_sound_buf));
     p_sound_buf.absolute_start_addr = (char *)malloc(SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME*MAX_NUM_IDS);
-    if(!p_sound_buf.absolute_start_addr)
+    if (!p_sound_buf.absolute_start_addr)
     {
         printf("cannot malloc buffer for playback sound\n");
         return -1;
     }
     p_sound_buf.cache = (char *)malloc(SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME*MAX_NUM_IDS);
-    if(!p_sound_buf.cache)
+    if (!p_sound_buf.cache)
     {
         printf("error malloc buffer for playback sound cache\n");
         return -1;
     }
-    for(i = 0 ; i < MAX_NUM_IDS ; i++)
+    for (i = 0 ; i < MAX_NUM_IDS ; i++)
     {
         p_sound_buf.p_sound_array[i].buf = p_sound_buf.absolute_start_addr + i *SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME;
         p_sound_buf.p_sound_array[i].maxlen = SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME;
@@ -280,9 +280,9 @@ static int init_playback_buffer()
 
 static int clear_play_sound_data(int sess_id)
 {
-    while(p_sound_buf.p_sound_array[sess_id].datalen>=p_sound_buf.p_sound_array[sess_id].maxlen)
+    while (p_sound_buf.p_sound_array[sess_id].datalen>=p_sound_buf.p_sound_array[sess_id].maxlen)
         usleep(1000);
-    if(p_sound_buf.p_sound_array[sess_id].datalen)
+    if (p_sound_buf.p_sound_array[sess_id].datalen)
         p_sound_buf.p_sound_array[sess_id].datalen = 0;
     return 0;
 }
@@ -293,22 +293,22 @@ static char *get_play_sound_data(int *len)
     i = p_sound_buf.curr_play_pos;
     p_sound_buf.cache_data_len = 0;
     p_sound_buf.cache_play_pos = 0;
-    if(p_sound_buf.p_sound_array[i].datalen>=p_sound_buf.p_sound_array[i].maxlen)
+    if (p_sound_buf.p_sound_array[i].datalen>=p_sound_buf.p_sound_array[i].maxlen)
     {
         memcpy(p_sound_buf.cache +p_sound_buf.cache_data_len, p_sound_buf.p_sound_array[i].buf , p_sound_buf.p_sound_array[i].datalen);
         p_sound_buf.cache_data_len += p_sound_buf.p_sound_array[i].datalen;
         p_sound_buf.p_sound_array[i].datalen = 0;
     }
-    for( i = (i+1)%MAX_NUM_IDS; i !=p_sound_buf.curr_play_pos; i =( i+1)%MAX_NUM_IDS)
+    for (i = (i+1)%MAX_NUM_IDS; i !=p_sound_buf.curr_play_pos; i =(i+1)%MAX_NUM_IDS)
     {
-        if(p_sound_buf.p_sound_array[i].datalen>=p_sound_buf.p_sound_array[i].maxlen)
+        if (p_sound_buf.p_sound_array[i].datalen>=p_sound_buf.p_sound_array[i].maxlen)
         {
             memcpy(p_sound_buf.cache +p_sound_buf.cache_data_len, p_sound_buf.p_sound_array[i].buf , p_sound_buf.p_sound_array[i].datalen);
             p_sound_buf.cache_data_len += p_sound_buf.p_sound_array[i].datalen;
             p_sound_buf.p_sound_array[i].datalen = 0;
         }
     }
-    if(p_sound_buf.cache_data_len)
+    if (p_sound_buf.cache_data_len)
     {
         p_sound_buf.curr_play_pos = (p_sound_buf.curr_play_pos + 1)%MAX_NUM_IDS;
         *len = p_sound_buf.cache_data_len;
@@ -323,16 +323,16 @@ static char *get_play_sound_data(int *len)
 static int turn_on_speaker()
 {
     int fd;
-    fd = open ("/dev/mxs-gpio", O_RDWR);
+    fd = open("/dev/mxs-gpio", O_RDWR);
     if (fd<0)
     {
-        dbg ("file open error \n");
+        dbg("file open error \n");
         return -1;
     }
-    if(ioctl(fd, IOCTL_GET_SPK_CTL, 0)==0)
+    if (ioctl(fd, IOCTL_GET_SPK_CTL, 0)==0)
         ioctl(fd, IOCTL_SET_SPK_CTL, 1);
     // dbg("speaker is %s\n",ioctl(fd, IOCTL_GET_SPK_CTL, 0)?"on":"off");
-    close (fd);
+    close(fd);
 
     return 0;
 
@@ -464,7 +464,7 @@ static void check_hw_params(snd_pcm_t *handle, snd_pcm_hw_params_t *params ,cons
 {
     int err;
     err = snd_pcm_hw_params_get_channels(params ,&channels);
-    if(err!=0)
+    if (err!=0)
     {
         printf("%s: get channels error:%s\n",id,snd_strerror(err));
         exit(0);
@@ -489,22 +489,22 @@ static int setparams_set(snd_pcm_t *handle,
         printf("Unable to set hw params for %s: %s\n", id, snd_strerror(err));
         return err;
     }
-    check_hw_params( handle,  params,  id);
+    check_hw_params(handle,  params,  id);
     err = snd_pcm_sw_params_current(handle, swparams);
     if (err < 0)
     {
         printf("Unable to determine current swparams for %s: %s\n", id, snd_strerror(err));
         return err;
     }
-    if((strncmp(id,"capture",7))==0)
+    if ((strncmp(id,"capture",7))==0)
     {
         val=(double)(rate)*1/(double)1000000;
     }
     else
         val=buffer_frames;
-    if(val<1)
+    if (val<1)
         val=1;
-    else if(val>buffer_frames)
+    else if (val>buffer_frames)
         val=buffer_frames;
     err = snd_pcm_sw_params_set_start_threshold(handle, swparams, 1);
     if (err < 0)
@@ -518,7 +518,7 @@ static int setparams_set(snd_pcm_t *handle,
         printf("Unable to set avail min for %s: %s\n", id, snd_strerror(err));
         return err;
     }
-    if((strncmp(id,"capture",7))==0)
+    if ((strncmp(id,"capture",7))==0)
     {
         val=buffer_frames;
     }
@@ -575,7 +575,7 @@ __again:
     if (last_bufsize == *bufsize)
         *bufsize += L_PCM_USE;
     last_bufsize = *bufsize;
-    if (*bufsize >( CHAUNK_BYTES_MAX/(bits_per_frame/8)))
+    if (*bufsize >(CHAUNK_BYTES_MAX/(bits_per_frame/8)))
     {
         printf("chunk_size too big!\n");
         return -1;
@@ -602,7 +602,7 @@ __again:
     if (p_time != c_time)
         goto __again;
 
-    if((*bufsize)%L_PCM_USE!=0)
+    if ((*bufsize)%L_PCM_USE!=0)
     {
         *bufsize=((int)(((*bufsize)+L_PCM_USE-1)/L_PCM_USE))*L_PCM_USE;
         last_bufsize=*bufsize;
@@ -746,12 +746,12 @@ static ssize_t pcm_write(u_char *data, size_t count)
         else if (r == -EPIPE)
         {
             printf("pcm_write under run\n");
-            if(xrun(playback_handle)<0)
+            if (xrun(playback_handle)<0)
                 return -1;
         }
         else if (r == -ESTRPIPE)
         {
-            if(suspend(playback_handle)<0)
+            if (suspend(playback_handle)<0)
                 return -1;
         }
         else if (r < 0)
@@ -790,13 +790,13 @@ static ssize_t pcm_read(u_char *data, size_t rcount)
         else if (r == -EPIPE)
         {
             printf("pcm_read over run\n");
-            if(xrun(capture_handle)<0)
+            if (xrun(capture_handle)<0)
                 return -1;
             //increase_video_thread_sleep_time();
         }
         else if (r == -ESTRPIPE)
         {
-            if(suspend(capture_handle)<0)
+            if (suspend(capture_handle)<0)
                 return -1;
         }
         else if (r < 0)
@@ -887,7 +887,7 @@ int init_and_start_sound()
     //int err;
     int latency;
     //int i;
-    if(open_snd()<0)
+    if (open_snd()<0)
         return -1;
     if (setparams(playback_handle, capture_handle, &latency) < 0)
         goto __error;
@@ -899,13 +899,13 @@ int init_and_start_sound()
     capture_buffer = (char *)malloc(chunk_bytes);
     near_end_buffer = circular_init(chunk_bytes * 256, chunk_bytes);
     echo_buffer = circular_init(chunk_bytes * 256, chunk_bytes);
-    if(!playback_buffer || !capture_buffer||!near_end_buffer)
+    if (!playback_buffer || !capture_buffer||!near_end_buffer)
     {
         printf("cannot malloc buffer for playback and capture\n");
         goto __error;
     }
 
-    if(init_syn_buffer()<0||init_playback_buffer()<0)
+    if (init_syn_buffer()<0||init_playback_buffer()<0)
         goto __error;
 
     int sample_rate = 8000;
@@ -937,13 +937,13 @@ int init_and_start_sound()
     return 0;
 __error:
     printf("no thread have been create ,we free all resource ourselves\n");
-    if(playback_handle)
+    if (playback_handle)
         snd_pcm_close(playback_handle);
-    if(capture_handle)
+    if (capture_handle)
         snd_pcm_close(capture_handle);
-    if(playback_buffer)
+    if (playback_buffer)
         free(playback_buffer);
-    if(capture_buffer)
+    if (capture_buffer)
         free(capture_buffer);
     return -1;
 }
@@ -990,19 +990,19 @@ static void *receive(void *arg)
 
     while (1)
     {
-        if(!sess->running)
+        if (!sess->running)
             goto end;
 
         while (size < SIZE_OF_AMR_PER_PERIOD)
         {
-            if(sess->is_tcp)
+            if (sess->is_tcp)
                 n = recv(sock, buf + size, RECV_SOUND_BUF_SIZE - size, 0);
             else
             {
                 n = udt_recv(sock, SOCK_STREAM, buf + size,
                              RECV_SOUND_BUF_SIZE - size, NULL, NULL);
             }
-            if(n <= 0)
+            if (n <= 0)
                 goto end;
 
             size += n;
@@ -1016,7 +1016,7 @@ static void *receive(void *arg)
             size -= n;
         }
 
-        if(size)
+        if (size)
             memcpy(buf , buf + s , size);
 
         usleep(1000);
@@ -1091,7 +1091,7 @@ int start_audio_monitor(struct sess_ctx*sess)
 
         if (size > 1024)
         {
-            if(sess->is_tcp)
+            if (sess->is_tcp)
                 n = send(sock, start_buf + s,1024,0);
             else
                 n = udt_send(sock, SOCK_STREAM, start_buf + s, 1024);
@@ -1123,14 +1123,14 @@ int start_audio_monitor(struct sess_ctx*sess)
     free(start_buf);
 
     /*send sound data in normal*/
-    while(1)
+    while (1)
     {
 tryget:
         buf = new_get_sound_data(sess->id, &size);
-        if(!buf)
+        if (!buf)
         {
             usleep(50000);
-            if(!sess->running)
+            if (!sess->running)
                 goto end;
 
             goto tryget;
@@ -1146,7 +1146,7 @@ tryget:
             }
             if (size>1024)
             {
-                if(sess->is_tcp)
+                if (sess->is_tcp)
                     n = send(sock, buf + s, 1024, 0);
                 else
                     n = udt_send(sock, SOCK_STREAM, buf + s, 1024);
@@ -1201,7 +1201,7 @@ static inline int encode_and_syn_data(CHP_U32 bl_handle,
 {
     CHP_RTN_T error_flag;
     error_flag = amrnb_encode(bl_handle, p_enc_data);
-    if(error_flag == CHP_RTN_AUD_ENC_FAIL || error_flag == CHP_RTN_AUD_ENC_NEED_MORE_DATA)
+    if (error_flag == CHP_RTN_AUD_ENC_FAIL || error_flag == CHP_RTN_AUD_ENC_NEED_MORE_DATA)
     {
         printf("###########amr encode fail##################\n");
         return -1;
@@ -1211,7 +1211,7 @@ static inline int encode_and_syn_data(CHP_U32 bl_handle,
     memcpy(syn_buf.c_sound_array[syn_buf.end].buf , syn_buf.cache , SIZE_OF_AMR_PER_PERIOD);
     memset(syn_buf.c_sound_array[syn_buf.end].sess_clean_mask, 0 ,sizeof(syn_buf.c_sound_array[syn_buf.end].sess_clean_mask));
     syn_buf.end = (syn_buf.end+1)%NUM_BUFFERS;
-    if(syn_buf.end == syn_buf.start)
+    if (syn_buf.end == syn_buf.start)
         syn_buf.start = (syn_buf.start +1)%NUM_BUFFERS;
     pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
     return 0;
@@ -1227,7 +1227,7 @@ static void *capture(void *arg)
             exit(0);
         }
 
-        pthread_mutex_lock(&drop_pcm_lock );
+        pthread_mutex_lock(&drop_pcm_lock);
         circular_write(near_end_buffer, capture_buffer);
         pthread_mutex_unlock(&drop_pcm_lock);
     }
@@ -1255,7 +1255,7 @@ static void *aec(void *arg)
 
     error_flag = amrnb_encoder_init(&mem_func, &audio_info, &bl_handle);
 
-    if(error_flag != CHP_RTN_SUCCESS)
+    if (error_flag != CHP_RTN_SUCCESS)
     {
         printf("error init new amr encoder\n");
         exit(0);
@@ -1300,7 +1300,7 @@ static void *aec(void *arg)
             if (n == 3)
                 aec_start = 1;
 
-            pthread_mutex_lock(&drop_pcm_lock );
+            pthread_mutex_lock(&drop_pcm_lock);
             circular_write(echo_buffer, playback_buffer);
 
             if (aec_start)
@@ -1316,7 +1316,7 @@ static void *aec(void *arg)
                                          (spx_int16_t *)enc_data.p_in_buf);
 
                     circular_consume(near_end_buffer);
-                    pthread_mutex_unlock(&drop_pcm_lock );
+                    pthread_mutex_unlock(&drop_pcm_lock);
 
                     if (encode_and_syn_data(bl_handle, &enc_data) < 0)
                     {
@@ -1326,20 +1326,20 @@ static void *aec(void *arg)
                 }
                 else
                 {
-                    pthread_mutex_unlock(&drop_pcm_lock );
+                    pthread_mutex_unlock(&drop_pcm_lock);
                     usleep(10000);
                 }
             }
             else
             {
-                pthread_mutex_unlock(&drop_pcm_lock );
+                pthread_mutex_unlock(&drop_pcm_lock);
                 goto no_aec;
             }
         }
         else
         {
 no_aec:
-            pthread_mutex_lock(&drop_pcm_lock );
+            pthread_mutex_lock(&drop_pcm_lock);
             if (!circular_empty(near_end_buffer))
             {
                 memcpy(enc_data.p_in_buf, near_end_buffer->first,
@@ -1351,11 +1351,11 @@ no_aec:
                 }
 
                 circular_consume(near_end_buffer);
-                pthread_mutex_unlock(&drop_pcm_lock );
+                pthread_mutex_unlock(&drop_pcm_lock);
             }
             else
             {
-                pthread_mutex_unlock(&drop_pcm_lock );
+                pthread_mutex_unlock(&drop_pcm_lock);
                 usleep(10000);
             }
         }

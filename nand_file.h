@@ -111,7 +111,7 @@ int nand_write_index_table(char* index_table);
 
 //下面的API是为回放而设计的
 int nand_open_simple(char* name);
-int nand_close_simple( );
+int nand_close_simple();
 int nand_get_max_file_num();
 int nand_get_next_file_start_sector(int cur_sector);
 char* nand_get_file_time(int file_start_sector);

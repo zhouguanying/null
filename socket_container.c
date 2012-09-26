@@ -32,7 +32,7 @@ void init_socket_container_list()
 
 void close_socket(SOCKET_TYPE st , int socket)
 {
-    if(socket<0)
+    if (socket<0)
         return;
     switch (st)
     {
@@ -52,13 +52,13 @@ void wait_socket(struct socket_container *sc)
 {
     struct timeval tv;
     struct timespec ts;
-    if(sc->cready)
+    if (sc->cready)
     {
         dbg("BUG the condition have already be built something wrong\n");
         exit(0);
     }
     sc->cready = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
-    if(!(sc->cready))
+    if (!(sc->cready))
     {
         dbg("error malloc buffer for sc condition lock\n");
         system("reboot &");
@@ -81,9 +81,9 @@ void get_cmd_socket(cmd_socket_t*fds , int *nums)
     i = 0;
     pthread_mutex_lock(&container_list_lock);
     p = socket_clist;
-    while(p!=NULL)
+    while (p!=NULL)
     {
-        if(p->cmd_socket>=0)
+        if (p->cmd_socket>=0)
         {
             fds[i].socket= p->cmd_socket;
             fds[i].type = p->cmd_st;
@@ -102,49 +102,49 @@ void check_cmd_socket()
     gettimeofday(&now , NULL);
     pthread_mutex_lock(&container_list_lock);
     sc = &socket_clist;
-    while(*sc!=NULL)
+    while (*sc!=NULL)
     {
-        if((*sc)->close_all)
+        if ((*sc)->close_all)
         {
             dbg("################socket need close all####################\n");
             p=*sc;
             *sc = (*sc)->next;
-            if(p->cmd_socket>=0)
+            if (p->cmd_socket>=0)
                 close_socket(p->cmd_st , p->cmd_socket);
-            if(p->audio_socket>=0)
+            if (p->audio_socket>=0)
                 close_socket(p->audio_st, p->audio_socket);
-            if(p->video_socket>=0)
+            if (p->video_socket>=0)
                 close_socket(p->video_st, p->video_socket);
             free(p);
             continue;
         }
-        else if((*sc)->cmd_socket >=0 &&(*sc)->cmd_st == UDT_SOCKET)
+        else if ((*sc)->cmd_socket >=0 &&(*sc)->cmd_st == UDT_SOCKET)
         {
-            if(udt_socket_ok((*sc)->cmd_socket)<0)
+            if (udt_socket_ok((*sc)->cmd_socket)<0)
             {
                 dbg("socket error close it now\n");
                 p=*sc;
                 *sc = (*sc)->next;
                 udt_close(p->cmd_socket);
 
-                if(p->audio_socket>=0)
+                if (p->audio_socket>=0)
                     close_socket(p->audio_st, p->audio_socket);
-                if(p->video_socket>=0)
+                if (p->video_socket>=0)
                     close_socket(p->video_st, p->video_socket);
                 free(p);
                 continue;
             }
         }
-        else if(/*(*sc)->video_st == TCP_SOCKET&&*/!((*sc)->connected)&&(now.tv_sec - (*sc)->create_tv.tv_sec)>300)
+        else if (/*(*sc)->video_st == TCP_SOCKET&&*/!((*sc)->connected)&&(now.tv_sec - (*sc)->create_tv.tv_sec)>300)
         {
             dbg("##################the socket too long not conneted close it now################\n");
             p = *sc;
             *sc = (*sc)->next;
-            if(p->cmd_socket>=0)
+            if (p->cmd_socket>=0)
                 close_socket(p->cmd_st , p->cmd_socket);
-            if(p->audio_socket>=0)
+            if (p->audio_socket>=0)
                 close_socket(p->audio_st , p->audio_socket);
-            if(p->video_socket>=0)
+            if (p->video_socket>=0)
                 close_socket(p->video_st , p->video_socket);
             free(p);
             continue;
@@ -160,7 +160,7 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
     struct socket_container *p;
     struct timeval now;
     int finded , ret;
-    if(socket <0)
+    if (socket <0)
         return -1;
     gettimeofday(&now , NULL);
     finded = 0;
@@ -168,14 +168,14 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
     dbg("add socket  cap = %d , who = %llu\n",cap ,who);
     pthread_mutex_lock(&container_list_lock);
     scp = &socket_clist;
-    while(*scp!=NULL)
+    while (*scp!=NULL)
     {
-        if((*scp)->who == who)
+        if ((*scp)->who == who)
         {
-            switch(cap)
+            switch (cap)
             {
             case CAP_CMD:
-                if((*scp)->cmd_socket>=0)
+                if ((*scp)->cmd_socket>=0)
                 {
                     dbg("the socket have already exist? it may be the older connect\n");
                     goto FREE_CONTAINER;
@@ -185,7 +185,7 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
                 (*scp)->cmd_st =st;
                 break;
             case CAP_VIDEO:
-                if((*scp)->video_socket>=0)
+                if ((*scp)->video_socket>=0)
                 {
                     dbg("the socket have already exist? it may be the older connect\n");
                     goto FREE_CONTAINER;
@@ -195,7 +195,7 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
                 (*scp)->video_socket_is_lan = is_lan;
                 break;
             case CAP_AUDIO:
-                if((*scp)->audio_socket>=0 )
+                if ((*scp)->audio_socket>=0)
                 {
                     dbg("the socket have already exist? it may be the older connect\n");
                     goto FREE_CONTAINER;
@@ -207,7 +207,7 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
                 dbg("########add unkown socket to list###########\n");
                 exit(0);
             }
-            if((*scp)->cready&&(*scp)->video_socket>=0&&(*scp)->audio_socket>=0)
+            if ((*scp)->cready&&(*scp)->video_socket>=0&&(*scp)->audio_socket>=0)
             {
                 dbg("some one wait for sockets tell it\n");
                 pthread_cond_signal((*scp)->cready);
@@ -216,17 +216,17 @@ int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_T
             finded ++;
             ret = 0;
         }
-        else if( (now.tv_sec - (*scp)->create_tv.tv_sec >=60)&&
+        else if ((now.tv_sec - (*scp)->create_tv.tv_sec >=60)&&
                  ((*scp)->cmd_socket<0/*||(*scp)->video_socket<0||(*scp)->audio_socket<0*/))
         {
 FREE_CONTAINER:
             p=*scp;
             *scp = (*scp)->next;
-            if(p->cmd_socket >=0)
+            if (p->cmd_socket >=0)
                 close_socket(p->cmd_st, p->cmd_socket);
-            if(p->video_socket>=0)
+            if (p->video_socket>=0)
                 close_socket(p->video_st, p->video_socket);
-            if(p->audio_socket>=0)
+            if (p->audio_socket>=0)
                 close_socket(p->audio_st , p->audio_socket);
             free(p);
             continue;
@@ -237,7 +237,7 @@ FREE_CONTAINER:
     {
     case 0:
         p = (struct socket_container *)malloc(sizeof(struct socket_container));
-        if(!p) break;
+        if (!p) break;
         memset(p, 0 , sizeof(struct socket_container));
         gettimeofday(&(p->create_tv) , NULL);
         p ->who = who;
@@ -248,7 +248,7 @@ FREE_CONTAINER:
         p ->video_st = NON_SOCKET;
         p->audio_st = NON_SOCKET;
 
-        switch(cap)
+        switch (cap)
         {
         case CAP_CMD:
             p->cmd_socket = socket;
@@ -267,7 +267,7 @@ FREE_CONTAINER:
             dbg("add unkown socket to list\n");
             exit(0);
         }
-        if(p)
+        if (p)
         {
             p->next = socket_clist;
             socket_clist = p;
@@ -282,12 +282,12 @@ FREE_CONTAINER:
         break;
     default:
         dbg("#########we found collision monitor id for safe we reboot now############\n");
-        clean_socket_container( who, 0);
+        clean_socket_container(who, 0);
         //system("reboot &");
         //exit(0);
     }
     pthread_mutex_unlock(&container_list_lock);
-    if(ret <0)
+    if (ret <0)
     {
         dbg("##############BUG::cannot add socket to list?###############\n");
         close_socket(st , socket);
@@ -299,20 +299,20 @@ int  close_socket_container(struct socket_container *sc)
 {
     struct socket_container **scc;
     int ret;
-    if(!sc)return -1;
+    if (!sc)return -1;
     ret = -1;
     pthread_mutex_lock(&container_list_lock);
     scc = &socket_clist;
-    while(*scc!=NULL)
+    while (*scc!=NULL)
     {
-        if(*scc ==sc)
+        if (*scc ==sc)
         {
             *scc = (*scc)->next;
-            if(sc->cmd_socket>=0)
+            if (sc->cmd_socket>=0)
                 close_socket(sc->cmd_st , sc->cmd_socket);
-            if(sc->video_socket>=0)
+            if (sc->video_socket>=0)
                 close_socket(sc->video_st , sc->video_socket);
-            if(sc->audio_socket>=0)
+            if (sc->audio_socket>=0)
                 close_socket(sc->audio_st , sc->audio_socket);
             free(sc);
             ret = 0;
@@ -330,15 +330,15 @@ struct socket_container *get_socket_container(int cmdsocket , int waitsocket)
     struct socket_container *sc;
     pthread_mutex_lock(&container_list_lock);
     sc = socket_clist;
-    while(sc!=NULL)
+    while (sc!=NULL)
     {
-        if(sc->cmd_socket == cmdsocket)
+        if (sc->cmd_socket == cmdsocket)
         {
             break;
         }
         sc = sc->next;
     }
-    if(waitsocket&&sc&&(sc->audio_socket<0||sc->video_socket<0))
+    if (waitsocket&&sc&&(sc->audio_socket<0||sc->video_socket<0))
     {
         dbg("the socket is not built all  now wait for it\n");
         wait_socket(sc);
@@ -351,37 +351,37 @@ void clean_socket_container(unsigned long long who , int need_lock)
 {
     struct socket_container *p;
     struct socket_container **sc;
-    if(need_lock)
+    if (need_lock)
         pthread_mutex_lock(&container_list_lock);
-    if(who == 0xffffffffffffffff)
+    if (who == 0xffffffffffffffff)
     {
         dbg("clean all socket container\n");
-        for(sc = &socket_clist; *sc;)
+        for (sc = &socket_clist; *sc;)
         {
             p = *sc;
             *sc = (*sc)->next;
-            if(p->cmd_socket>=0)
+            if (p->cmd_socket>=0)
                 close_socket(p->cmd_st, p->cmd_socket);
-            if(p->audio_socket>=0)
+            if (p->audio_socket>=0)
                 close_socket(p->audio_st , p->audio_socket);
-            if(p->video_socket>=0)
+            if (p->video_socket>=0)
                 close_socket(p->video_st, p->video_socket);
             free(p);
         }
     }
     else
     {
-        for(sc = &socket_clist; *sc;)
+        for (sc = &socket_clist; *sc;)
         {
-            if((*sc)->who == who)
+            if ((*sc)->who == who)
             {
                 p = *sc;
                 *sc = (*sc)->next;
-                if(p->cmd_socket>=0)
+                if (p->cmd_socket>=0)
                     close_socket(p->cmd_st, p->cmd_socket);
-                if(p->audio_socket>=0)
+                if (p->audio_socket>=0)
                     close_socket(p->audio_st , p->audio_socket);
-                if(p->video_socket>=0)
+                if (p->video_socket>=0)
                     close_socket(p->video_st, p->video_socket);
                 free(p);
             }
@@ -389,7 +389,7 @@ void clean_socket_container(unsigned long long who , int need_lock)
                 sc = &((*sc)->next);
         }
     }
-    if(need_lock)
+    if (need_lock)
         pthread_mutex_unlock(&container_list_lock);
 }
 

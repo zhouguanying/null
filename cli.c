@@ -71,7 +71,7 @@ static inline char * gettimestamp()
     static char timestamp[15];
     time_t t;
     struct tm *curtm;
-    if(time(&t)==-1)
+    if (time(&t)==-1)
     {
         printf("get time error\n");
         exit(0);
@@ -116,16 +116,16 @@ extern char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int* r
 char *set_transport_type_rsp(struct sess_ctx * sess ,int *size)
 {
     char *buf;
-    if(!sess)
+    if (!sess)
         return NULL;
     buf = (char *)malloc(6);
-    if(!buf)
+    if (!buf)
         return NULL;
-    if(sess->is_tcp)
+    if (sess->is_tcp)
     {
         sprintf(buf , "tcp");
     }
-    else if(sess->is_rtp)
+    else if (sess->is_rtp)
     {
         sprintf(buf , "rtp");
     }
@@ -153,7 +153,7 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
     char* ptr;
     char * rsp;
 
-    if( strncmp((char*)req, "UpdateSystem", 12) == 0 )
+    if (strncmp((char*)req, "UpdateSystem", 12) == 0)
     {
         //sess->from = from;
         return do_cli_cmd_bin(NULL, (char*)req, req_len, (int)NULL, rsp_len);
@@ -184,18 +184,18 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
     argv[0] = argv[1] = 0;
     ptr = cmd;
     i = req_len;
-    while(i--)
+    while (i--)
     {
-        if( *ptr != ' ' )
+        if (*ptr != ' ')
         {
             argv[0] = ptr;
             break;
         }
         ptr++;
     }
-    while(i--)
+    while (i--)
     {
-        if( *ptr == ':' )
+        if (*ptr == ':')
         {
             ptr++;
             argv[1] = ptr;
@@ -211,12 +211,12 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
         pthread_mutex_lock(&global_ctx_lock);
         sess->from = from;
         tmp=(struct sess_ctx*)sess->arg;
-        if(tmp!=NULL&&tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port)
+        if (tmp!=NULL&&tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port)
         {
             printf("#######################found session in cache#########################\n");
             if (strncmp(argv[0], "set_transport_type", 18) == 0)
             {
-                if(tmp->running)
+                if (tmp->running)
                 {
                     pthread_mutex_unlock(&global_ctx_lock);
                     dbg("set_transport_type session already running\n");
@@ -231,13 +231,13 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
             goto done;
         }
         tmp=global_ctx_running_list;
-        while(tmp!=NULL)
+        while (tmp!=NULL)
         {
-            if(tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port)
+            if (tmp->from.sin_addr.s_addr==sess->from.sin_addr.s_addr&&tmp->from.sin_port ==sess->from.sin_port)
             {
                 if (strncmp(argv[0], "set_transport_type", 18) == 0)
                 {
-                    if(tmp->running)
+                    if (tmp->running)
                     {
                         pthread_mutex_unlock(&global_ctx_lock);
                         dbg("set_transport_type session already running\n");
@@ -257,7 +257,7 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
         }
         if (strncmp(argv[0], "set_transport_type", 18) == 0)
         {
-            if(currconnections>=MAX_CONNECTIONS)
+            if (currconnections>=MAX_CONNECTIONS)
             {
                 pthread_mutex_unlock(&global_ctx_lock);
                 return  strdup("connected max ");//should return a string report max connections
@@ -265,7 +265,7 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 NEW_SESSION:
             //    printf("before new_system_session\n");
             tmp= new_system_session("ipcam");
-            if(!tmp)
+            if (!tmp)
             {
                 pthread_mutex_unlock(&global_ctx_lock);
                 printf("********************can't create session******************\n");
@@ -291,13 +291,13 @@ NEW_SESSION:
             goto done;
         else if (strncmp(argv[0], "SetConfig", 9) == 0)
             goto done;
-        else if(strncmp(argv[0],"search_wifi",11)==0)
+        else if (strncmp(argv[0],"search_wifi",11)==0)
             goto done;
-        else if(strncmp(argv[0],"set_pswd",8)==0)
+        else if (strncmp(argv[0],"set_pswd",8)==0)
             goto done;
-        else if(strncmp(argv[0],"check_pswd",10)==0)
+        else if (strncmp(argv[0],"check_pswd",10)==0)
             goto done;
-        else if(strncmp(argv[0],"pswd_state",10)==0)
+        else if (strncmp(argv[0],"pswd_state",10)==0)
             goto done;
         else if (strncmp(argv[0], "SetTime", 7) == 0)
             goto done;
@@ -307,7 +307,7 @@ NEW_SESSION:
             goto done;
         else if (strncmp(argv[0], "DeleteFile", 10) == 0)
             goto done;
-        else if(strncmp(argv[0] , "getversion",10)==0)
+        else if (strncmp(argv[0] , "getversion",10)==0)
             goto done;
         pthread_mutex_unlock(&global_ctx_lock);
         return NULL;
@@ -330,7 +330,7 @@ static inline void do_cli_start()
     msg.msg[0] = VS_MESSAGE_DO_CLI_START;
     msg.msg[1] = 0;
     ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
-    if(ret == -1)
+    if (ret == -1)
     {
         dbg("send daemon message error\n");
         system("reboot &");
@@ -346,7 +346,7 @@ static inline void do_cli_alive()
     msg.msg[0] = VS_MESSAGE_DO_CLI_ALIVE;
     msg.msg[1] = 0;
     ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
-    if(ret == -1)
+    if (ret == -1)
     {
         dbg("send daemon message error\n");
         system("reboot &");
@@ -361,22 +361,22 @@ int tcp_get_readable_socket(int *sockfds , int sockfdnums , struct timeval *tv)
     int ret;
     int maxfdp1 = -1;
     FD_ZERO(&rfds);
-    if(sockfdnums<=0)
+    if (sockfdnums<=0)
         return -1;
-    for(i = 0; i< sockfdnums ; i++)
+    for (i = 0; i< sockfdnums ; i++)
     {
         FD_SET(sockfds[i] , &rfds);
-        if(sockfds[i ] >maxfdp1)
+        if (sockfds[i ] >maxfdp1)
             maxfdp1 = sockfds[i];
     }
     ret = select(maxfdp1+1 , &rfds , NULL , NULL, tv);
-    if(ret == 0)
+    if (ret == 0)
         return UDT_SELECT_TIMEOUT;
-    if(ret == -1)
+    if (ret == -1)
         return UDT_SELECT_ERROR;
-    for(i = 0 ; i < sockfdnums ; i++)
+    for (i = 0 ; i < sockfdnums ; i++)
     {
-        if(FD_ISSET(sockfds[i] , &rfds))
+        if (FD_ISSET(sockfds[i] , &rfds))
             return sockfds[i];
     }
     dbg("tcp select got unknown error\n");
@@ -390,9 +390,9 @@ int get_readable_socket(cmd_socket_t*sockfds , int sockfdnums , struct timeval *
     int i , udtsocketnum , tcpsocketnum;
     int socket;
     udtsocketnum = tcpsocketnum  = 0;
-    for(i = 0 ; i<sockfdnums ; i++)
+    for (i = 0 ; i<sockfdnums ; i++)
     {
-        switch(sockfds[i].type)
+        switch (sockfds[i].type)
         {
         case TCP_SOCKET:
             tcpsockfds[tcpsocketnum] = sockfds[i].socket;
@@ -409,19 +409,19 @@ int get_readable_socket(cmd_socket_t*sockfds , int sockfdnums , struct timeval *
             break;
         }
     }
-    if(udtsocketnum>0)
+    if (udtsocketnum>0)
     {
         socket = udt_get_readable_socket(udtsockfds,udtsocketnum,  tv);
-        if(socket >= 0)
+        if (socket >= 0)
         {
             *type = UDT_SOCKET;
             return socket;
         }
     }
-    if(tcpsocketnum>0)
+    if (tcpsocketnum>0)
     {
         socket = tcp_get_readable_socket(tcpsockfds, tcpsocketnum,  tv);
-        if(socket >=0)
+        if (socket >=0)
         {
             *type = TCP_SOCKET;
             return socket;
@@ -438,7 +438,7 @@ int cmd_send_msg(int sock , SOCKET_TYPE st , char *buf , int len)
         return stun_tcp_sendmsg(sock,  buf,  len);
         break;
     case UDT_SOCKET:
-        return stun_sendmsg( sock, buf, len);
+        return stun_sendmsg(sock, buf, len);
         break;
     default:
         dbg("#########socket type error#######\n");
@@ -454,7 +454,7 @@ int cmd_recv_msg(int sock , SOCKET_TYPE st , char *buf , int len , struct sockad
         return stun_tcp_recvmsg(sock,  buf,  len ,addr, addrlen);
         break;
     case UDT_SOCKET:
-        return stun_recvmsg( sock, buf, len , addr , addrlen);
+        return stun_recvmsg(sock, buf, len , addr , addrlen);
         break;
     default:
         dbg("#########socket type error#######\n");
@@ -484,15 +484,15 @@ static int do_cli(struct cli_sess_ctx *sess)
     do_cli_start();
     gettimeofday(&last_alive_time , NULL);
 
-    for(;;)
+    for (;;)
     {
         printf("\n\n\n");
         dbg("try to get cli cmd\n");
 LOOP_START:
-        for(;;)
+        for (;;)
         {
             get_cmd_socket(uset, &fdnums);
-            if(fdnums >0)
+            if (fdnums >0)
                 break;
             sleep(3);
             do_cli_alive();
@@ -500,7 +500,7 @@ LOOP_START:
         }
         //dbg("get socket num = %d\n",fdnums);
         sockfd = get_readable_socket(uset, fdnums,  &tv , &st);
-        if(sockfd <0)
+        if (sockfd <0)
         {
             //dbg("select error\n");
             do_cli_alive();
@@ -512,7 +512,7 @@ LOOP_START:
         //dbg("select ok now begin recv\n");
         dbg("get ready sockfd = %d\n",sockfd);
         req_len = cmd_recv_msg(sockfd , st,(char *)req, CLI_BUF_SIZE-1 ,(struct sockaddr *) &from , &fromlen);
-        if(req_len <0)
+        if (req_len <0)
         {
             dbg("select point out  scoket readable but cannot recv message, socket may broken\n");
             do_cli_alive();
@@ -524,17 +524,17 @@ LOOP_START:
         }
         dbg("recv ok\n");
         gettimeofday(&now , NULL);
-        if(now.tv_sec - last_alive_time.tv_sec >=3)
+        if (now.tv_sec - last_alive_time.tv_sec >=3)
         {
             do_cli_alive();
             last_alive_time = now;
         }
         req[req_len] = 0;
         dbg("get cli cmd: %s ip ==%s  ,  port ==%d\n",req , inet_ntoa(from.sin_addr) , ntohs(from.sin_port));
-        if(is_do_update())
+        if (is_do_update())
         {
             dbg("is do update exit now\n");
-            for(;;)
+            for (;;)
             {
                 do_cli_alive();
                 sleep(3);
@@ -544,19 +544,19 @@ LOOP_START:
         cli_socket = sockfd;
         cli_st = st;
         rsp = handle_cli_request(sess, req, req_len, NULL, &rsp_len,from);
-        dbg("rsp=%s\n",rsp );
+        dbg("rsp=%s\n",rsp);
         if (rsp != NULL)   /* command ok so send response */
         {
             //dbg("sent rsp");
             fromlen = sizeof(struct sockaddr_in);
-            if( rsp_len )
+            if (rsp_len)
             {
                 //1  it seems never occur
                 //printf("enter seen never happen rsp_len==%d\n",rsp_len);
                 s = 0;
-                while(rsp_len>0)
+                while (rsp_len>0)
                 {
-                    if(rsp_len>1000)
+                    if (rsp_len>1000)
                     {
                         ret =cmd_send_msg(sockfd , st,  rsp+s , 1000);
                     }
@@ -564,7 +564,7 @@ LOOP_START:
                     {
                         ret =cmd_send_msg(sockfd , st,  rsp+s , rsp_len);
                     }
-                    if(ret <0)
+                    if (ret <0)
                     {
                         dbg("udt send  something wrong\n");
                         break;
@@ -578,9 +578,9 @@ LOOP_START:
             {
                 rsp_len = strlen(rsp);
                 s = 0;
-                while(rsp_len>0)
+                while (rsp_len>0)
                 {
-                    if(rsp_len>1000)
+                    if (rsp_len>1000)
                     {
                         ret =cmd_send_msg(sockfd , st,  rsp+s , 1000);
                     }
@@ -588,7 +588,7 @@ LOOP_START:
                     {
                         ret =cmd_send_msg(sockfd, st,rsp+s , rsp_len);
                     }
-                    if(ret <0)
+                    if (ret <0)
                     {
                         dbg("udt send  something wrong\n");
                         break;
@@ -611,20 +611,20 @@ LOOP_START:
  */
 static  int check_cli_pswd(char *arg , char **r)
 {
-    if(!threadcfg.pswd[0])
+    if (!threadcfg.pswd[0])
     {
         *r = strdup(PASSWORD_NOT_SET);
         return -1;
     }
-    while(*arg&&*arg!=':')arg++;
-    if(*arg!=':')
+    while (*arg&&*arg!=':')arg++;
+    if (*arg!=':')
     {
         *r = strdup(PASSWORD_FAIL);
         return -1;
     }
     *arg = 0;
     arg++;
-    if(strlen(arg)!=strlen(threadcfg.pswd)||strncmp(arg,threadcfg.pswd,strlen(arg))!=0)
+    if (strlen(arg)!=strlen(threadcfg.pswd)||strncmp(arg,threadcfg.pswd,strlen(arg))!=0)
     {
         *r = strdup(PASSWORD_FAIL);
         return -1;
@@ -738,7 +738,7 @@ int set_dest_port(struct sess_ctx *sess, char *arg)
 int start_recording_video(struct sess_ctx *sess)
 {
     printf("should do something, system halt at 0\n");
-    while(1);
+    while (1);
 }
 
 /**
@@ -789,7 +789,7 @@ int start_vid(struct sess_ctx *sess, char *arg)
     }
     else
     {
-        dbg ("error");
+        dbg("error");
         return -1;
     }
 }
@@ -849,7 +849,7 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
     playback_t *pb;
     char *r;
     sc = get_socket_container(cli_socket , 1);
-    if(!sc)
+    if (!sc)
     {
         dbg("error not found socket container\n");
         g_cli_ctx->arg = NULL;
@@ -863,7 +863,7 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
         close_socket_container(sc);
         return NULL;
     }
-    if(check_cli_pswd( arg, & r)!=0)
+    if (check_cli_pswd(arg, & r)!=0)
     {
         g_cli_ctx->arg=NULL;
         free_system_session(sess);
@@ -872,7 +872,7 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
     }
     //dbg("after check pswd\n");
     //dbg("after get socket container sc = %p , sc->video_socket = %d , sc->audio_socket = %d\n" , sc->video_socket , sc->audio_socket);
-    if(sc->video_socket<0||sc->audio_socket<0)
+    if (sc->video_socket<0||sc->audio_socket<0)
     {
         dbg("error the video socket or audio socket is not build\n");
         g_cli_ctx->arg = NULL;
@@ -881,7 +881,7 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
         return NULL;
     }
     //dbg("after check audio video socket\n");
-    if(sc->audio_st !=sc->video_st)
+    if (sc->audio_st !=sc->video_st)
     {
         dbg("error the audio and video socket is not the same type?\n");
         g_cli_ctx->arg = NULL;
@@ -891,7 +891,7 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
     }
     //dbg("after check
     r = malloc(6);
-    if(!r)
+    if (!r)
     {
         dbg("error malloc set_transport_type rsp buf\n");
         g_cli_ctx->arg = NULL;
@@ -914,9 +914,9 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
         exit(0);
     }
     sess->sc = sc;
-    if(strncmp(arg , "update",6)==0)
+    if (strncmp(arg , "update",6)==0)
     {
-        if(pthread_create(&sess->tid, NULL, (void *) do_net_update, sess) < 0)
+        if (pthread_create(&sess->tid, NULL, (void *) do_net_update, sess) < 0)
         {
             g_cli_ctx->arg=NULL;
             free_system_session(sess);
@@ -931,14 +931,14 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
         pthread_mutex_lock(&list_lock);
         pb = playback_find(sess->from);
         pthread_mutex_unlock(&list_lock);
-        if(pb&&(playback_get_status(pb) == PLAYBACK_STATUS_OFFLINE))
+        if (pb&&(playback_get_status(pb) == PLAYBACK_STATUS_OFFLINE))
         {
             dbg("#########playback found###########\n");
             pb->sess = sess;
             if (pthread_create(&pb->thread_id, NULL, (void *) playback_thread, pb) < 0)
             {
                 g_cli_ctx->arg=NULL;
-                playback_set_dead( pb);
+                playback_set_dead(pb);
                 free_system_session(sess);
                 close_socket_container(sc);
                 free(r);
@@ -1565,7 +1565,7 @@ static int restart_server(struct sess_ctx *sess, char *arg)
 {
     //struct sess_ctx * tmp;
     //int p;
-    if(sess==NULL)
+    if (sess==NULL)
         return 0;
     //if(sess->is_rtp){
 
@@ -1633,7 +1633,7 @@ static char *get_firmware_info(struct sess_ctx *sess, char *arg)
     if (1/*sess != NULL*/)
     {
         resp = malloc(64);
-        if(!resp)
+        if (!resp)
             return NULL;
         memset(resp , 0 ,sizeof(resp));
         sprintf(resp,"%x",threadcfg.cam_id);
@@ -1773,16 +1773,16 @@ static int Rs485Cmd(char* arg)
     *stop     0x00,0x00,0x00,0x00
     */
     set_ignore_count(18);
-    if(length == 8)
+    if (length == 8)
     {
         UartWrite(buffer, 8);
-        if(memcmp(stopcmd , buffer , 8)!=0)
+        if (memcmp(stopcmd , buffer , 8)!=0)
             usleep(150000);
     }
-    else if(length == 9)
+    else if (length == 9)
     {
         //dbg("##############rs485 cmd leng 9###############\n");
-        UartWrite(buffer , 8 );
+        UartWrite(buffer , 8);
         usleep(150000);
         UartWrite(stopcmd , 8);
     }
@@ -1800,10 +1800,10 @@ char *search_wifi(char *arg)
     char slength[5];
     if (!arg)
         return NULL;
-    if(*arg=='0')
+    if (*arg=='0')
     {
         buf = get_parse_scan_result(&numssid , NULL);
-        if(!buf)
+        if (!buf)
             return NULL;
         length = strlen(buf);
         memmove(buf+4 ,buf,length);
@@ -1827,16 +1827,16 @@ char * get_clean_video_cfg(int *size)
     char *cfg_buf;
 
     fp =fopen(RECORD_PAR_FILE, "r");
-    if(!fp)
+    if (!fp)
     {
         system("cp /video.cfg  /data/video.cfg");
         usleep(100000);
         fp =fopen(RECORD_PAR_FILE, "r");
-        if(!fp)
+        if (!fp)
             return NULL;
     }
     cfg_buf = (char *)malloc(2048);
-    if(!cfg_buf)
+    if (!cfg_buf)
     {
         printf("malloc buf for config file error\n");
         fclose(fp);
@@ -1846,7 +1846,7 @@ char * get_clean_video_cfg(int *size)
     fseek(fp , 0 ,  SEEK_END);
     *size = ftell(fp);
     fseek(fp , 0 , SEEK_SET);
-    if(fread(cfg_buf , *size , 1 , fp)!=1)
+    if (fread(cfg_buf , *size , 1 , fp)!=1)
     {
         printf("read configure file error\n");
         free(cfg_buf);
@@ -1863,24 +1863,24 @@ static char *SetPswd(char*arg)
     char *p;
     struct stat st;
     char buf[512];
-    if(!arg)
+    if (!arg)
     {
         printf("##############SetPswd no argument#########\n");
         return strdup(PASSWORD_FAIL);
     }
-    if(*arg==':')
+    if (*arg==':')
     {
-        if(stat(PASSWORD_FILE , &st)==0)
+        if (stat(PASSWORD_FILE , &st)==0)
             return strdup(PASSWORD_FAIL);
         else
         {
             arg++;
-            if(strncmp(arg,PASSWORD_PART_ARG,strlen(PASSWORD_PART_ARG))==0)
+            if (strncmp(arg,PASSWORD_PART_ARG,strlen(PASSWORD_PART_ARG))==0)
             {
                 fp = fopen(PASSWORD_FILE , "w");
-                if(fp)
+                if (fp)
                 {
-                    if(fwrite(arg,1,strlen(arg),fp)==strlen(arg))
+                    if (fwrite(arg,1,strlen(arg),fp)==strlen(arg))
                     {
                         fclose(fp);
                         memset(threadcfg.pswd , 0 ,sizeof(threadcfg.pswd));
@@ -1900,28 +1900,28 @@ static char *SetPswd(char*arg)
             return strdup(PASSWORD_FAIL);
         }
     }
-    if(strncmp(arg,PASSWORD_PART_ARG,strlen(PASSWORD_PART_ARG))!=0)
+    if (strncmp(arg,PASSWORD_PART_ARG,strlen(PASSWORD_PART_ARG))!=0)
     {
         printf("##############setpswd invalide argument##############\n");
         return strdup(PASSWORD_FAIL);
     }
     p = arg;
     while (*p&&*p!=':')p++;
-    if(*p!=':')
+    if (*p!=':')
         return strdup(PASSWORD_FAIL);
     *p = 0;
     p++;
-    if(strncmp(p,PASSWORD_PART_ARG,strlen(PASSWORD_PART_ARG))!=0)
+    if (strncmp(p,PASSWORD_PART_ARG,strlen(PASSWORD_PART_ARG))!=0)
     {
         printf("##############setpswd invalide argument##############\n");
         return strdup(PASSWORD_FAIL);
     }
-    if(strlen(arg)!=strlen(threadcfg.pswd)||strncmp(arg,threadcfg.pswd,strlen(arg))!=0)
+    if (strlen(arg)!=strlen(threadcfg.pswd)||strncmp(arg,threadcfg.pswd,strlen(arg))!=0)
         return strdup(PASSWORD_FAIL);
     fp = fopen(PASSWORD_FILE , "w");
-    if(fp)
+    if (fp)
     {
-        if(fwrite(p,1,strlen(p),fp)==strlen(p))
+        if (fwrite(p,1,strlen(p),fp)==strlen(p))
         {
             fclose(fp);
             memset(threadcfg.pswd ,0 ,sizeof(threadcfg.pswd));
@@ -1945,26 +1945,26 @@ static char *CheckPswd(char *arg)
     struct stat st;
     char buf[512];
     int pswd_size;
-    if(!arg)
+    if (!arg)
     {
         printf("##############SetPswd no argument#########\n");
         return strdup(PASSWORD_FAIL);
     }
-    if(strncmp(arg,PASSWORD_PART_ARG,strlen(PASSWORD_PART_ARG))!=0)
+    if (strncmp(arg,PASSWORD_PART_ARG,strlen(PASSWORD_PART_ARG))!=0)
     {
         printf("##############setpswd invalide argument##############\n");
         return strdup(PASSWORD_FAIL);
     }
-    if(stat(PASSWORD_FILE , &st)==0)
+    if (stat(PASSWORD_FILE , &st)==0)
     {
         fp = fopen(PASSWORD_FILE,"r");
-        if(fp)
+        if (fp)
         {
             memset(buf,0,512);
             pswd_size = fread(buf,1,512,fp);
-            if(pswd_size>0)
+            if (pswd_size>0)
             {
-                if(strlen(arg)==strlen(buf)&&strncmp(arg,buf,strlen(arg))==0)
+                if (strlen(arg)==strlen(buf)&&strncmp(arg,buf,strlen(arg))==0)
                 {
                     fclose(fp);
                     return strdup(PASSWORD_OK);
@@ -1978,7 +1978,7 @@ static char *CheckPswd(char *arg)
 static char *PswdState()
 {
     struct stat st;
-    if(stat(PASSWORD_FILE , &st)==0)
+    if (stat(PASSWORD_FILE , &st)==0)
         return strdup(PASSWORD_SET);
     else
         return strdup(PASSWORD_NOT_SET);
@@ -1989,27 +1989,27 @@ static char *cli_playback_set_status(struct sess_ctx *sess, char *arg)
     int value;
     char *rsp = NULL;
     char buf[32];
-    if(!sess||!arg)
+    if (!sess||!arg)
         return NULL;
-    if(strncmp(arg,"SEEK",4)==0)
+    if (strncmp(arg,"SEEK",4)==0)
     {
         arg+=4;
-        if(*arg!=':')
+        if (*arg!=':')
             return NULL;
         arg++;
         memset(buf,0,32);
         memcpy(buf,arg,strlen(arg));
-        if(sscanf(buf,"%d",&value)!=1)
+        if (sscanf(buf,"%d",&value)!=1)
             return NULL;
         cmd_playback_set_status(sess->from, PLAYBACK_STATUS_SEEK, &value);
         rsp = strdup("SEEK");
     }
-    else if(strncmp(arg,"PAUSED",6)==0)
+    else if (strncmp(arg,"PAUSED",6)==0)
     {
         cmd_playback_set_status(sess->from, PLAYBACK_STATUS_PAUSED, NULL);
         rsp = strdup("PAUSED");
     }
-    else if(strncmp(arg,"RUNNING",7)==0)
+    else if (strncmp(arg,"RUNNING",7)==0)
     {
         cmd_playback_set_status(sess->from, PLAYBACK_STATUS_RUNNING, NULL);
         rsp = strdup("RUNNING");
@@ -2022,7 +2022,7 @@ static char*GetVersion(int *rsp_len)
     char *buf;
     struct stat st;
     buf= get_version_in_binary();
-    if(stat(ENCRYPTION_FILE_PATH , &st)==0)
+    if (stat(ENCRYPTION_FILE_PATH , &st)==0)
     {
         *rsp_len = 10;
     }
@@ -2049,9 +2049,9 @@ static char* GetConfig(char* arg , int *rsp_len)
     int cfg_len;
     char slength[5];
     //struct stat st;
-    if(!arg)
+    if (!arg)
         return NULL;
-    if(check_cli_pswd( arg, &p)!=0)
+    if (check_cli_pswd(arg, &p)!=0)
         return p;
     ConfigType = (int)*arg;
     /*
@@ -2065,12 +2065,12 @@ static char* GetConfig(char* arg , int *rsp_len)
     }
     */
     ret = malloc(4096);
-    if(!ret) return NULL;
+    if (!ret) return NULL;
     memset(ret , 0 ,4096);
     *rsp_len = 4;
     p = ret+4;
     //printf("#############enter GetConfig####################\n");
-    if( ConfigType == '1' )
+    if (ConfigType == '1')
     {
         sprintf(p,APP_VERSION);
         (*rsp_len)+=strlen(p);
@@ -2080,7 +2080,7 @@ static char* GetConfig(char* arg , int *rsp_len)
         p+=strlen(p);
         s = get_clean_video_cfg(&cfg_len);
         //printf("##################ok get configure file##########\n");
-        if(!s)
+        if (!s)
         {
             length = 0;
         }
@@ -2129,7 +2129,7 @@ static char * SetConfig(char* arg)
     int i;
     int size;
 
-    if(!arg)
+    if (!arg)
         return  NULL;
     /*
     if(check_cli_pswd( arg, &p)!=0)
@@ -2137,10 +2137,10 @@ static char * SetConfig(char* arg)
         */
     ConfigType = (int)*arg;
     dbg("save the config file\n");
-    if(ConfigType == '0')
+    if (ConfigType == '0')
     {
         buf = (char *)malloc(256);
-        if(!buf)
+        if (!buf)
         {
             return NULL;
         }
@@ -2152,13 +2152,13 @@ static char * SetConfig(char* arg)
         system(buf);
         free(buf);
         dbg("reset the value to default\n");
-        if(threadcfg.sdcard_exist)
+        if (threadcfg.sdcard_exist)
             force_close_file = 1;
         else
             snd_soft_restart();
         return NULL;
     }
-    if( ConfigType != '1' && ConfigType != '3' )
+    if (ConfigType != '1' && ConfigType != '3')
     {
         dbg("invalid agument\n");
         return NULL;
@@ -2166,17 +2166,17 @@ static char * SetConfig(char* arg)
 
     //v2ipd_share_mem->v2ipd_to_client0_msg = VS_MESSAGE_STOP_MONITOR;
     //usleep(500);
-    if( ConfigType == '1' )
+    if (ConfigType == '1')
     {
-        buf = (char *)malloc (4096);
-        if(!buf)
+        buf = (char *)malloc(4096);
+        if (!buf)
         {
             printf("error malloc buf for video.cfg\n");
             return NULL;
         }
         memset(buf,0,4096);
         ret = cmd_recv_msg(cli_socket ,cli_st,  buf, 4096, NULL, NULL);
-        if(ret <=0)
+        if (ret <=0)
         {
             dbg("error recv configure file\n");
             free(buf);
@@ -2184,31 +2184,31 @@ static char * SetConfig(char* arg)
         }
         memcpy(sdata_len ,buf, 4);
         sdata_len[5] = 0;
-        for(i  = 0 ; i<5 ; i++)
+        for (i  = 0 ; i<5 ; i++)
         {
-            if(sdata_len[i]>='0'&&sdata_len[i]<='9')
+            if (sdata_len[i]>='0'&&sdata_len[i]<='9')
                 break;
         }
-        if(i==5)
+        if (i==5)
         {
             dbg("error get configure file len\n");
             free(buf);
             return NULL;
         }
         p =sdata_len +i;
-        if(sscanf(p , "%d",&data_len)!=1)
+        if (sscanf(p , "%d",&data_len)!=1)
         {
             dbg("error get configure file len\n");
             free(buf);
             return NULL;
         }
         size = ret -4;
-        memmove(buf ,buf +4,size );
+        memmove(buf ,buf +4,size);
         memset(buf+size , 0 ,4);
-        while(size <data_len)
+        while (size <data_len)
         {
             ret =  stun_recvmsg(cli_socket,  buf + size, 4096 - size, NULL, NULL);
-            if(ret <=0)
+            if (ret <=0)
             {
                 dbg("recv configure file error\n");
                 free(buf);
@@ -2221,7 +2221,7 @@ static char * SetConfig(char* arg)
         printf("####################################################\n");
         set_raw_config_value(buf);
         free(buf);
-        if(threadcfg.sdcard_exist)
+        if (threadcfg.sdcard_exist)
             force_close_file = 1;
         else
             snd_soft_restart();
@@ -2244,7 +2244,7 @@ static void SetTime(char* arg)
 
     dbg("SetTime\n");
     //Char time[15]; //YYYYMMDDHHMMSS ----> "MMDDHHMMYYYY.SS"
-    if(!arg)
+    if (!arg)
         return;
     set_system_time(arg);
     return;
@@ -2256,16 +2256,16 @@ static void set_brightness(char *arg)
 {
     char buf[32];
     int value;
-    if(!arg)
+    if (!arg)
         return;
     memset(buf,0,32);
     memcpy(buf,arg,strlen(arg));
-    if(sscanf(buf,"%d",&value)!=1)
+    if (sscanf(buf,"%d",&value)!=1)
     {
         dbg("error brightness\n");
         return;
     }
-    if(v4l2_contrl_brightness(vdin_camera,value)==0)
+    if (v4l2_contrl_brightness(vdin_camera,value)==0)
     {
         threadcfg.brightness = value;
         //save_config_value(CFG_BRIGHTNESS , buf);
@@ -2276,16 +2276,16 @@ static void set_contrast(char *arg)
 {
     char buf[32];
     int value;
-    if(!arg)
+    if (!arg)
         return;
     memset(buf,0,32);
     memcpy(buf,arg,strlen(arg));
-    if(sscanf(buf,"%d",&value)!=1)
+    if (sscanf(buf,"%d",&value)!=1)
     {
         dbg("error contrast\n");
         return;
     }
-    if(v4l2_contrl_contrast(vdin_camera,value)==0)
+    if (v4l2_contrl_contrast(vdin_camera,value)==0)
     {
         threadcfg.contrast = value;
         //save_config_value(CFG_CONTRAST, buf);
@@ -2296,16 +2296,16 @@ static void set_volume(char *arg)
 {
     char buf[32];
     int value;
-    if(!arg)
+    if (!arg)
         return;
     memset(buf,0,32);
     memcpy(buf,arg,strlen(arg));
-    if(sscanf(buf,"%d",&value)!=1)
+    if (sscanf(buf,"%d",&value)!=1)
     {
         dbg("error volume\n");
         return;
     }
-    if(alsa_set_volume(value)==0)
+    if (alsa_set_volume(value)==0)
     {
         threadcfg.volume = value;
         //save_config_value(CFG_VOLUME, buf);
@@ -2319,8 +2319,8 @@ static char* GetTime(char* arg)
 
 //    dbg("GetTime\n");
     buffer = malloc(20);
-    memset( buffer, 0, 20 );
-    time (&timep);
+    memset(buffer, 0, 20);
+    time(&timep);
     gtm = localtime(&timep);
     sprintf(buffer,"%04d%02d%02d%02d%02d%02d",gtm->tm_year+1900,gtm->tm_mon+1,gtm->tm_mday,gtm->tm_hour,gtm->tm_min,gtm->tm_sec);
 //    dbg("time=%s\n",buffer);
@@ -2347,11 +2347,11 @@ static char* GetNandRecordFile(char* arg)
     char *ret;
 
 //    dbg("get a id char=%s\n",arg);
-    if(!arg)
+    if (!arg)
         return NULL;
     id = dec_string_to_int(arg, 8);
     dbg("get a id=%d\n",id);
-    if(id==0)
+    if (id==0)
     {
         i = 0;
         memset(FileNameBuffer, 0, sizeof(FileNameBuffer));
@@ -2361,14 +2361,14 @@ static char* GetNandRecordFile(char* arg)
         //after nand_open, the oldest sector is found, so we get it
         start_sector = 0;
         time = nand_get_file_time(start_sector);
-        if( time != 0 && time != (char*)0xffffffff  )     // 0xffffffff means a deleted file
+        if (time != 0 && time != (char*)0xffffffff)       // 0xffffffff means a deleted file
         {
             dbg("file at %d, time=%s\n", start_sector, time);
-            memcpy(&FileNameBuffer[i*48], time, 47 );
+            memcpy(&FileNameBuffer[i*48], time, 47);
             FileNameBuffer[i*48+47] = 0;
             i++;
         }
-        else if( time == (char*)0xffffffff )
+        else if (time == (char*)0xffffffff)
         {
 
         }
@@ -2379,23 +2379,23 @@ static char* GetNandRecordFile(char* arg)
         do
         {
             next_secotor = nand_get_next_file_start_sector(start_sector);
-            if( next_secotor == -1 )
+            if (next_secotor == -1)
             {
                 dbg("disk end\n");
                 break;
             }
             time = nand_get_file_time(next_secotor);
-            if( !time||time == (char*)0xffffffff )
+            if (!time||time == (char*)0xffffffff)
             {
                 start_sector = next_secotor;
                 continue;
             }
-            memcpy(&FileNameBuffer[i*48], time, 47 );
+            memcpy(&FileNameBuffer[i*48], time, 47);
             FileNameBuffer[i*48+47] = 0;
             i++;
             start_sector = next_secotor;
         }
-        while(1);
+        while (1);
         nand_close_simple();
         total_file_number = i;
     }
@@ -2405,9 +2405,9 @@ static char* GetNandRecordFile(char* arg)
     sprintf(buffer,"%08d", id);
     max_count = total_file_number;
     //dbg("###############max_count = %d###############\n",max_count);
-    for( i = 0; i < max_count; i++ )     //4 每次传20个包
+    for (i = 0; i < max_count; i++)      //4 每次传20个包
     {
-        sprintf( &buffer[8+i*48], "%s\n", &FileNameBuffer[id*48*20 + i*48]);
+        sprintf(&buffer[8+i*48], "%s\n", &FileNameBuffer[id*48*20 + i*48]);
     }
 
     dbg("\n%s\n",&buffer[8]);
@@ -2422,7 +2422,7 @@ static int IsFileExist(char* filename)
     int ret;
     struct stat file;
     ret = stat(filename,&file);
-    if( ret == 0 )
+    if (ret == 0)
     {
         ret = 1;
     }
@@ -2438,7 +2438,7 @@ static int IsDhcpMode()
     int ret;
     struct stat file;
     ret = stat("/tmp/static",&file);
-    if( ret == 0 )
+    if (ret == 0)
     {
         ret = 0;
     }
@@ -2462,14 +2462,14 @@ static char* GetRecordStatue(char* arg)
     size = nand_get_size("/dev/nand-user");
     size = size /(1024*1024/512);  // GET SIZE IN  M
     buffer = malloc(200);
-    memset( buffer, 0, 200 );
+    memset(buffer, 0, 200);
 //    state = vs_get_record_config();
-    if( state != 2 && state != 3 )
+    if (state != 2 && state != 3)
     {
         state = 1;
     }
     ret = IsDhcpMode();
-    if( ret == 0 )
+    if (ret == 0)
     {
         ip = "s";
     }
@@ -2488,11 +2488,11 @@ static void SetRecordStatue(char* arg)
     char mode;
 
 //    dbg("get record statue\n");
-    if( arg[0] == '2' )
+    if (arg[0] == '2')
     {
         mode = 2;
     }
-    else if( arg[0] == '3' )
+    else if (arg[0] == '3')
     {
         mode = 3;
     }
@@ -2517,22 +2517,22 @@ static int ArrangIpAddress(char* ip)
     memset(tmp,0,20);
     p1=ip;
     p_dot = 1;
-    for( i = 0, j = 0; i < 15; p1++,i++ )
+    for (i = 0, j = 0; i < 15; p1++,i++)
     {
-        if( *p1 == '.' )
+        if (*p1 == '.')
         {
             tmp[j++] = *p1;
             p_dot = 1;
             continue;
         }
-        else if(p1[0] == '0' && p1[1] == '0' && p1[2] == '0' && p_dot == 1)
+        else if (p1[0] == '0' && p1[1] == '0' && p1[2] == '0' && p_dot == 1)
         {
             tmp[j++] = '0';
             i+=2;
             p1+=2;
             continue;
         }
-        else if(*p1 == '0' && p_dot == 1)
+        else if (*p1 == '0' && p_dot == 1)
         {
             continue;
         }
@@ -2544,7 +2544,7 @@ static int ArrangIpAddress(char* ip)
             continue;
         }
     }
-    if( valid == 0 )
+    if (valid == 0)
     {
         return -1;
     }
@@ -2561,7 +2561,7 @@ static void SetIpAddress(char* arg)
 
 
     dbg("ip address=:%s\n", arg);
-    if( IsDhcpMode() )
+    if (IsDhcpMode())
     {
         return;
     }
@@ -2576,15 +2576,15 @@ static void SetIpAddress(char* arg)
     memcpy(buffer_ip, arg, 15);
     memcpy(buffer_mask, &arg[15+1], 15);
     memcpy(buffer_gateway, &arg[15+1+15+1], 15);
-    if( ArrangIpAddress(buffer_ip) == -1 )
+    if (ArrangIpAddress(buffer_ip) == -1)
     {
         return;
     }
-    if( -1 == ArrangIpAddress(buffer_mask))
+    if (-1 == ArrangIpAddress(buffer_mask))
     {
         return;
     }
-    if( -1 == ArrangIpAddress(buffer_gateway))
+    if (-1 == ArrangIpAddress(buffer_gateway))
     {
         return;
     }
@@ -2598,7 +2598,7 @@ static void SetIpAddress(char* arg)
     system(cmd);
     system("wait");
 
-    if(strlen(arg) != 48 )
+    if (strlen(arg) != 48)
     {
         dbg("invalid ip length %d\n",strlen(arg));
         return;
@@ -2606,14 +2606,14 @@ static void SetIpAddress(char* arg)
     int fd;
     char* buffer;
     fd = open("/dev/nand-data", O_RDWR|O_SYNC);
-    if( fd < 0 )
+    if (fd < 0)
     {
         perror("open nand-data");
         return;
     }
-    buffer = malloc( 512*1024 );
+    buffer = malloc(512*1024);
     memset(buffer, 0, 512*1024);
-    if( read(fd, buffer, 512*1024) != 512*1024 )
+    if (read(fd, buffer, 512*1024) != 512*1024)
     {
         printf("read error\n");
         return;
@@ -2622,13 +2622,13 @@ static void SetIpAddress(char* arg)
 //    dbg("write data file\n");
     close(fd);
     fd = open("/dev/nand-data", O_RDWR|O_SYNC);
-    if( fd < 0 )
+    if (fd < 0)
     {
         perror("open nand-data");
         return;
     }
 //    dbg("write file\n");
-    write( fd, buffer, 512*1024 );
+    write(fd, buffer, 512*1024);
     close(fd);
     system("sync");
 //    ioctl(fd, BLKFLSBUF, NULL );
@@ -2641,7 +2641,7 @@ static void ReplayRecord(struct sess_ctx *sess,char* arg)
 {
     int file_id;
     int seek;
-    if(!arg)
+    if (!arg)
         return;
     file_id =(int) hex_string_to_uint(arg, 8);
     seek = (int)hex_string_to_uint(&arg[8], 8);
@@ -2672,7 +2672,7 @@ static char* DeleteFile(struct sess_ctx *sess,char* arg)
     ret = malloc(50);
     file_id =(int) hex_string_to_uint(arg, 8);
     file_end_id = (int)hex_string_to_uint(&arg[8], 8);
-    if( strlen(arg) != 16 )
+    if (strlen(arg) != 16)
     {
         dbg("error delete file, arg invalid\n");
         sprintf(ret,"DeleteFile%08xERROR",file_id);
@@ -2687,7 +2687,7 @@ static char* DeleteFile(struct sess_ctx *sess,char* arg)
     return ret;
 }
 
-static char *reboot (void)
+static char *reboot(void)
 {
     system("reboot");
     return NULL;
@@ -2713,7 +2713,7 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
     */
 
     /*the first class */
-    if(!cmd)
+    if (!cmd)
         return NULL;
     if (strncmp(cmd, "get_firmware_info", 17) == 0)
         return resp = get_firmware_info(sess, NULL);/*give the function a parameter that it don't use i don't konw why*/
@@ -2733,17 +2733,17 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
         resp =  SetConfig(param);
         return resp;
     }
-    else if(strncmp(cmd,"search_wifi",11)==0)
+    else if (strncmp(cmd,"search_wifi",11)==0)
         return search_wifi(param);
-    else if(strncmp(cmd,"set_pswd",8)==0)
+    else if (strncmp(cmd,"set_pswd",8)==0)
     {
         return SetPswd(param);
     }
-    else if(strncmp(cmd,"check_pswd",10)==0)
+    else if (strncmp(cmd,"check_pswd",10)==0)
     {
         return CheckPswd(param);
     }
-    else if(strncmp(cmd,"pswd_state",10)==0)
+    else if (strncmp(cmd,"pswd_state",10)==0)
     {
         return PswdState();
     }
@@ -2758,17 +2758,17 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
         return DeleteAllFiles(sess, param);
     else if (strncmp(cmd, "DeleteFile", 10) == 0)
         return DeleteFile(sess, param);
-    else if(strncmp(cmd , "getversion",10)==0)
+    else if (strncmp(cmd , "getversion",10)==0)
         return GetVersion(rsp_len);
     /*the second class*/
     if (sess == NULL || cmd == NULL) return NULL;
     //dbg("%s\n",cmd);
     //dbg("####################sess->id = %d##################\n",((struct sess_ctx*)sess)->id);
-    if(strncmp(cmd,"set_brightness",14)==0)
+    if (strncmp(cmd,"set_brightness",14)==0)
         set_brightness(param);
-    else if(strncmp(cmd,"set_contrast",12)==0)
+    else if (strncmp(cmd,"set_contrast",12)==0)
         set_contrast(param);
-    else  if(strncmp(cmd,"set_volume",10)==0)
+    else  if (strncmp(cmd,"set_volume",10)==0)
         set_volume(param);
     else if (strncmp(cmd, "set_dest_addr", 13) == 0)
         set_dest_addr(sess, param);
@@ -2854,8 +2854,8 @@ static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_l
         SetRecordStatue(param);
     else if (strncmp(cmd, "SetIpAddress", 12) == 0)
         SetIpAddress(param);
-    else if(strncmp(cmd,"pb_set_status",13)==0)
-        resp = cli_playback_set_status( sess, param);
+    else if (strncmp(cmd,"pb_set_status",13)==0)
+        resp = cli_playback_set_status(sess, param);
     else
         dbg("cmd = %s**not supported\n", cmd);
 
@@ -2879,14 +2879,14 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
     int size_uboot, size_kernel, size_rootfs;
     char* file_buf;
 
-    UpdateCount = p[0] |( p[1] << 8 ) |( p[2] << 16 ) |( p[3] << 24 )  ;
+    UpdateCount = p[0] |(p[1] << 8) |(p[2] << 16) |(p[3] << 24)  ;
     p += 4;
-    if( ( UpdateCount % 100 ) == 0 || UpdateCount == 0xffffffff )
+    if ((UpdateCount % 100) == 0 || UpdateCount == 0xffffffff)
     {
         dbg("UpdateCount=%d\n",UpdateCount);
     }
 
-    if( UpdateCount == 0 )
+    if (UpdateCount == 0)
     {
         fp = fopen(tempfile, "w");
         fclose(fp);
@@ -2894,31 +2894,31 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
         CurrentUpdatedCount = -1;
         v2ipd_request_timeover_protect();
     }
-    if( UpdateCount == CurrentUpdatedCount )
+    if (UpdateCount == CurrentUpdatedCount)
     {
         dbg("host retry, UpdateCount=%d\n",UpdateCount);
         ret = 0;
 //        v2ipd_request_timeover_protect();
     }
-    else if(UpdateCount == CurrentUpdatedCount + 1)
+    else if (UpdateCount == CurrentUpdatedCount + 1)
     {
         v2ipd_request_timeover_protect();
         data_size = 995;
         do
         {
             xor = p[0];
-            for( i = 1; i < data_size; i++ )
+            for (i = 1; i < data_size; i++)
             {
                 xor ^= p[i];
             }
-            if( xor != p[data_size] )
+            if (xor != p[data_size])
             {
                 ret = 1;
                 dbg("crc error, xor=%x, should =%x\n", xor, p[data_size]);
                 break;
             }
             fp = fopen(tempfile, "a");
-            if( fp == NULL )
+            if (fp == NULL)
             {
                 ret = 2;    // err restart
                 goto err_restart;
@@ -2926,23 +2926,23 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
             else
             {
                 ret = fwrite(p, 1,data_size,fp);
-                if( ret != data_size*1 )
+                if (ret != data_size*1)
                 {
                     ret = 2; // err restart
-                    fclose( fp );
+                    fclose(fp);
                     goto err_restart;
                 }
                 else
                 {
-                    fclose( fp );
+                    fclose(fp);
                     ret = 0;
                     CurrentUpdatedCount++;
                 }
             }
         }
-        while(0);
+        while (0);
     }
-    else if( UpdateCount == 0xffffffff )     // last package
+    else if (UpdateCount == 0xffffffff)      // last package
     {
         v2ipd_stop_timeover_protect();
         dbg("CurrentUpdatedCount=%x\n",CurrentUpdatedCount);
@@ -2950,17 +2950,17 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
         do
         {
             xor = p[0];
-            for( i = 1; i < data_size; i++ )
+            for (i = 1; i < data_size; i++)
             {
                 xor ^= p[i];
             }
-            if( xor != p[data_size] )
+            if (xor != p[data_size])
             {
                 ret = 0x300;
                 break;
             }
             fp = fopen(tempfile, "a");
-            if( fp == NULL )
+            if (fp == NULL)
             {
                 ret = 0x200;    // err restart
                 break;
@@ -2968,7 +2968,7 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
             else
             {
                 ret = fwrite(p, 1, data_size,fp);
-                if( ret != data_size )
+                if (ret != data_size)
                 {
                     ret = 0x201; // err restart
                     fclose(fp);
@@ -2976,11 +2976,11 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
                 }
                 else
                 {
-                    fclose( fp );
+                    fclose(fp);
                     ret = 0;
                 }
             }
-            if( ret != 0 )
+            if (ret != 0)
             {
                 system("rm /tmp/update");
                 break;
@@ -2990,7 +2990,7 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
             sleep(1);
             system("cp /sbin/reboot /tmp/reboot -f");
             system("sync");
-            if( IsFileExist("/tmp/reboot") == 0 )
+            if (IsFileExist("/tmp/reboot") == 0)
             {
                 dbg("cope reboot error\n");
                 system("rm /tmp/update");
@@ -2999,7 +2999,7 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
             }
             system("cp /nand-flush /tmp/nand-flush -f");
             system("sync");
-            if( IsFileExist("/tmp/nand-flush") == 0 )
+            if (IsFileExist("/tmp/nand-flush") == 0)
             {
                 dbg("cope nand-flush error\n");
                 system("rm /tmp/update");
@@ -3008,47 +3008,47 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
             }
             system("cp /reboot-delay.sh /tmp/reboot-delay.sh -f");
             system("sync");
-            if( IsFileExist("/tmp/reboot-delay.sh") == 0 )
+            if (IsFileExist("/tmp/reboot-delay.sh") == 0)
             {
                 dbg("cope reboot-delay error\n");
                 system("rm /tmp/update");
                 ret = 0x103;
                 break;
             }
-            file_buf = malloc( TEMP_FILE_SIZE );
-            if( file_buf == NULL )
+            file_buf = malloc(TEMP_FILE_SIZE);
+            if (file_buf == NULL)
             {
                 ret = 0x104;
                 break;
             }
             fp = fopen(tempfile, "r");
-            if( fp == NULL )
+            if (fp == NULL)
             {
                 ret = 0x105;
                 break;
             }
             fseek(fp, 0, SEEK_SET);
-            fread(&size_uboot, 1, 4, fp );
+            fread(&size_uboot, 1, 4, fp);
             dbg("uboot size=%d\n",size_uboot);
-            if( size_uboot )
+            if (size_uboot)
             {
                 fw = open("/dev/nand-boot", O_RDWR|O_SYNC);
                 //fw = open("/mnt/nfs/nand-boot", O_RDWR|O_SYNC | O_CREAT );
-                if( fw == -1 )
+                if (fw == -1)
                 {
                     ret = 0x106;
                     break;
                 }
-                while( size_uboot > TEMP_FILE_SIZE )
+                while (size_uboot > TEMP_FILE_SIZE)
                 {
-                    fread( file_buf, 1,TEMP_FILE_SIZE , fp);
-                    write( fw, file_buf, TEMP_FILE_SIZE );
+                    fread(file_buf, 1,TEMP_FILE_SIZE , fp);
+                    write(fw, file_buf, TEMP_FILE_SIZE);
                     size_uboot -= TEMP_FILE_SIZE;
                 }
-                if( size_uboot )
+                if (size_uboot)
                 {
-                    fread( file_buf, 1,size_uboot , fp);
-                    write( fw, file_buf, size_uboot );
+                    fread(file_buf, 1,size_uboot , fp);
+                    write(fw, file_buf, size_uboot);
                 }
                 close(fw);
                 system("sync");
@@ -3056,27 +3056,27 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
                 system("sync");
             }
 //            fseek(fp, size_uboot, SEEK_CUR);
-            fread(&size_kernel, 1, 4, fp );
+            fread(&size_kernel, 1, 4, fp);
             dbg("kernel size=%d\n",size_kernel);
-            if( size_kernel )
+            if (size_kernel)
             {
                 fw = open("/dev/nand-kernel", O_RDWR|O_SYNC);
                 //fw = open("/mnt/nfs/nand-kernel", O_RDWR|O_SYNC |O_CREAT);
-                if( fw == -1 )
+                if (fw == -1)
                 {
                     ret = 0x107;
                     break;
                 }
-                while( size_kernel > TEMP_FILE_SIZE )
+                while (size_kernel > TEMP_FILE_SIZE)
                 {
-                    fread( file_buf, 1,TEMP_FILE_SIZE , fp);
-                    write( fw, file_buf, TEMP_FILE_SIZE );
+                    fread(file_buf, 1,TEMP_FILE_SIZE , fp);
+                    write(fw, file_buf, TEMP_FILE_SIZE);
                     size_kernel -= TEMP_FILE_SIZE;
                 }
-                if( size_kernel )
+                if (size_kernel)
                 {
-                    fread( file_buf, 1,size_kernel , fp);
-                    write( fw, file_buf, size_kernel );
+                    fread(file_buf, 1,size_kernel , fp);
+                    write(fw, file_buf, size_kernel);
                 }
                 close(fw);
                 system("sync");
@@ -3084,27 +3084,27 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
                 system("sync");
             }
 //            fseek(fp, size_kernel, SEEK_CUR);
-            fread(&size_rootfs, 1, 4, fp );
+            fread(&size_rootfs, 1, 4, fp);
             dbg("rootfs size=%d\n",size_rootfs);
-            if( size_rootfs )
+            if (size_rootfs)
             {
                 fw = open("/dev/nand-rootfs", O_RDWR|O_SYNC);
                 //fw = open("/mnt/nfs/nand-rootfs", O_RDWR|O_SYNC |O_CREAT);
-                if( fw == -1 )
+                if (fw == -1)
                 {
                     ret = 0x108;
                     break;
                 }
-                while( size_rootfs > TEMP_FILE_SIZE )
+                while (size_rootfs > TEMP_FILE_SIZE)
                 {
-                    fread( file_buf, 1,TEMP_FILE_SIZE , fp);
-                    write( fw, file_buf, TEMP_FILE_SIZE );
+                    fread(file_buf, 1,TEMP_FILE_SIZE , fp);
+                    write(fw, file_buf, TEMP_FILE_SIZE);
                     size_rootfs -= TEMP_FILE_SIZE;
                 }
-                if( size_rootfs )
+                if (size_rootfs)
                 {
-                    fread( file_buf, 1,size_rootfs , fp);
-                    write( fw, file_buf, size_rootfs );
+                    fread(file_buf, 1,size_rootfs , fp);
+                    write(fw, file_buf, size_rootfs);
                 }
                 close(fw);
                 system("sync");
@@ -3115,9 +3115,9 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
             free(file_buf);
             ret = 0;
         }
-        while(0);
+        while (0);
         CurrentUpdatedCount = 0xffffffff;
-        if( ret == 0 )
+        if (ret == 0)
         {
         }
         else
@@ -3126,7 +3126,7 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
         }
         v2ipd_reboot_system();
     }
-    else if( UpdateCount == 0xfffffffe )     // cancel current update process
+    else if (UpdateCount == 0xfffffffe)      // cancel current update process
     {
         dbg("cancel update\n");
         system("rm /tmp/update");
@@ -3169,7 +3169,7 @@ char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int* rsp_len)
 {
     *rsp_len = 0;
 
-    if( strncmp(cmd,"UpdateSystem",12) == 0 )
+    if (strncmp(cmd,"UpdateSystem",12) == 0)
     {
         return UpdateSystem(cmd, cmd_len, rsp_len);
     }

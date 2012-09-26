@@ -318,15 +318,15 @@ static vs_record_parameter* monitor_para = NULL;
 vs_record_parameter* vs_get_record_para(void)
 {
     struct video_config_params* video_config;
-    if( record_para == NULL )
+    if (record_para == NULL)
     {
         video_config = parse_video_conf(RECORD_PAR_FILE);
-        if( NULL == video_config )
+        if (NULL == video_config)
         {
             return NULL;
         }
-        record_para = malloc( sizeof(vs_record_parameter) );
-        if( NULL == record_para )
+        record_para = malloc(sizeof(vs_record_parameter));
+        if (NULL == record_para)
             return NULL;
         get_video_resolution(video_config, &record_para->width, &record_para->height);
         get_video_bitrate(video_config, &record_para->bitrate);
@@ -339,15 +339,15 @@ vs_record_parameter* vs_get_record_para(void)
 vs_record_parameter* vs_get_monitor_para(void)
 {
     struct video_config_params* video_config;
-    if( monitor_para == NULL )
+    if (monitor_para == NULL)
     {
         video_config = parse_video_conf(MONITOR_PAR_FILE);
-        if( NULL == video_config )
+        if (NULL == video_config)
         {
             return NULL;
         }
-        monitor_para = malloc( sizeof(vs_record_parameter) );
-        if( NULL == monitor_para )
+        monitor_para = malloc(sizeof(vs_record_parameter));
+        if (NULL == monitor_para)
             return NULL;
         get_video_resolution(video_config, &monitor_para->width, &monitor_para->height);
         get_video_bitrate(video_config, &monitor_para->bitrate);
@@ -362,15 +362,15 @@ int vs_get_record_config()
     int fd;
     char* buffer;
     fd = open("/dev/nand-data", O_RDONLY);
-    buffer = malloc( 10000 );
-    if( NULL == buffer )
+    buffer = malloc(10000);
+    if (NULL == buffer)
     {
         printf("malloc buffer error\n");
         close(fd);
         return -1;
     }
     memset(buffer, 0, 10000);
-    if( read(fd, buffer, 10000) != 10000 )
+    if (read(fd, buffer, 10000) != 10000)
     {
         printf("read error\n");
         close(fd);
@@ -388,14 +388,14 @@ int vs_set_record_config(int mode)
 
     printf("%s\n", __func__);
     fd = open("/dev/nand-data", O_RDWR|O_SYNC);
-    if( fd < 0 )
+    if (fd < 0)
     {
         perror("open nand-data");
         return -1;
     }
-    buffer = malloc( 512*1024 );
+    buffer = malloc(512*1024);
     memset(buffer, 0, 512*1024);
-    if( read(fd, buffer, 512*1024) != 512*1024 )
+    if (read(fd, buffer, 512*1024) != 512*1024)
     {
         printf("read error\n");
         return -1;
@@ -404,13 +404,13 @@ int vs_set_record_config(int mode)
 //    dbg("write data file\n");
     close(fd);
     fd = open("/dev/nand-data", O_RDWR|O_SYNC);
-    if( fd < 0 )
+    if (fd < 0)
     {
         perror("open nand-data");
         return -1;
     }
 //    dbg("write file\n");
-    write( fd, buffer, 512*1024 );
+    write(fd, buffer, 512*1024);
 //    ioctl(fd, BLKFLSBUF, NULL );
     close(fd);
     system("sync");

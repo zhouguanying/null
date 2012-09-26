@@ -25,19 +25,19 @@ struct vdIn * init_camera(void)
     int brightness = 0, contrast = 0, saturation = 0, gain = 0;
     struct vdIn *videoIn;
 
-    videoIn = (struct vdIn *) calloc (1, sizeof (struct vdIn));
+    videoIn = (struct vdIn *) calloc(1, sizeof(struct vdIn));
 
     pthread_mutex_init(&videoIn->tmpbufflock,NULL);
     pthread_mutex_init(&videoIn->vd_data_lock,NULL);
     memset(videoIn->hrb_tid,0,sizeof(videoIn->hrb_tid));
     //threadcfg.qvga_flag = 0;
-    if(strncmp(threadcfg.record_resolution,"vga",3)==0)
+    if (strncmp(threadcfg.record_resolution,"vga",3)==0)
     {
         printf("vga \n");
         width=640;
         height=480;
     }
-    else if(strncmp(threadcfg.record_resolution,"qvga",4)==0)
+    else if (strncmp(threadcfg.record_resolution,"qvga",4)==0)
     {
         //threadcfg.qvga_flag = 1;
         width=320;
@@ -61,10 +61,10 @@ struct vdIn * init_camera(void)
         return (struct vdIn *) 0;
     }
     //query_all_ctrl(videoIn->fd);
-    v4l2ResetControl (videoIn, V4L2_CID_BRIGHTNESS);
-    v4l2ResetControl (videoIn, V4L2_CID_CONTRAST);
-    v4l2ResetControl (videoIn, V4L2_CID_SATURATION);
-    v4l2ResetControl (videoIn, V4L2_CID_GAIN);
+    v4l2ResetControl(videoIn, V4L2_CID_BRIGHTNESS);
+    v4l2ResetControl(videoIn, V4L2_CID_CONTRAST);
+    v4l2ResetControl(videoIn, V4L2_CID_SATURATION);
+    v4l2ResetControl(videoIn, V4L2_CID_GAIN);
 
     //Setup Camera Parameters
     /*
@@ -84,11 +84,11 @@ struct vdIn * init_camera(void)
     }
     if (saturation != 0)
     {
-        v4l2SetControl (videoIn, V4L2_CID_SATURATION, saturation);
+        v4l2SetControl(videoIn, V4L2_CID_SATURATION, saturation);
     }
     if (gain != 0)
     {
-        v4l2SetControl (videoIn, V4L2_CID_GAIN, gain);
+        v4l2SetControl(videoIn, V4L2_CID_GAIN, gain);
     }
     return videoIn;
 }

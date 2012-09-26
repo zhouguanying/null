@@ -75,9 +75,9 @@ static long get_integer(char **ptr, long min, long max)
     long val = min;
     char *p = *ptr, *s;
 
-    if(volume_percent>=0)
+    if (volume_percent>=0)
     {
-        val =(int) (max*volume_percent/100);
+        val =(int)(max*volume_percent/100);
         val = check_range(val, min, max);
         return val;
     }
@@ -753,13 +753,13 @@ int alsa_set_mic_volume(int value)
 {
     int ret;
     char *argv[3];
-    if(value<0||value>100)
+    if (value<0||value>100)
         return -1;
     volume_percent = value;
     argv[0]=malloc(256);
     argv[1]=malloc(256);
     argv[2]=malloc(256);
-    if(!argv[0]||!argv[1]||!argv[2])
+    if (!argv[0]||!argv[1]||!argv[2])
     {
         printf("error malloc buff for test set sound card\n");
         exit(0);
@@ -767,7 +767,7 @@ int alsa_set_mic_volume(int value)
     sprintf(argv[0],"numid=9,iface=MIXER,name=\'Mic PGA Capture Volume\'");
     sprintf(argv[1],"0");
     ret = cset(2, argv, 0, 0) ;
-    if(ret<0)
+    if (ret<0)
     {
         printf("**********************set mic volume error****************\n");
         free(argv[0]);
@@ -788,13 +788,13 @@ int alsa_set_hp_volume(int value)
     int ret;
     //int i;
     char *argv[3];
-    if(value<0||value>100)
+    if (value<0||value>100)
         return -1;
     volume_percent = value;
     argv[0]=malloc(256);
     argv[1]=malloc(256);
     argv[2]=malloc(256);
-    if(!argv[0]||!argv[1]||!argv[2])
+    if (!argv[0]||!argv[1]||!argv[2])
     {
         printf("error malloc buff for test set sound card\n");
         exit(0);
@@ -802,7 +802,7 @@ int alsa_set_hp_volume(int value)
     sprintf(argv[0],"numid=3,iface=MIXER,name=\'HP Playback Volume\'");
     sprintf(argv[1],"0");
     ret = cset(2, argv, 0, 0) ;
-    if(ret<0)
+    if (ret<0)
     {
         printf("*******************set hp volume error****************\n");
         free(argv[0]);
@@ -822,13 +822,13 @@ int alsa_set_volume(int value)
 {
     int ret;
     char *argv[3];
-    if(value<0||value>100)
+    if (value<0||value>100)
         return -1;
     volume_percent = value;
     argv[0]=malloc(256);
     argv[1]=malloc(256);
     argv[2]=malloc(256);
-    if(!argv[0]||!argv[1]||!argv[2])
+    if (!argv[0]||!argv[1]||!argv[2])
     {
         printf("error malloc buff for test set sound card\n");
         exit(0);
@@ -838,7 +838,7 @@ int alsa_set_volume(int value)
     argv[0][strlen(argv[0])]='\0';
     argv[1][strlen(argv[1])]='\0';
     ret = cset(2, argv, 0, 0) ;
-    if(ret<0)
+    if (ret<0)
     {
         printf("**********************cset1 error****************\n");
         free(argv[0]);
@@ -855,7 +855,7 @@ int alsa_set_volume(int value)
     argv[0][strlen(argv[0])]='\0';
     argv[1][strlen(argv[1])]='\0';
     ret = cset(2, argv, 0, 0) ;
-    if(ret<0)
+    if (ret<0)
     {
         printf("**********************cset2 error****************\n");
         free(argv[0]);

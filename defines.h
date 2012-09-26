@@ -17,7 +17,7 @@ static inline u32 get_timeval_stats(struct tv_params *tv)
     if (tv == NULL)
         return 0;
 
-    return (u32) (tv->sum / tv->total);
+    return (u32)(tv->sum / tv->total);
 }
 
 static inline u32 update_timeval_stats(struct tv_params *tv)

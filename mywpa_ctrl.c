@@ -66,7 +66,7 @@ try_again:
     }
 
     ctrl->dest.sun_family = AF_UNIX;
-    if(strlen(ctrl_path)>=sizeof(ctrl->dest.sun_path))
+    if (strlen(ctrl_path)>=sizeof(ctrl->dest.sun_path))
     {
         close(ctrl->s);
         free(ctrl);

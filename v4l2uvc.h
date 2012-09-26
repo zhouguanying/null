@@ -46,19 +46,19 @@ struct vdIn
 };
 
 int
-init_videoIn (struct vdIn *vd, char *device, int width, int height,
-              int format, int grabmethod);
-int uvcGrab (struct vdIn *vd);
-int close_v4l2 (struct vdIn *vd);
+init_videoIn(struct vdIn *vd, char *device, int width, int height,
+             int format, int grabmethod);
+int uvcGrab(struct vdIn *vd);
+int close_v4l2(struct vdIn *vd);
 
-int v4l2GetControl (struct vdIn *vd, int control);
-int v4l2SetControl (struct vdIn *vd, int control, int value);
-int v4l2UpControl (struct vdIn *vd, int control);
-int v4l2DownControl (struct vdIn *vd, int control);
-int v4l2ToggleControl (struct vdIn *vd, int control);
-int v4l2ResetControl (struct vdIn *vd, int control);
-int v4l2ResetPanTilt (struct vdIn *vd, int pantilt);
-int v4L2UpDownPan (struct vdIn *vd, short inc);
-int v4L2UpDownTilt (struct vdIn *vd, short inc);
+int v4l2GetControl(struct vdIn *vd, int control);
+int v4l2SetControl(struct vdIn *vd, int control, int value);
+int v4l2UpControl(struct vdIn *vd, int control);
+int v4l2DownControl(struct vdIn *vd, int control);
+int v4l2ToggleControl(struct vdIn *vd, int control);
+int v4l2ResetControl(struct vdIn *vd, int control);
+int v4l2ResetPanTilt(struct vdIn *vd, int pantilt);
+int v4L2UpDownPan(struct vdIn *vd, short inc);
+int v4L2UpDownTilt(struct vdIn *vd, short inc);
 int v4l2_contrl_brightness(struct vdIn *vd,int brightness);
 int v4l2_contrl_contrast(struct vdIn *vd,int contrast);

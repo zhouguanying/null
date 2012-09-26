@@ -58,14 +58,14 @@ unsigned short cal_chksum(unsigned short *addr,int len)
     unsigned short answer=0;
 
     /*把ICMP报头二进制数据以2字节为单位累加起来*/
-    while(nleft>1)
+    while (nleft>1)
     {
         sum+=*w++;
         nleft-=2;
     }
     /*若ICMP报头为奇数个字节，会剩下最后一字节。把最后一个字节视为一个2字节数据的高字节，
     这个2字节数据的低字节为0，继续累加*/
-    if( nleft==1)
+    if (nleft==1)
     {
         *(unsigned char *)(&answer)=*(unsigned char *)w;
         sum+=answer;
@@ -90,7 +90,7 @@ int pack(int pack_no)
     packsize=8+datalen;
     tval= (struct timeval *)icmp->icmp_data;
     gettimeofday(tval,NULL); /*记录发送时间*/
-    icmp->icmp_cksum=cal_chksum( (unsigned short *)icmp,packsize); /*校验算法*/
+    icmp->icmp_cksum=cal_chksum((unsigned short *)icmp,packsize);  /*校验算法*/
     return packsize;
 }
 
@@ -102,7 +102,7 @@ int send_packet()
     nsend++;
     packetsize=pack(nsend); /*设置ICMP报头*/
     //  printf("#############send packetsize==%d###########\n",packetsize);
-    if(sendto(sockfd,sendpacket,packetsize,0,(struct sockaddr *)&dest_addr,sizeof(dest_addr))<0 )
+    if (sendto(sockfd,sendpacket,packetsize,0,(struct sockaddr *)&dest_addr,sizeof(dest_addr))<0)
     {
         perror("sendto error");
         return -1;
@@ -119,15 +119,15 @@ int recv_packet()
     fromlen=sizeof(from);
     //  alarm(MAX_WAIT_TIME);
 __retry:
-    if( (n=recvfrom(sockfd,recvpacket,PACKET_SIZE,0,(struct sockaddr *)&from,&fromlen)) <0)
+    if ((n=recvfrom(sockfd,recvpacket,PACKET_SIZE,0,(struct sockaddr *)&from,&fromlen)) <0)
     {
-        if(errno==EINTR) goto __retry;
+        if (errno==EINTR) goto __retry;
         // perror("recvfrom error");
         return -1;
     }
     // printf("####################recv packet size==%d############\n",n);
     gettimeofday(&tvrecv,NULL); /*记录接收时间*/
-    if(unpack(recvpacket,n)==-1)
+    if (unpack(recvpacket,n)==-1)
     {
         printf("unpack tell error\n");
         return -1;
@@ -147,13 +147,13 @@ int unpack(char *buf,int len)
     iphdrlen=ip->ip_hl<<2; /*求ip报头长度,即ip报头的长度标志乘4*/
     icmp=(struct icmp *)(buf+iphdrlen); /*越过ip报头,指向ICMP报头*/
     len-=iphdrlen; /*ICMP报头及ICMP数据报的总长度*/
-    if(len<8) /*小于ICMP报头长度则不合理*/
+    if (len<8) /*小于ICMP报头长度则不合理*/
     {
         printf("ICMP packets\'s length is less than 8\n");
         return -1;
     }
     /*确保所接收的是我所发的的ICMP的回应*/
-    if( (icmp->icmp_type==ICMP_ECHOREPLY) && (icmp->icmp_id==pid) )
+    if ((icmp->icmp_type==ICMP_ECHOREPLY) && (icmp->icmp_id==pid))
     {
         tvsend=(struct timeval *)icmp->icmp_data;
         tv_sub(&tvrecv,tvsend); /*接收和发送的时间差*/
@@ -179,7 +179,7 @@ int check_net(char *ping_addr,char * __device)
     argv[1] = ping_addr;
     memcpy(device,__device,32);
     /*生成使用ICMP的原始套接字,这种套接字只有root才能生成*/
-    if( (sockfd=socket(AF_INET,SOCK_RAW,IPPROTO_ICMP) )<0)
+    if ((sockfd=socket(AF_INET,SOCK_RAW,IPPROTO_ICMP))<0)
     {
         perror("socket error");
         return -1;
@@ -199,7 +199,7 @@ int check_net(char *ping_addr,char * __device)
         return -1;
     }
     addr_len = sizeof(struct sockaddr);
-    if(getsockname(sockfd,(struct sockaddr*)&addr,&addr_len) <0)
+    if (getsockname(sockfd,(struct sockaddr*)&addr,&addr_len) <0)
     {
         printf("cannot get sock name\n");
         close(sockfd);
@@ -210,31 +210,31 @@ int check_net(char *ping_addr,char * __device)
     {
         printf("Error enabling socket rcv time out \n");
     }
-    setsockopt(sockfd,SOL_SOCKET,SO_RCVBUF,&size,sizeof(size) );
+    setsockopt(sockfd,SOL_SOCKET,SO_RCVBUF,&size,sizeof(size));
     bzero(&dest_addr,sizeof(dest_addr));
     dest_addr.sin_family=AF_INET;
 
     /*判断是主机名还是ip地址*/
-    if( (inaddr=inet_addr(argv[1]))==INADDR_NONE)
+    if ((inaddr=inet_addr(argv[1]))==INADDR_NONE)
     {
-        if((host=gethostbyname(argv[1]) )==NULL) /*是主机名*/
+        if ((host=gethostbyname(argv[1]))==NULL) /*是主机名*/
         {
             perror("gethostbyname error");
             close(sockfd);
             return -1;
         }
-        memcpy( (char *)&dest_addr.sin_addr,host->h_addr,host->h_length);
+        memcpy((char *)&dest_addr.sin_addr,host->h_addr,host->h_length);
     }
     else /*是ip地址*/
-        memcpy( (char *)&dest_addr.sin_addr.s_addr,(char *)&inaddr,sizeof(in_addr_t));
+        memcpy((char *)&dest_addr.sin_addr.s_addr,(char *)&inaddr,sizeof(in_addr_t));
     /*获取main的进程id,用于设置ICMP的标志符*/
     pid=getpid();
     printf("PING %s(%s): %d bytes data in ICMP packets.\n",argv[1],
            inet_ntoa(dest_addr.sin_addr),datalen);
-    for(n =0; n<3; n++)
+    for (n =0; n<3; n++)
     {
         send_packet();
-        if(recv_packet() ==0)
+        if (recv_packet() ==0)
         {
             close(sockfd);
             return 0;
@@ -246,7 +246,7 @@ int check_net(char *ping_addr,char * __device)
 /*两个timeval结构相减*/
 void tv_sub(struct timeval *out,struct timeval *in)
 {
-    if( (out->tv_usec-=in->tv_usec)<0)
+    if ((out->tv_usec-=in->tv_usec)<0)
     {
         --out->tv_sec;
         out->tv_usec+=1000000;
@@ -264,7 +264,7 @@ int snd_soft_restart()
     msg.msg[0] = VS_MESSAGE_SOFTRESET;
     msg.msg[1] = 0;
     ret = msgsnd(msqid , &msg,sizeof(vs_ctl_message) - sizeof(long),0);
-    if(ret == -1)
+    if (ret == -1)
     {
         printf("send daemon message error\n");
         system("reboot &");
@@ -288,73 +288,73 @@ int built_net(int check_wlan0,int check_eth0 , int ping_wlan0 , int ping_eth0)
     wlan0_wan = -1;
     enable_wlan0 = check_wlan0;
     enable_eth0 = check_eth0;
-    if(!check_wlan0)
+    if (!check_wlan0)
     {
         memcpy(curr_device,inet_eth_device,32);
         return 0;
     }
-    if(!check_eth0)
+    if (!check_eth0)
     {
         memcpy(curr_device , inet_wlan_device , 32);
         return 0;
     }
     /*check eth0 wan*/
-    if(check_eth0&&ping_eth0)
+    if (check_eth0&&ping_eth0)
     {
         memset(ping_addr,0,32);
         sprintf(ping_addr,"www.baidu.com");
-        eth0_wan = check_net( ping_addr, inet_eth_device);
-        if(eth0_wan == 0)
+        eth0_wan = check_net(ping_addr, inet_eth_device);
+        if (eth0_wan == 0)
             goto __check_ok;
     }
 
     /*check wlan0 wan*/
-    if(check_wlan0&&ping_wlan0)
+    if (check_wlan0&&ping_wlan0)
     {
         memset(ping_addr,0,32);
         sprintf(ping_addr,"www.baidu.com");
-        wlan0_wan = check_net( ping_addr,  inet_wlan_device);
-        if(wlan0_wan == 0)
+        wlan0_wan = check_net(ping_addr,  inet_wlan_device);
+        if (wlan0_wan == 0)
             goto __check_ok;
     }
     //check eth0 lan
-    if(check_eth0&&ping_eth0)
+    if (check_eth0&&ping_eth0)
     {
         memset(ping_addr,0,32);
         memcpy(ping_addr , inet_eth_gateway,32);
-        eth0_lan = check_net( ping_addr,  inet_eth_device);
-        if(eth0_lan == 0)
+        eth0_lan = check_net(ping_addr,  inet_eth_device);
+        if (eth0_lan == 0)
             goto __check_ok;
     }
 
     //check wlan0 lan
-    if(check_wlan0&&ping_wlan0)
+    if (check_wlan0&&ping_wlan0)
     {
         memset(ping_addr,0,32);
         memcpy(ping_addr , inet_wlan_gateway , 32);
-        wlan0_lan = check_net( ping_addr, inet_wlan_device);
+        wlan0_lan = check_net(ping_addr, inet_wlan_device);
     }
 __check_ok:
     memset(curr_device,0,32);
-    if(eth0_wan ==0 )
+    if (eth0_wan ==0)
     {
         memcpy(curr_device,inet_eth_device,32);
         printf("####################use eth0##############\n");
         goto __done;
     }
-    if(wlan0_wan ==0)
+    if (wlan0_wan ==0)
     {
         printf("####################use wlan0##############\n");
         memcpy(curr_device , inet_wlan_device , 32);
         goto __done;
     }
-    if(eth0_lan ==0)
+    if (eth0_lan ==0)
     {
         printf("####################use eth0##############\n");
         memcpy(curr_device,inet_eth_device,32);
         goto __done;
     }
-    if(wlan0_lan == 0)
+    if (wlan0_lan == 0)
     {
         printf("####################use wlan0##############\n");
         memcpy(curr_device , inet_wlan_device , 32);

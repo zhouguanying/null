@@ -1,12 +1,11 @@
-* makefile
+* new makefile
 * eliminate dead files & functions
 * eliminate warnings
 * code beautifier
 
-* static analysis
-* valgrind
+* static code analysis
+* valgrind memory analysis
 * pc version
-* github
-* write test and continuous integration
+* write tests and continuous integration
 * error/statistics report, more info report
 * automatic batch upgrade

@@ -41,9 +41,9 @@ int    ioctl_usbdet_read(void)
 {
     int    ret;
 
-    if(-1==fd)
+    if (-1==fd)
     {
-        if( open_usbdet() )
+        if (open_usbdet())
         {
             return -1;
         }
@@ -58,9 +58,9 @@ int    ioctl_usbdet_led(int led)
 {
     int    ret;
 
-    if(-1==fd)
+    if (-1==fd)
     {
-        if( open_usbdet() )
+        if (open_usbdet())
         {
             return -1;
         }

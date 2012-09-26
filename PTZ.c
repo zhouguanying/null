@@ -33,7 +33,7 @@ static    int    open_ptz(void)
     else
     {
         ioctl(fd , 15 , 0);
-        if(ioctl(fd, 16 ,0)<0)
+        if (ioctl(fd, 16 ,0)<0)
         {
             printf("###########contrl ptz speed error############\n");
         }
@@ -52,9 +52,9 @@ static    int    open_ptz(void)
 */
 int    speed_ptz(int cmd, int speed)
 {
-    if(-1==fd)
+    if (-1==fd)
     {
-        if( open_ptz() )
+        if (open_ptz())
         {
             return -1;
         }
@@ -64,9 +64,9 @@ int    speed_ptz(int cmd, int speed)
 
 int    write_ptz(char *buffer, int length)
 {
-    if(-1==fd)
+    if (-1==fd)
     {
-        if( open_ptz() )
+        if (open_ptz())
         {
             return -1;
         }

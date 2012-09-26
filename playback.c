@@ -33,7 +33,7 @@ playback_t* playback_find(struct sockaddr_in address)
     list_for_each(p, &playback_list)
     {
         pb = list_entry(p, playback_t, list);
-        if(pb->address.sin_addr.s_addr ==
+        if (pb->address.sin_addr.s_addr ==
                 address.sin_addr.s_addr&&pb->address.sin_port==address.sin_port)
         {
             printf("%s: pb address=0x%x, address to find=0x%x\n",
@@ -86,7 +86,7 @@ void playback_remove_dead()
     list_for_each_safe(p, n, &playback_list)
     {
         pb = list_entry(p, playback_t, list);
-        if(playback_is_dead(pb))
+        if (playback_is_dead(pb))
         {
             playback_destroy(pb);
         }
@@ -107,15 +107,15 @@ int playback_new(struct sockaddr_in address, int file, int seek_percent)
 
     pthread_mutex_lock(&list_lock);
     pb = playback_find(address);
-    if(pb)
+    if (pb)
     {
         //alread have a playback instance? kill it.
-        if(playback_get_status(pb) != PLAYBACK_STATUS_OFFLINE)
+        if (playback_get_status(pb) != PLAYBACK_STATUS_OFFLINE)
         {
-            if(!playback_is_dead(pb))
+            if (!playback_is_dead(pb))
             {
                 playback_set_status(pb, PLAYBACK_STATUS_EXIT);
-                if(pb->thread_id)
+                if (pb->thread_id)
                     pthread_join(pb->thread_id, NULL);
             }
         }
@@ -124,7 +124,7 @@ int playback_new(struct sockaddr_in address, int file, int seek_percent)
     }
 
     pb = (playback_t *)malloc(sizeof(playback_t));
-    if(pb)
+    if (pb)
     {
         pb->address = address;
         pb->file = file;
@@ -157,7 +157,7 @@ int playback_connect(struct sockaddr_in address, int socket)
 
     pb = playback_find(address);
 
-    if(pb && (playback_get_status(pb) == PLAYBACK_STATUS_OFFLINE))
+    if (pb && (playback_get_status(pb) == PLAYBACK_STATUS_OFFLINE))
     {
         socket_set_nonblcok(socket);
         pb->socket = socket;
@@ -193,15 +193,15 @@ int cmd_playback_set_status(struct sockaddr_in address ,  int status , void *val
     int ret = 0;
     playback_t* pb;
 
-    if(status == PLAYBACK_STATUS_SEEK &&!value)
+    if (status == PLAYBACK_STATUS_SEEK &&!value)
         return -1;
 
     pthread_mutex_lock(&list_lock);
 
     pb = playback_find(address);
-    if(pb)
+    if (pb)
     {
-        if(status == PLAYBACK_STATUS_SEEK)
+        if (status == PLAYBACK_STATUS_SEEK)
         {
             pb->seek = *(int *)value;
         }
@@ -235,7 +235,7 @@ int playback_seekto(struct sockaddr_in address, int percent)
     pb = playback_find(address);
     pthread_mutex_unlock(&list_lock);
 
-    if(pb)
+    if (pb)
     {
         pthread_mutex_lock(&pb->lock);
         pb->seek = percent;
@@ -253,7 +253,7 @@ int playback_exit(struct sockaddr_in address)
     pthread_mutex_lock(&list_lock);
 
     pb = playback_find(address);
-    if(pb)
+    if (pb)
     {
         playback_set_status(pb, PLAYBACK_STATUS_EXIT);
         //if(pb->thread_id)
@@ -279,7 +279,7 @@ static int playback_send_data(int socket ,playback_t* pb, char* buf, int len)
     int attempts= 0;
     s = 0;
     //dbg("#################begin send data#####################\n");
-    while(len > 0)
+    while (len > 0)
     {
         //printf("%s: running.\n", __func__);
         status = playback_get_status(pb);
@@ -297,25 +297,25 @@ static int playback_send_data(int socket ,playback_t* pb, char* buf, int len)
         default:
             break;
         }
-        if(len >1000)
+        if (len >1000)
         {
-            if(pb->sess->is_tcp)
+            if (pb->sess->is_tcp)
                 ret = send(socket ,buf+s , 1000 , 0);
             else
                 ret = udt_send(socket, SOCK_STREAM,  buf+s, 1000);
         }
         else
         {
-            if(pb->sess->is_tcp)
+            if (pb->sess->is_tcp)
                 ret = send(socket ,buf+s , len , 0);
             else
                 ret = udt_send(socket, SOCK_STREAM,  buf+s, len);
         }
 
-        if(ret <=0)
+        if (ret <=0)
         {
             attempts ++;
-            if(attempts <=10)
+            if (attempts <=10)
             {
                 dbg("attempts to send playback data now = %d\n",attempts);
                 continue;
@@ -349,7 +349,7 @@ static  int playback_send_raw_data(int socket ,playback_t* pb, char* buf, int le
     int status;
     int attempts= 0;
     s = 0;
-    while(len > 0)
+    while (len > 0)
     {
         //printf("%s: running.\n", __func__);
         status = playback_get_status(pb);
@@ -362,25 +362,25 @@ static  int playback_send_raw_data(int socket ,playback_t* pb, char* buf, int le
         default:
             break;
         }
-        if(len >1000)
+        if (len >1000)
         {
-            if(pb->sess->is_tcp)
+            if (pb->sess->is_tcp)
                 ret = send(socket ,buf+s , 1000 , 0);
             else
                 ret = udt_send(socket, SOCK_STREAM,  buf+s, 1000);
         }
         else
         {
-            if(pb->sess->is_tcp)
+            if (pb->sess->is_tcp)
                 ret = send(socket ,buf+s , len , 0);
             else
                 ret = udt_send(socket, SOCK_STREAM,  buf+s, len);
         }
 
-        if(ret <=0)
+        if (ret <=0)
         {
             attempts ++;
-            if(attempts <=10)
+            if (attempts <=10)
             {
                 dbg("attempts to send playback data now = %d\n",attempts);
                 continue;
@@ -404,21 +404,21 @@ void send_raw_record_file(playback_t *pb)
     int fd;
     socket = pb->sess->sc->video_socket;
     buf = (char *)malloc(200*1024);
-    if(!buf)
+    if (!buf)
     {
         dbg("##########malloc buf for playback error#########\n");
         return;
     }
     fd = open_download_file(pb->file);
-    if(fd <0)
+    if (fd <0)
     {
         dbg("#############open download file error#############\n");
         free(buf);
         return;
     }
-    while((size = read( fd, buf, 200*1024 ))>0)
+    while ((size = read(fd, buf, 200*1024))>0)
     {
-        if(playback_send_raw_data( socket,  pb, buf, size)<0)
+        if (playback_send_raw_data(socket,  pb, buf, size)<0)
             goto out ;
     }
     /*
@@ -472,17 +472,17 @@ void* playback_thread(void * arg)
     add_sess(pb->sess);
     take_sess_up(pb->sess);
 
-    if(check_nand_file(pb->file)<0)
+    if (check_nand_file(pb->file)<0)
         goto __out;
-    if(pb->seek <0)
+    if (pb->seek <0)
     {
         dbg("###############downloal file###############\n");
-        send_raw_record_file( pb);
+        send_raw_record_file(pb);
         goto __out;
     }
 
     buf = malloc(PLAYBACK_SECTOR_NUM_ONE_READ*512);
-    if(!buf)
+    if (!buf)
     {
         printf("%s: malloc error\n", __func__);
         playback_set_dead(pb);
@@ -493,7 +493,7 @@ void* playback_thread(void * arg)
     }
 
     file = record_file_open(pb->file);
-    if(file == NULL)
+    if (file == NULL)
     {
         printf("%s: open file error\n", __func__);
         playback_set_dead(pb);
@@ -504,12 +504,12 @@ void* playback_thread(void * arg)
         return 0;
     }
     playback_set_status(pb, PLAYBACK_STATUS_RUNNING);
-    if(file->index_table_pos == 0xffffffff)
+    if (file->index_table_pos == 0xffffffff)
     {
 no_table:
         memset(buf,0,8);
         ret = playback_send_data(socket , pb,buf,8);
-        if(ret<0)
+        if (ret<0)
             goto __out;
     }
     else
@@ -517,10 +517,10 @@ no_table:
         dbg("try to read index table  pos = %u\n",file->index_table_pos);
         old_real_size = file->real_size;
         file->real_size = 200*1024*1024;
-        if(record_file_seekto(file,file->index_table_pos)<0)
+        if (record_file_seekto(file,file->index_table_pos)<0)
             goto __out;
         size = record_file_read(file ,(unsigned char *) buf,PLAYBACK_SECTOR_NUM_ONE_READ);
-        if(size<=0)
+        if (size<=0)
         {
             printf("cannot read index table\n");
             goto __out;
@@ -530,12 +530,12 @@ no_table:
         memcpy(&attr_table_size , s , 4);
         memcpy(&time_table_size,s+4,4);
 
-        if(attr_table_size == 0xfffffffe)
+        if (attr_table_size == 0xfffffffe)
         {
             dbg("##############table flag  deleted#############\n");
             goto __out;
         }
-        if((attr_table_size == 0 && time_table_size ==0)||attr_table_size ==0xffffffff)
+        if ((attr_table_size == 0 && time_table_size ==0)||attr_table_size ==0xffffffff)
         {
             dbg("############table flag no table##############\n");
             file->real_size = old_real_size;
@@ -544,27 +544,27 @@ no_table:
 
         dbg("try to malloc index table buff size = %u\n",attr_table_size +time_table_size +8);
         table_buf = (char *)malloc(attr_table_size + time_table_size + 8);
-        if(!table_buf)
+        if (!table_buf)
         {
             printf("error malloc buff for index table\n");
             goto __out;
         }
-        if(attr_table_size + time_table_size +8<=size)
+        if (attr_table_size + time_table_size +8<=size)
         {
             memcpy(table_buf , s , attr_table_size + time_table_size +8);
         }
         else
         {
             memcpy(table_buf,s,size);
-            while(size <attr_table_size + time_table_size +8)
+            while (size <attr_table_size + time_table_size +8)
             {
                 ret = record_file_read(file,(unsigned char *)buf , PLAYBACK_SECTOR_NUM_ONE_READ);
-                if(ret<=0)
+                if (ret<=0)
                 {
                     printf("read index table error\n");
                     goto __out;
                 }
-                if(ret >= attr_table_size + time_table_size +8 - size)
+                if (ret >= attr_table_size + time_table_size +8 - size)
                 {
                     memcpy(table_buf + size , buf ,attr_table_size + time_table_size +8 - size);
                     break;
@@ -574,20 +574,20 @@ no_table:
             }
         }
         size = playback_send_data(socket , pb,table_buf,attr_table_size+time_table_size+8);
-        if(size<0)
+        if (size<0)
             goto __out;
         file->real_size = old_real_size;
         dbg("send table ok\n");
     }
 
-    if(record_file_seekto(file, pb->seek)<0)
+    if (record_file_seekto(file, pb->seek)<0)
         goto __out;
     /*get and send the last time stamp*/
     //gettimeofday(&old_send_time , NULL);
     dbg("In begining we seek to %d\n",pb->seek);
     size = record_file_read(
                file,(unsigned char *) buf, PLAYBACK_SECTOR_NUM_ONE_READ);
-    if(size <= 0)
+    if (size <= 0)
     {
         dbg("error read record data\n");
         goto __out;
@@ -595,7 +595,7 @@ no_table:
     else
     {
         file_header=(nand_record_file_header *)buf;
-        if(file_header->head[0]!=0||file_header->head[1]!=0||file_header->head[2]!=0||
+        if (file_header->head[0]!=0||file_header->head[1]!=0||file_header->head[2]!=0||
                 file_header->head[3]!=1||file_header->head[4]!=0xc)
         {
             dbg("error file header cannot found\n");
@@ -604,7 +604,7 @@ no_table:
             dbg("ok we found file header\n");
         memcpy(file_header->LastTimeStamp,file->LastTimeStamp,sizeof(file_header->LastTimeStamp));
         ret = playback_send_data(socket , pb,buf,size);
-        if(ret < 0)
+        if (ret < 0)
         {
             goto __out;
         }
@@ -612,17 +612,17 @@ no_table:
     //snd_size = size;
     //pb->seek = 0;
     //playback_set_status(pb, PLAYBACK_STATUS_SEEK);
-    while(running)
+    while (running)
     {
         //printf("playback thread: %d\n", pb->thread_id);
         status = playback_get_status(pb);
-        switch(status)
+        switch (status)
         {
         case PLAYBACK_STATUS_RUNNING:
         {
             size = record_file_read(
                        file,(unsigned char *) buf, PLAYBACK_SECTOR_NUM_ONE_READ);
-            if(size <= 0)
+            if (size <= 0)
             {
                 //ready to restart.
                 /*
@@ -636,7 +636,7 @@ no_table:
             {
                 //send it
                 ret = playback_send_data(socket , pb,buf,size);
-                if(ret < 0)
+                if (ret < 0)
                 {
                     running = 0;
                     dbg("playback_send_data error\n");
@@ -663,20 +663,20 @@ __SEEK__:
             dbg("playback seek , pb->seek=%d\n",pb->seek);
             playback_set_status(pb, PLAYBACK_STATUS_RUNNING);
             reserve_seek = file->cur_sector *512;
-            if(!table_buf)
+            if (!table_buf)
                 break;
             seek = 0;
-            table_item_p=(index_table_item_t *) (table_buf + 8);
-            while((char *)table_item_p < table_buf +8 +attr_table_size)
+            table_item_p=(index_table_item_t *)(table_buf + 8);
+            while ((char *)table_item_p < table_buf +8 +attr_table_size)
             {
-                if(table_item_p->location ==pb->seek)
+                if (table_item_p->location ==pb->seek)
                 {
                     seek = table_item_p->location;
                     break;
                 }
-                if(table_item_p->location > pb->seek)
+                if (table_item_p->location > pb->seek)
                 {
-                    if((char *)table_item_p == table_buf + 8)
+                    if ((char *)table_item_p == table_buf + 8)
                         seek = 0;
                     else
                     {
@@ -686,7 +686,7 @@ __SEEK__:
                     break;
                 }
                 table_item_p ++;
-                if((char *)table_item_p == table_buf +8 +attr_table_size)
+                if ((char *)table_item_p == table_buf +8 +attr_table_size)
                 {
                     table_item_p --;
                     seek = table_item_p ->location;
@@ -694,12 +694,12 @@ __SEEK__:
                 }
             }
             dbg("seek=%u , pb->seek = %u\n",seek , pb->seek);
-            if(seek==0)
+            if (seek==0)
             {
                 record_file_seekto(file,0);
                 size = record_file_read(
                            file,(unsigned char *) buf, 1);
-                if(size <=0)
+                if (size <=0)
                 {
                     running = 0;
                     break;
@@ -720,13 +720,13 @@ __SEEK__:
                     memcpy(internal_header.FrameWidth , file_header->FrameWidth , sizeof(internal_header.FrameWidth));
                     memcpy(internal_header.FrameHeight ,file_header->FrameHeight , sizeof(internal_header.FrameHeight));
                     status = playback_get_status(pb);
-                    if(status !=PLAYBACK_STATUS_RUNNING)
+                    if (status !=PLAYBACK_STATUS_RUNNING)
                     {
-                        record_file_seekto( file, reserve_seek);
+                        record_file_seekto(file, reserve_seek);
                         goto __seek_out;
                     }
                     ret = playback_send_data(socket , pb,(char *)&internal_header,sizeof(internal_header));
-                    if(ret < 0)
+                    if (ret < 0)
                     {
                         running = 0;
                         dbg("playback_send_data error\n");
@@ -734,13 +734,13 @@ __SEEK__:
                     }
                 }
             }
-            else if(seek!=pb->seek)
+            else if (seek!=pb->seek)
             {
-                if(record_file_seekto( file, seek)<0)
+                if (record_file_seekto(file, seek)<0)
                     goto __out;
                 size = record_file_read(
                            file,(unsigned char *) buf, 2);
-                if(size <=0)
+                if (size <=0)
                 {
                     running = 0;
                     break;
@@ -748,11 +748,11 @@ __SEEK__:
                 else
                 {
                     s = buf + seek%512;
-                    if(s[0]==0&&s[1]==0&&s[2]==0&&s[3]==1&&s[4]==0xc)
+                    if (s[0]==0&&s[1]==0&&s[2]==0&&s[3]==1&&s[4]==0xc)
                     {
                         //dbg("ok we find internal header\n");
                         internal_header_p = (nand_record_file_internal_header *)s;
-                        if(internal_header_p->flag[1]!=1)
+                        if (internal_header_p->flag[1]!=1)
                         {
                             dbg("##########the flag[1] is wrong  it equal %d#############\n" , internal_header_p->flag[1]);
                         }
@@ -765,30 +765,30 @@ __SEEK__:
                     else
                     {
                         dbg("we not found internal header error\n");
-                        record_file_seekto( file, reserve_seek);
+                        record_file_seekto(file, reserve_seek);
                         goto __seek_out;
                     }
                     e = s;
                     ret =0;
-                    while(e[0]!=0xff||e[1]!=0xd8||e[2]!=0xff||e[3]!=0xe0)
+                    while (e[0]!=0xff||e[1]!=0xd8||e[2]!=0xff||e[3]!=0xe0)
                     {
                         ret ++;
-                        if(ret>sizeof(nand_record_file_internal_header)+1)
+                        if (ret>sizeof(nand_record_file_internal_header)+1)
                         {
                             dbg("we not found the next jpeg header\n");
-                            record_file_seekto( file, reserve_seek);
+                            record_file_seekto(file, reserve_seek);
                             goto __seek_out;
                         }
                         e++;
                     }
                     status = playback_get_status(pb);
-                    if(status !=PLAYBACK_STATUS_RUNNING)
+                    if (status !=PLAYBACK_STATUS_RUNNING)
                     {
-                        record_file_seekto( file, reserve_seek);
+                        record_file_seekto(file, reserve_seek);
                         goto __seek_out;
                     }
                     ret = playback_send_data(socket , pb,s,e -s);
-                    if(ret < 0)
+                    if (ret < 0)
                     {
                         dbg("playback_send_data error\n");
                         running = 0;
@@ -797,27 +797,27 @@ __SEEK__:
                 }
 
             }
-            if(record_file_seekto(file, pb->seek)<0)
+            if (record_file_seekto(file, pb->seek)<0)
                 goto __out;
             size = record_file_read(
                        file,(unsigned char *) buf, PLAYBACK_SECTOR_NUM_ONE_READ);
-            if(size<=0)
+            if (size<=0)
             {
                 running = 0;
                 break;
             }
-            if(pb->seek==0&&seek==0)
+            if (pb->seek==0&&seek==0)
                 s=buf+sizeof(nand_record_file_header);
             else
             {
                 s = buf + pb->seek%512;
-                if(pb->seek ==seek)
+                if (pb->seek ==seek)
                 {
                     internal_header_p = (nand_record_file_internal_header *)s;
-                    if(internal_header_p->head[0] == 0&&internal_header_p->head[1] == 0&&internal_header_p->head[2] == 0&&
+                    if (internal_header_p->head[0] == 0&&internal_header_p->head[1] == 0&&internal_header_p->head[2] == 0&&
                             internal_header_p->head[3] == 1&&internal_header_p->head[4] == 0xc)
                     {
-                        if(internal_header_p->flag[1]!=1)
+                        if (internal_header_p->flag[1]!=1)
                         {
                             dbg("##########the flag[1] is wrong  it equal %d#############\n" , internal_header_p->flag[1]);
                         }
@@ -832,13 +832,13 @@ __SEEK__:
                 }
             }
             status = playback_get_status(pb);
-            if(status !=PLAYBACK_STATUS_RUNNING)
+            if (status !=PLAYBACK_STATUS_RUNNING)
             {
-                record_file_seekto( file, reserve_seek);
+                record_file_seekto(file, reserve_seek);
                 goto __seek_out;
             }
-            ret = playback_send_data(socket , pb,s,size -( s-buf));
-            if(ret < 0)
+            ret = playback_send_data(socket , pb,s,size -(s-buf));
+            if (ret < 0)
             {
                 dbg("playback_send_data error\n");
                 running = 0;
@@ -853,9 +853,9 @@ __seek_out:
         }
     }
 __out:
-    for(end_wait_time = 15; end_wait_time>0 ; end_wait_time --)
+    for (end_wait_time = 15; end_wait_time>0 ; end_wait_time --)
     {
-        status = playback_get_status( pb);
+        status = playback_get_status(pb);
         switch (status)
         {
         case PLAYBACK_STATUS_EXIT:
@@ -872,14 +872,14 @@ __out:
     }
 __exit:
     dbg("exit playback thread\n");
-    if(buf)
+    if (buf)
         free(buf);
-    if(table_buf)
+    if (table_buf)
         free(table_buf);
     del_sess(pb->sess);
     take_sess_down(pb->sess);
     pb->sess = NULL;
-    if(file)
+    if (file)
         record_file_close(file);
     playback_set_dead(pb);
     return NULL;

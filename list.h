@@ -634,7 +634,7 @@ extern "C"
         n->next = next;
         next->pprev = &n->next;
 
-        if(next->next)
+        if (next->next)
             next->next->pprev  = &next->next;
     }
 

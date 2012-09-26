@@ -1746,7 +1746,7 @@ int mywpa_cli(int argc, char *argv[])
     ctrl_ifname = wpa_cli_get_default_ifname();
 
 
-    if (  wpa_cli_open_connection(ctrl_ifname, 0) < 0)
+    if (wpa_cli_open_connection(ctrl_ifname, 0) < 0)
     {
         perror("Failed to connect to wpa_supplicant - "
                "wpa_ctrl_open");
