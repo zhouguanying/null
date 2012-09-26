@@ -18,7 +18,7 @@
 //---------------------------------------------------------------
 
 
-static    int     fd=-1;
+static    int     fd = -1;
 
 int    open_usbdet(void)
 {
@@ -41,7 +41,7 @@ int    ioctl_usbdet_read(void)
 {
     int    ret;
 
-    if (-1==fd)
+    if (-1 == fd)
     {
         if (open_usbdet())
         {
@@ -49,7 +49,7 @@ int    ioctl_usbdet_read(void)
         }
     }
 
-    ret = ioctl(fd,IOCTL_USBDET_READ,0);
+    ret = ioctl(fd, IOCTL_USBDET_READ, 0);
 
     return    ret;
 }
@@ -58,7 +58,7 @@ int    ioctl_usbdet_led(int led)
 {
     int    ret;
 
-    if (-1==fd)
+    if (-1 == fd)
     {
         if (open_usbdet())
         {
@@ -66,7 +66,7 @@ int    ioctl_usbdet_led(int led)
         }
     }
 
-    ret = ioctl(fd,IOCTL_USBDET_LED_DRIVE,led);
+    ret = ioctl(fd, IOCTL_USBDET_LED_DRIVE, led);
 
     return    ret;
 }

@@ -12,11 +12,11 @@ int hex_string_to_int(char* string, int num)
     char* end;
     if (num >= 20)
         return 0;
-    strcpy(buffer,"0x");
+    strcpy(buffer, "0x");
     memcpy(&buffer[2], string, num);
-    buffer[num+2] = 0;
+    buffer[num + 2] = 0;
 //    dbg("sequence:%s\n",buffer);
-    return strtol(buffer,&end,16);
+    return strtol(buffer, &end, 16);
 }
 
 unsigned int hex_string_to_uint(char *string , int num)
@@ -25,11 +25,11 @@ unsigned int hex_string_to_uint(char *string , int num)
     char* end;
     if (num >= 20)
         return 0;
-    strcpy(buffer,"0x");
+    strcpy(buffer, "0x");
     memcpy(&buffer[2], string, num);
-    buffer[num+2] = 0;
+    buffer[num + 2] = 0;
 //    dbg("sequence:%s\n",buffer);
-    return strtoul(buffer,&end,16);
+    return strtoul(buffer, &end, 16);
 }
 
 int dec_string_to_int(char* string, int num)
@@ -41,7 +41,7 @@ int dec_string_to_int(char* string, int num)
     memcpy(buffer, string, num);
     buffer[num] = 0;
 //    dbg("sequence:%s\n",buffer);
-    return strtol(buffer,&end,10);
+    return strtol(buffer, &end, 10);
 }
 
 long long dec_string_to_int64(char* string, int num)

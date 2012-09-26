@@ -148,7 +148,7 @@ extern "C" {
 
     int              stun_close(int                 fd);
     void             stun_sleep_ms(unsigned int        ms);
-    void             stun_thread_create(void *(*routine)(void *),
+    void             stun_thread_create(void * (*routine)(void *),
                                         void               *arg);
 
 #ifdef WIN32

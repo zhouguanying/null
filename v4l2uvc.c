@@ -130,7 +130,7 @@ init_v4l2(struct vdIn *vd)
         perror("ERROR opening V4L interface \n");
         exit(1);
     }
-    printf("****************open video fd==%d********************\n",vd->fd);
+    printf("****************open video fd==%d********************\n", vd->fd);
     fcntl(vd->fd , F_SETFD , 1) ; //close on exec
     memset(&vd->cap, 0, sizeof(struct v4l2_capability));
     ret = ioctl(vd->fd, VIDIOC_QUERYCAP, &vd->cap);
@@ -286,20 +286,20 @@ static inline char * gettimestamp()
     static char timestamp[15];
     time_t t;
     struct tm *curtm;
-    if (time(&t)==-1)
+    if (time(&t) == -1)
     {
         printf("get time error\n");
         exit(0);
     }
-    curtm=localtime(&t);
-    sprintf(timestamp,"%04d%02d%02d%02d%02d%02d",curtm->tm_year+1900,curtm->tm_mon+1,
-            curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
+    curtm = localtime(&t);
+    sprintf(timestamp, "%04d%02d%02d%02d%02d%02d", curtm->tm_year + 1900, curtm->tm_mon + 1,
+            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, curtm->tm_sec);
     return timestamp;
 }
 
 static picture_info_t p_info =
 {
-    {0,0,0,1,0xc},
+    {0, 0, 0, 1, 0xc},
 };
 
 int uvcGrab(struct vdIn *vd)
@@ -326,10 +326,10 @@ int uvcGrab(struct vdIn *vd)
     case V4L2_PIX_FMT_MJPEG:
         time = gettimestamp();
         memcpy(p_info.TimeStamp , time , sizeof(p_info.TimeStamp));
-        memcpy(vd->tmpbuffer , &p_info ,sizeof(picture_info_t));
+        memcpy(vd->tmpbuffer , &p_info , sizeof(picture_info_t));
         memcpy(vd->tmpbuffer + sizeof(picture_info_t), vd->mem[vd->buf.index], HEADERFRAME1);
-        memcpy(vd->tmpbuffer + sizeof(picture_info_t)+ HEADERFRAME1, dht_data, DHT_SIZE);
-        memcpy(vd->tmpbuffer+ sizeof(picture_info_t) + HEADERFRAME1 + DHT_SIZE,
+        memcpy(vd->tmpbuffer + sizeof(picture_info_t) + HEADERFRAME1, dht_data, DHT_SIZE);
+        memcpy(vd->tmpbuffer + sizeof(picture_info_t) + HEADERFRAME1 + DHT_SIZE,
                vd->mem[vd->buf.index] + HEADERFRAME1,
                (vd->buf.bytesused - HEADERFRAME1));
         if (debug)
@@ -355,7 +355,7 @@ int uvcGrab(struct vdIn *vd)
         goto err;
     }
     //dbg("################after ioctl VIDEOC_QBUF###########\n");
-    memset(vd->hrb_tid,0,sizeof(vd->hrb_tid));
+    memset(vd->hrb_tid, 0, sizeof(vd->hrb_tid));
     return 0;
 err:
     vd->signalquit = 0;
@@ -374,7 +374,7 @@ close_v4l2(struct vdIn *vd)
        after a call to close(); */
     for (i = 0; i < NB_BUFFER; i++)
     {
-        if (munmap(vd->mem[i], vd->buf.length)!=0)
+        if (munmap(vd->mem[i], vd->buf.length) != 0)
         {
             dbg("############error v4l2 munmap: %d#############\n" , errno);
         }
@@ -391,7 +391,7 @@ close_v4l2(struct vdIn *vd)
     vd->videodevice = NULL;
     vd->status = NULL;
     vd->pictName = NULL;
-    if (close(vd->fd)!=0)
+    if (close(vd->fd) != 0)
     {
         dbg("###############error close v4l2:%d############## \n" , errno);
     }
@@ -460,10 +460,10 @@ v4l2SetControl(struct vdIn *vd, int control, int value)
     max = queryctrl.maximum;
     step = queryctrl.step;
     val_def = queryctrl.default_value;
-    if (value<min)
-        value=min;
-    else if (value>max)
-        value=max;
+    if (value < min)
+        value = min;
+    else if (value > max)
+        value = max;
     if ((value >= min) && (value <= max))
     {
         control_s.id = control;
@@ -566,7 +566,7 @@ v4l2ResetControl(struct vdIn *vd, int control)
 
     if (isv4l2Control(vd, control, &queryctrl) < 0)
         return -1;
-    val_def=queryctrl.default_value;
+    val_def = queryctrl.default_value;
     control_s.id = control;
     control_s.value = val_def;
     if ((err = ioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
@@ -660,14 +660,14 @@ v4L2UpDownTilt(struct vdIn *vd, short inc)
     }
     return 0;
 }
-int v4l2_contrl_brightness(struct vdIn *vd,int brightness)
+int v4l2_contrl_brightness(struct vdIn *vd, int brightness)
 {
     struct v4l2_control control_s;
     struct v4l2_queryctrl queryctrl;
     int min, max, step, val_def;
     int err , value;
 
-    if (brightness<0||brightness>100)
+    if (brightness < 0 || brightness > 100)
         return -1;
     if (isv4l2Control(vd, V4L2_CID_BRIGHTNESS, &queryctrl) < 0)
         return -1;
@@ -675,11 +675,11 @@ int v4l2_contrl_brightness(struct vdIn *vd,int brightness)
     max = queryctrl.maximum;
     step = queryctrl.step;
     val_def = queryctrl.default_value;
-    value = (int)(max*brightness/100);
-    if (value<min)
-        value=min;
-    else if (value>max)
-        value=max;
+    value = (int)(max * brightness / 100);
+    if (value < min)
+        value = min;
+    else if (value > max)
+        value = max;
     control_s.id = V4L2_CID_BRIGHTNESS;
     control_s.value = value;
     if ((err = ioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
@@ -691,14 +691,14 @@ int v4l2_contrl_brightness(struct vdIn *vd,int brightness)
     return 0;
 }
 
-int v4l2_contrl_contrast(struct vdIn *vd,int contrast)
+int v4l2_contrl_contrast(struct vdIn *vd, int contrast)
 {
     struct v4l2_control control_s;
     struct v4l2_queryctrl queryctrl;
     int min, max, step, val_def;
     int err , value;
 
-    if (contrast<0||contrast>100)
+    if (contrast < 0 || contrast > 100)
         return -1;
     if (isv4l2Control(vd, V4L2_CID_CONTRAST, &queryctrl) < 0)
         return -1;
@@ -706,11 +706,11 @@ int v4l2_contrl_contrast(struct vdIn *vd,int contrast)
     max = queryctrl.maximum;
     step = queryctrl.step;
     val_def = queryctrl.default_value;
-    value = (int)(max*contrast/100);
-    if (value<min)
-        value=min;
-    else if (value>max)
-        value=max;
+    value = (int)(max * contrast / 100);
+    if (value < min)
+        value = min;
+    else if (value > max)
+        value = max;
     control_s.id = V4L2_CID_CONTRAST;
     control_s.value = value;
     if ((err = ioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
@@ -739,7 +739,7 @@ void restart_v4l2(int width , int height)
     while (uvcGrab(vdin_camera) < 0)
     {
         trygrab--;
-        if (trygrab<=0)
+        if (trygrab <= 0)
             exit(0);
         printf("Error grabbing\n");
         usleep(100000);

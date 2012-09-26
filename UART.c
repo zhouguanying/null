@@ -23,12 +23,12 @@
 *@param  speed  类型 int  串口速度
 *@return  void*/
 
-static    int speed_arr[] = { B115200,B57600,B38400, B19200, B9600, B4800, B2400, B1200, B300,
+static    int speed_arr[] = { B115200, B57600, B38400, B19200, B9600, B4800, B2400, B1200, B300,
                               B115200, B57600, B38400, B19200, B9600, B4800, B2400, B1200, B300,
                             };
 //  这是因为在linux下，系统为波特率专门准备了一张表用B38400,B19200......
-static    int name_arr[] = {115200,57600,38400,19200,9600,4800,2400,1200,300,
-                            115200,57600, 38400,19200,9600, 4800, 2400, 1200,300,
+static    int name_arr[] = {115200, 57600, 38400, 19200, 9600, 4800, 2400, 1200, 300,
+                            115200, 57600, 38400, 19200, 9600, 4800, 2400, 1200, 300,
                            };
 static    void     set_speed(int fd, int speed)
 {
@@ -37,7 +37,7 @@ static    void     set_speed(int fd, int speed)
     struct termios     Opt; //定义了这样一个结构
 
     tcgetattr(fd, &Opt);     //用来得到机器原端口的默认设置
-    for (i= 0; i < sizeof(speed_arr) / sizeof(int); i++)
+    for (i = 0; i < sizeof(speed_arr) / sizeof(int); i++)
     {
         if (speed == name_arr[i])        //判断传进来是否相等
         {
@@ -53,7 +53,7 @@ static    void     set_speed(int fd, int speed)
                 perror("uart set_speed err");         //设置错误
                 return;
             }
-            tcflush(fd,TCIOFLUSH);                     //同上
+            tcflush(fd, TCIOFLUSH);                    //同上
             break;
         }
     }
@@ -68,11 +68,11 @@ static    void     set_speed(int fd, int speed)
 *@param  parity  类型  int  效验类型 取值为N,E,O,,S
 */
 
-static    int     set_Parity(int fd,int databits,int stopbits,int parity)
+static    int     set_Parity(int fd, int databits, int stopbits, int parity)
 {
     struct termios     options;     //定义一个结构
 
-    if (tcgetattr(fd,&options)!=0)      //首先读取系统默认设置options中,必须
+    if (tcgetattr(fd, &options) != 0)   //首先读取系统默认设置options中,必须
     {
         perror("uart set_Parity tcgetattr err");
         return(FALSE);
@@ -88,7 +88,7 @@ static    int     set_Parity(int fd,int databits,int stopbits,int parity)
         options.c_cflag |= CS8;     //设置c_cflag选项数据位为8位
         break;
     default:
-        fprintf(stderr,"uart Unsupported data size\n");     //其他的都不支持
+        fprintf(stderr, "uart Unsupported data size\n");    //其他的都不支持
         return (FALSE);
     }
     switch (parity) //设置奇偶校验，c_cflag和c_iflag有效
@@ -118,7 +118,7 @@ static    int     set_Parity(int fd,int databits,int stopbits,int parity)
         //options.c_iflag &= ~INPCK;
         break;
     default:
-        fprintf(stderr,"uart Unsupported parity\n");
+        fprintf(stderr, "uart Unsupported parity\n");
         return (FALSE);
     }
 
@@ -138,7 +138,7 @@ static    int     set_Parity(int fd,int databits,int stopbits,int parity)
         options.c_cflag |= CSTOPB;         //指明CSTOPB表示两位，只有两种可能
         break;
     default:
-        fprintf(stderr,"uart Unsupported stop bits\n");
+        fprintf(stderr, "uart Unsupported stop bits\n");
         return (FALSE);
     }
 
@@ -157,8 +157,8 @@ static    int     set_Parity(int fd,int databits,int stopbits,int parity)
 
 #if    1
     //回车和换行不看成一个字符
-    options.c_oflag &= ~(INLCR|IGNCR|ICRNL);
-    options.c_oflag &= ~(ONLCR|OCRNL);
+    options.c_oflag &= ~(INLCR | IGNCR | ICRNL);
+    options.c_oflag &= ~(ONLCR | OCRNL);
 #endif
 
     options.c_cflag |= (CLOCAL | CREAD);        //CLOCAL  : 本地连接，无调制解调器控制
@@ -169,14 +169,14 @@ static    int     set_Parity(int fd,int databits,int stopbits,int parity)
 //---------------------------------------------------------------------------
 //-------------------------------------------------------------------------------
 
-    tcflush(fd,TCIFLUSH);
-    if (tcsetattr(fd,TCSANOW,&options) != 0)         /* Update the options and do it NOW */
+    tcflush(fd, TCIFLUSH);
+    if (tcsetattr(fd, TCSANOW, &options) != 0)       /* Update the options and do it NOW */
     {
         perror("SetupSerial err");
         return (FALSE);
     }
 
-    tcflush(fd,TCIOFLUSH);
+    tcflush(fd, TCIOFLUSH);
 
     return (TRUE);
 }
@@ -184,7 +184,7 @@ static    int     set_Parity(int fd,int databits,int stopbits,int parity)
 
 //***************************************************************************
 
-static    int     fd=-1;
+static    int     fd = -1;
 
 /**
 *@brief 打开串口
@@ -219,7 +219,7 @@ void        CloseUart(void)
 #ifndef    FOR_IMX233_PTZ
 int    UartWrite(char *buffer, int length)
 {
-    return    write(fd, buffer ,length);
+    return    write(fd, buffer , length);
 
 }
 #else
@@ -232,7 +232,7 @@ int    UartWrite(char *buffer, int length)
     //printf("linux UartWrite---length= %d, \n",length);
     //printf("linux UartWrite-----buffer = %x,%x,%x,%x,%x,%x,%x,%x \n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7]);
 
-    return    write_ptz(buffer ,length);
+    return    write_ptz(buffer , length);
 
 }
 extern    int    UartWrite(char *buffer, int length);
@@ -244,7 +244,7 @@ extern    int    UartWrite(char *buffer, int length);
 
 int    UartWriteChar(char *buffer)
 {
-    return    write(fd, buffer ,1);
+    return    write(fd, buffer , 1);
 
 }
 
@@ -252,7 +252,7 @@ int    UartRead(char *buffer, int length)
 {
     int    nread;
 
-    nread = read(fd,buffer,length);
+    nread = read(fd, buffer, length);
     return    nread;
 }
 
@@ -260,7 +260,7 @@ int    UartReadCharPolling(char *buffer)
 {
     int    nread;
 
-    nread = read(fd,buffer,1);
+    nread = read(fd, buffer, 1);
     return    nread;    //nread 是否为0
 }
 
@@ -271,7 +271,7 @@ int        SetUart(int speed, int databits, int stopbits, int parity)
 {
     set_speed(fd, speed);
 
-    if (set_Parity(fd,  databits, stopbits,  parity)== FALSE)
+    if (set_Parity(fd,  databits, stopbits,  parity) == FALSE)
     {
         printf("Set Parity Error\n") ;
         return     -1 ;
@@ -335,7 +335,7 @@ if (tty->flip.count >= TTY_FLIPBUF_SIZE)来判断
 #ifndef FOR_IMX233_PTZ
 void SetUartSpeed(int speed)
 {
-    set_speed(fd,speed);
+    set_speed(fd, speed);
 }
 #else
 void SetUartSpeed(int speed)

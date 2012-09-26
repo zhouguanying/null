@@ -27,21 +27,21 @@ struct vdIn * init_camera(void)
 
     videoIn = (struct vdIn *) calloc(1, sizeof(struct vdIn));
 
-    pthread_mutex_init(&videoIn->tmpbufflock,NULL);
-    pthread_mutex_init(&videoIn->vd_data_lock,NULL);
-    memset(videoIn->hrb_tid,0,sizeof(videoIn->hrb_tid));
+    pthread_mutex_init(&videoIn->tmpbufflock, NULL);
+    pthread_mutex_init(&videoIn->vd_data_lock, NULL);
+    memset(videoIn->hrb_tid, 0, sizeof(videoIn->hrb_tid));
     //threadcfg.qvga_flag = 0;
-    if (strncmp(threadcfg.record_resolution,"vga",3)==0)
+    if (strncmp(threadcfg.record_resolution, "vga", 3) == 0)
     {
         printf("vga \n");
-        width=640;
-        height=480;
+        width = 640;
+        height = 480;
     }
-    else if (strncmp(threadcfg.record_resolution,"qvga",4)==0)
+    else if (strncmp(threadcfg.record_resolution, "qvga", 4) == 0)
     {
         //threadcfg.qvga_flag = 1;
-        width=320;
-        height=240;
+        width = 320;
+        height = 240;
         printf("qvga \n");
     }
     else

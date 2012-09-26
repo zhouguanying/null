@@ -237,7 +237,7 @@ static struct video_config_params * parse_video_conf(char *filename)
         return c;
 }
 
-static int get_video_resolution(struct video_config_params *p,int* width, int* height)
+static int get_video_resolution(struct video_config_params *p, int* width, int* height)
 {
     char* str = NULL;
     /* Screen resolution */
@@ -301,13 +301,13 @@ static int get_video_resolution(struct video_config_params *p,int* width, int* h
     return 0;
 }
 
-static int get_video_bitrate(struct video_config_params *p,int* bitrate)
+static int get_video_bitrate(struct video_config_params *p, int* bitrate)
 {
     *bitrate = p->bitrate.field_val;
     return 0;
 }
 
-static int get_video_framerate(struct video_config_params *p,int* framerate)
+static int get_video_framerate(struct video_config_params *p, int* framerate)
 {
     *framerate = p->framerate.field_val;
     return 0;
@@ -387,15 +387,15 @@ int vs_set_record_config(int mode)
     char* buffer;
 
     printf("%s\n", __func__);
-    fd = open("/dev/nand-data", O_RDWR|O_SYNC);
+    fd = open("/dev/nand-data", O_RDWR | O_SYNC);
     if (fd < 0)
     {
         perror("open nand-data");
         return -1;
     }
-    buffer = malloc(512*1024);
-    memset(buffer, 0, 512*1024);
-    if (read(fd, buffer, 512*1024) != 512*1024)
+    buffer = malloc(512 * 1024);
+    memset(buffer, 0, 512 * 1024);
+    if (read(fd, buffer, 512 * 1024) != 512 * 1024)
     {
         printf("read error\n");
         return -1;
@@ -403,14 +403,14 @@ int vs_set_record_config(int mode)
     buffer[4096] = (char)mode;
 //    dbg("write data file\n");
     close(fd);
-    fd = open("/dev/nand-data", O_RDWR|O_SYNC);
+    fd = open("/dev/nand-data", O_RDWR | O_SYNC);
     if (fd < 0)
     {
         perror("open nand-data");
         return -1;
     }
 //    dbg("write file\n");
-    write(fd, buffer, 512*1024);
+    write(fd, buffer, 512 * 1024);
 //    ioctl(fd, BLKFLSBUF, NULL );
     close(fd);
     system("sync");

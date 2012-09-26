@@ -161,10 +161,10 @@ static int init_syn_buffer()
         free(syn_buf.absolute_start_addr);
         return -1;
     }
-    for (i=0; i<NUM_BUFFERS; i++)
+    for (i = 0; i < NUM_BUFFERS; i++)
     {
-        syn_buf.c_sound_array[i].buf = syn_buf.absolute_start_addr+i*SIZE_OF_AMR_PER_PERIOD;
-        memset(syn_buf.c_sound_array[i].sess_clean_mask,1,sizeof(syn_buf.c_sound_array[i].sess_clean_mask));
+        syn_buf.c_sound_array[i].buf = syn_buf.absolute_start_addr + i * SIZE_OF_AMR_PER_PERIOD;
+        memset(syn_buf.c_sound_array[i].sess_clean_mask, 1, sizeof(syn_buf.c_sound_array[i].sess_clean_mask));
     }
     syn_buf.start = 0;
     syn_buf.end = 0;
@@ -184,10 +184,10 @@ void set_syn_sound_data_clean(int sess_id)
     int us_pos;
     pthread_rwlock_rdlock(&syn_buf.syn_buf_lock);
     us_pos = syn_buf.start;
-    while (us_pos!=syn_buf.end)
+    while (us_pos != syn_buf.end)
     {
         syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id] = 1;
-        us_pos = (us_pos +1)%NUM_BUFFERS;
+        us_pos = (us_pos + 1) % NUM_BUFFERS;
     }
     pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
 }
@@ -198,20 +198,20 @@ char *new_get_sound_data(int sess_id , int *size)
     char *buf;
     pthread_rwlock_rdlock(&syn_buf.syn_buf_lock);
     us_pos = syn_buf.start;
-    while (us_pos!=syn_buf.end)
+    while (us_pos != syn_buf.end)
     {
         if (!syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id])
         {
             break;
         }
-        us_pos= (us_pos+1)%NUM_BUFFERS;
+        us_pos = (us_pos + 1) % NUM_BUFFERS;
     }
     if (us_pos == syn_buf.end)
     {
         pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
         return NULL;
     }
-    if (syn_buf.end>us_pos)
+    if (syn_buf.end > us_pos)
     {
         *size = syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.c_sound_array[us_pos].buf;
         buf = (char *)malloc(*size);
@@ -221,30 +221,30 @@ char *new_get_sound_data(int sess_id , int *size)
             pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
             return NULL;
         }
-        memcpy(buf,syn_buf.c_sound_array[us_pos].buf,*size);
+        memcpy(buf, syn_buf.c_sound_array[us_pos].buf, *size);
     }
     else
     {
-        *size = syn_buf.buffsize -(syn_buf.c_sound_array[us_pos].buf - syn_buf.absolute_start_addr);
-        buf = (char *)malloc(*size +(syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr));
+        *size = syn_buf.buffsize - (syn_buf.c_sound_array[us_pos].buf - syn_buf.absolute_start_addr);
+        buf = (char *)malloc(*size + (syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr));
         if (!buf)
         {
             printf("malloc sound buffer fail\n");
             pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
             return NULL;
         }
-        memcpy(buf , syn_buf.c_sound_array[us_pos].buf,*size);
-        memcpy(buf +*size,syn_buf.absolute_start_addr,syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr);
-        (*size)+=(syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr);
+        memcpy(buf , syn_buf.c_sound_array[us_pos].buf, *size);
+        memcpy(buf + *size, syn_buf.absolute_start_addr, syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr);
+        (*size) += (syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr);
     }
-    while (us_pos!=syn_buf.end)
+    while (us_pos != syn_buf.end)
     {
         if (syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id])
         {
             printf("*************BUG we have read the newer one?************************\n");
         }
-        syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id] =1;
-        us_pos = (us_pos +1)%NUM_BUFFERS;
+        syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id] = 1;
+        us_pos = (us_pos + 1) % NUM_BUFFERS;
     }
     pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
     return buf;
@@ -253,14 +253,14 @@ char *new_get_sound_data(int sess_id , int *size)
 static int init_playback_buffer()
 {
     int i;
-    memset(&p_sound_buf , 0 ,sizeof(p_sound_buf));
-    p_sound_buf.absolute_start_addr = (char *)malloc(SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME*MAX_NUM_IDS);
+    memset(&p_sound_buf , 0 , sizeof(p_sound_buf));
+    p_sound_buf.absolute_start_addr = (char *)malloc(SIZE_OF_AMR_PER_PERIOD * PERIOD_TO_WRITE_EACH_TIME * MAX_NUM_IDS);
     if (!p_sound_buf.absolute_start_addr)
     {
         printf("cannot malloc buffer for playback sound\n");
         return -1;
     }
-    p_sound_buf.cache = (char *)malloc(SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME*MAX_NUM_IDS);
+    p_sound_buf.cache = (char *)malloc(SIZE_OF_AMR_PER_PERIOD * PERIOD_TO_WRITE_EACH_TIME * MAX_NUM_IDS);
     if (!p_sound_buf.cache)
     {
         printf("error malloc buffer for playback sound cache\n");
@@ -268,8 +268,8 @@ static int init_playback_buffer()
     }
     for (i = 0 ; i < MAX_NUM_IDS ; i++)
     {
-        p_sound_buf.p_sound_array[i].buf = p_sound_buf.absolute_start_addr + i *SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME;
-        p_sound_buf.p_sound_array[i].maxlen = SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME;
+        p_sound_buf.p_sound_array[i].buf = p_sound_buf.absolute_start_addr + i * SIZE_OF_AMR_PER_PERIOD * PERIOD_TO_WRITE_EACH_TIME;
+        p_sound_buf.p_sound_array[i].maxlen = SIZE_OF_AMR_PER_PERIOD * PERIOD_TO_WRITE_EACH_TIME;
         p_sound_buf.p_sound_array[i].datalen = 0;
     }
     p_sound_buf.curr_play_pos = 0;
@@ -280,7 +280,7 @@ static int init_playback_buffer()
 
 static int clear_play_sound_data(int sess_id)
 {
-    while (p_sound_buf.p_sound_array[sess_id].datalen>=p_sound_buf.p_sound_array[sess_id].maxlen)
+    while (p_sound_buf.p_sound_array[sess_id].datalen >= p_sound_buf.p_sound_array[sess_id].maxlen)
         usleep(1000);
     if (p_sound_buf.p_sound_array[sess_id].datalen)
         p_sound_buf.p_sound_array[sess_id].datalen = 0;
@@ -293,24 +293,24 @@ static char *get_play_sound_data(int *len)
     i = p_sound_buf.curr_play_pos;
     p_sound_buf.cache_data_len = 0;
     p_sound_buf.cache_play_pos = 0;
-    if (p_sound_buf.p_sound_array[i].datalen>=p_sound_buf.p_sound_array[i].maxlen)
+    if (p_sound_buf.p_sound_array[i].datalen >= p_sound_buf.p_sound_array[i].maxlen)
     {
-        memcpy(p_sound_buf.cache +p_sound_buf.cache_data_len, p_sound_buf.p_sound_array[i].buf , p_sound_buf.p_sound_array[i].datalen);
+        memcpy(p_sound_buf.cache + p_sound_buf.cache_data_len, p_sound_buf.p_sound_array[i].buf , p_sound_buf.p_sound_array[i].datalen);
         p_sound_buf.cache_data_len += p_sound_buf.p_sound_array[i].datalen;
         p_sound_buf.p_sound_array[i].datalen = 0;
     }
-    for (i = (i+1)%MAX_NUM_IDS; i !=p_sound_buf.curr_play_pos; i =(i+1)%MAX_NUM_IDS)
+    for (i = (i + 1) % MAX_NUM_IDS; i != p_sound_buf.curr_play_pos; i = (i + 1) % MAX_NUM_IDS)
     {
-        if (p_sound_buf.p_sound_array[i].datalen>=p_sound_buf.p_sound_array[i].maxlen)
+        if (p_sound_buf.p_sound_array[i].datalen >= p_sound_buf.p_sound_array[i].maxlen)
         {
-            memcpy(p_sound_buf.cache +p_sound_buf.cache_data_len, p_sound_buf.p_sound_array[i].buf , p_sound_buf.p_sound_array[i].datalen);
+            memcpy(p_sound_buf.cache + p_sound_buf.cache_data_len, p_sound_buf.p_sound_array[i].buf , p_sound_buf.p_sound_array[i].datalen);
             p_sound_buf.cache_data_len += p_sound_buf.p_sound_array[i].datalen;
             p_sound_buf.p_sound_array[i].datalen = 0;
         }
     }
     if (p_sound_buf.cache_data_len)
     {
-        p_sound_buf.curr_play_pos = (p_sound_buf.curr_play_pos + 1)%MAX_NUM_IDS;
+        p_sound_buf.curr_play_pos = (p_sound_buf.curr_play_pos + 1) % MAX_NUM_IDS;
         *len = p_sound_buf.cache_data_len;
         return p_sound_buf.cache;
     }
@@ -324,12 +324,12 @@ static int turn_on_speaker()
 {
     int fd;
     fd = open("/dev/mxs-gpio", O_RDWR);
-    if (fd<0)
+    if (fd < 0)
     {
         dbg("file open error \n");
         return -1;
     }
-    if (ioctl(fd, IOCTL_GET_SPK_CTL, 0)==0)
+    if (ioctl(fd, IOCTL_GET_SPK_CTL, 0) == 0)
         ioctl(fd, IOCTL_SET_SPK_CTL, 1);
     // dbg("speaker is %s\n",ioctl(fd, IOCTL_GET_SPK_CTL, 0)?"on":"off");
     close(fd);
@@ -358,12 +358,12 @@ static int turn_off_speaker()
 static int open_snd()
 {
     int err;
-    if ((err = snd_pcm_open(&playback_handle,PCM_NAME, SND_PCM_STREAM_PLAYBACK,0)) < 0)
+    if ((err = snd_pcm_open(&playback_handle, PCM_NAME, SND_PCM_STREAM_PLAYBACK, 0)) < 0)
     {
         printf("Playback open error: %s\n", snd_strerror(err));
         return -1;
     }
-    if ((err = snd_pcm_open(&capture_handle, PCM_NAME, SND_PCM_STREAM_CAPTURE,SND_PCM_NONBLOCK)) < 0)
+    if ((err = snd_pcm_open(&capture_handle, PCM_NAME, SND_PCM_STREAM_CAPTURE, SND_PCM_NONBLOCK)) < 0)
     {
         printf("Record open error: %s\n", snd_strerror(err));
         return -1;
@@ -388,7 +388,7 @@ static int setparams_stream(snd_pcm_t *handle,
         printf("Broken configuration for %s PCM: no configurations available: %s\n", snd_strerror(err), id);
         return err;
     }
-    err = snd_pcm_hw_params_set_rate_resample(handle, params,resample);
+    err = snd_pcm_hw_params_set_rate_resample(handle, params, resample);
     if (err < 0)
     {
         printf("Resample setup failed for %s (val %i): %s\n", id, resample, snd_strerror(err));
@@ -412,7 +412,7 @@ static int setparams_stream(snd_pcm_t *handle,
         printf("Channels count (%i) not available for %s: %s\n", DEFAULT_CHANNELS, id, snd_strerror(err));
         return err;
     }
-    rrate =rate;
+    rrate = rate;
     err = snd_pcm_hw_params_set_rate_near(handle, params, &rrate, 0);
     if (err < 0)
     {
@@ -425,7 +425,7 @@ static int setparams_stream(snd_pcm_t *handle,
         return -EINVAL;
     }
     bits_per_sample = snd_pcm_format_physical_width(format);
-    bits_per_frame =bits_per_sample* channels;
+    bits_per_frame = bits_per_sample * channels;
     return 0;
 }
 
@@ -446,7 +446,7 @@ static int setparams_bufsize(snd_pcm_t *handle,
         printf("Unable to set buffer size %li for %s: %s\n", bufsize * PERIODS_PER_BUFFSIZE, id, snd_strerror(err));
         return err;
     }
-    buffer_frames=periodsize;
+    buffer_frames = periodsize;
     periodsize /= PERIODS_PER_BUFFSIZE;
     err = snd_pcm_hw_params_set_period_size_near(handle, params, &periodsize, 0);
     if (err < 0)
@@ -454,22 +454,22 @@ static int setparams_bufsize(snd_pcm_t *handle,
         printf("Unable to set period size %li for %s: %s\n", periodsize, id, snd_strerror(err));
         return err;
     }
-    period_frames=periodsize;
-    chunk_size=periodsize;
-    chunk_bytes =chunk_size * bits_per_frame / 8;
+    period_frames = periodsize;
+    chunk_size = periodsize;
+    chunk_bytes = chunk_size * bits_per_frame / 8;
     return 0;
 }
 
-static void check_hw_params(snd_pcm_t *handle, snd_pcm_hw_params_t *params ,const char *id)
+static void check_hw_params(snd_pcm_t *handle, snd_pcm_hw_params_t *params , const char *id)
 {
     int err;
-    err = snd_pcm_hw_params_get_channels(params ,&channels);
-    if (err!=0)
+    err = snd_pcm_hw_params_get_channels(params , &channels);
+    if (err != 0)
     {
-        printf("%s: get channels error:%s\n",id,snd_strerror(err));
+        printf("%s: get channels error:%s\n", id, snd_strerror(err));
         exit(0);
     }
-    printf("%s: channels = %d\n",id,channels);
+    printf("%s: channels = %d\n", id, channels);
 }
 
 static int setparams_set(snd_pcm_t *handle,
@@ -496,34 +496,34 @@ static int setparams_set(snd_pcm_t *handle,
         printf("Unable to determine current swparams for %s: %s\n", id, snd_strerror(err));
         return err;
     }
-    if ((strncmp(id,"capture",7))==0)
+    if ((strncmp(id, "capture", 7)) == 0)
     {
-        val=(double)(rate)*1/(double)1000000;
+        val = (double)(rate) * 1 / (double)1000000;
     }
     else
-        val=buffer_frames;
-    if (val<1)
-        val=1;
-    else if (val>buffer_frames)
-        val=buffer_frames;
+        val = buffer_frames;
+    if (val < 1)
+        val = 1;
+    else if (val > buffer_frames)
+        val = buffer_frames;
     err = snd_pcm_sw_params_set_start_threshold(handle, swparams, 1);
     if (err < 0)
     {
         printf("Unable to set start threshold mode for %s: %s\n", id, snd_strerror(err));
         return err;
     }
-    err = snd_pcm_sw_params_set_avail_min(handle, swparams,chunk_size);
+    err = snd_pcm_sw_params_set_avail_min(handle, swparams, chunk_size);
     if (err < 0)
     {
         printf("Unable to set avail min for %s: %s\n", id, snd_strerror(err));
         return err;
     }
-    if ((strncmp(id,"capture",7))==0)
+    if ((strncmp(id, "capture", 7)) == 0)
     {
-        val=buffer_frames;
+        val = buffer_frames;
     }
     else
-        val=buffer_frames<<1;
+        val = buffer_frames << 1;
     err = snd_pcm_sw_params_set_stop_threshold(handle, swparams, val);
     if (err < 0)
     {
@@ -565,17 +565,17 @@ static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, int *bufsize)
         printf("Unable to set parameters for playback stream: %s\n", snd_strerror(err));
         return err;
     }
-    buffer_frames = PERIODS_SIZE *PERIODS_PER_BUFFSIZE ;
-    *bufsize=(int)(buffer_frames/PERIODS_PER_BUFFSIZE);
-    *bufsize=((int)(((*bufsize)+L_PCM_USE-1)/L_PCM_USE))*L_PCM_USE;//set the period size round to 160 for 8k raw sound data convert to amr (8000HZ*0.02s=160 frames)
-    *bufsize-=L_PCM_USE;
-    last_bufsize=*bufsize;
+    buffer_frames = PERIODS_SIZE * PERIODS_PER_BUFFSIZE ;
+    *bufsize = (int)(buffer_frames / PERIODS_PER_BUFFSIZE);
+    *bufsize = ((int)(((*bufsize) + L_PCM_USE - 1) / L_PCM_USE)) * L_PCM_USE; //set the period size round to 160 for 8k raw sound data convert to amr (8000HZ*0.02s=160 frames)
+    *bufsize -= L_PCM_USE;
+    last_bufsize = *bufsize;
 
 __again:
     if (last_bufsize == *bufsize)
         *bufsize += L_PCM_USE;
     last_bufsize = *bufsize;
-    if (*bufsize >(CHAUNK_BYTES_MAX/(bits_per_frame/8)))
+    if (*bufsize > (CHAUNK_BYTES_MAX / (bits_per_frame / 8)))
     {
         printf("chunk_size too big!\n");
         return -1;
@@ -602,10 +602,10 @@ __again:
     if (p_time != c_time)
         goto __again;
 
-    if ((*bufsize)%L_PCM_USE!=0)
+    if ((*bufsize) % L_PCM_USE != 0)
     {
-        *bufsize=((int)(((*bufsize)+L_PCM_USE-1)/L_PCM_USE))*L_PCM_USE;
-        last_bufsize=*bufsize;
+        *bufsize = ((int)(((*bufsize) + L_PCM_USE - 1) / L_PCM_USE)) * L_PCM_USE;
+        last_bufsize = *bufsize;
         goto __again;
     }
 
@@ -613,8 +613,8 @@ __again:
     snd_pcm_hw_params_get_buffer_size(p_params, &p_size);
     snd_pcm_hw_params_get_buffer_size(c_params, &c_size);
 
-    chunk_size=*bufsize;
-    chunk_bytes=(*bufsize)*bits_per_frame/8;
+    chunk_size = *bufsize;
+    chunk_bytes = (*bufsize) * bits_per_frame / 8;
     if ((err = setparams_set(phandle, p_params, p_swparams, "playback")) < 0)
     {
         printf("Unable to set sw parameters for playback stream: %s\n", snd_strerror(err));
@@ -634,7 +634,7 @@ static int  xrun(snd_pcm_t*handle)
     snd_pcm_status_t *status;
     int res;
     snd_pcm_status_alloca(&status);
-    if ((res = snd_pcm_status(handle, status))<0)
+    if ((res = snd_pcm_status(handle, status)) < 0)
     {
         printf("status error: %s\n", snd_strerror(res));
         return -1;
@@ -659,7 +659,7 @@ static int  xrun(snd_pcm_t*handle)
             fprintf(stderr, "overrun or underrun!!! (at least %.3f ms long)\n",
                     diff.tv_sec * 1000 + diff.tv_usec / 1000.0);
         }
-        if ((res = snd_pcm_prepare(handle))<0)
+        if ((res = snd_pcm_prepare(handle)) < 0)
         {
             printf("xrun: prepare error: %s\n", snd_strerror(res));
             return -1;
@@ -669,10 +669,10 @@ static int  xrun(snd_pcm_t*handle)
     if (snd_pcm_status_get_state(status) == SND_PCM_STATE_DRAINING)
     {
         printf("Status(DRAINING)!\n");
-        if (capture_tid==pthread_self())
+        if (capture_tid == pthread_self())
         {
             printf("capture stream format change? attempting recover...\n");
-            if ((res = snd_pcm_prepare(handle))<0)
+            if ((res = snd_pcm_prepare(handle)) < 0)
             {
                 printf("xrun(DRAINING): prepare error: %s\n", snd_strerror(res));
                 return -1;
@@ -729,10 +729,10 @@ static ssize_t pcm_write(u_char *data, size_t count)
     ssize_t r;
     ssize_t result = 0;
 
-    if (count <chunk_size)
+    if (count < chunk_size)
     {
         snd_pcm_format_set_silence(format,
-                                   data + count *bits_per_frame / 8,
+                                   data + count * bits_per_frame / 8,
                                    (chunk_size - count) * channels);
         count = chunk_size;
     }
@@ -746,12 +746,12 @@ static ssize_t pcm_write(u_char *data, size_t count)
         else if (r == -EPIPE)
         {
             printf("pcm_write under run\n");
-            if (xrun(playback_handle)<0)
+            if (xrun(playback_handle) < 0)
                 return -1;
         }
         else if (r == -ESTRPIPE)
         {
-            if (suspend(playback_handle)<0)
+            if (suspend(playback_handle) < 0)
                 return -1;
         }
         else if (r < 0)
@@ -763,7 +763,7 @@ static ssize_t pcm_write(u_char *data, size_t count)
         {
             result += r;
             count -= r;
-            data += r *(bits_per_frame / 8);
+            data += r * (bits_per_frame / 8);
         }
     }
     return result;
@@ -790,13 +790,13 @@ static ssize_t pcm_read(u_char *data, size_t rcount)
         else if (r == -EPIPE)
         {
             printf("pcm_read over run\n");
-            if (xrun(capture_handle)<0)
+            if (xrun(capture_handle) < 0)
                 return -1;
             //increase_video_thread_sleep_time();
         }
         else if (r == -ESTRPIPE)
         {
-            if (suspend(capture_handle)<0)
+            if (suspend(capture_handle) < 0)
                 return -1;
         }
         else if (r < 0)
@@ -806,19 +806,19 @@ static ssize_t pcm_read(u_char *data, size_t rcount)
             int res;
             snd_pcm_status_alloca(&status);
             printf("read error: %s\n", snd_strerror(r));
-            if ((res = snd_pcm_status(capture_handle, status))<0)
+            if ((res = snd_pcm_status(capture_handle, status)) < 0)
             {
                 printf("status error: %s\n", snd_strerror(res));
                 return -1;
             }
-            printf("state=%s\n",snd_pcm_state_name(snd_pcm_status_get_state(status)));
+            printf("state=%s\n", snd_pcm_state_name(snd_pcm_status_get_state(status)));
             return -1;
         }
         if (r > 0)
         {
             result += r;
             count -= r;
-            data += r *(bits_per_frame / 8);
+            data += r * (bits_per_frame / 8);
         }
     }
     return result;
@@ -887,7 +887,7 @@ int init_and_start_sound()
     //int err;
     int latency;
     //int i;
-    if (open_snd()<0)
+    if (open_snd() < 0)
         return -1;
     if (setparams(playback_handle, capture_handle, &latency) < 0)
         goto __error;
@@ -899,13 +899,13 @@ int init_and_start_sound()
     capture_buffer = (char *)malloc(chunk_bytes);
     near_end_buffer = circular_init(chunk_bytes * 256, chunk_bytes);
     echo_buffer = circular_init(chunk_bytes * 256, chunk_bytes);
-    if (!playback_buffer || !capture_buffer||!near_end_buffer)
+    if (!playback_buffer || !capture_buffer || !near_end_buffer)
     {
         printf("cannot malloc buffer for playback and capture\n");
         goto __error;
     }
 
-    if (init_syn_buffer()<0||init_playback_buffer()<0)
+    if (init_syn_buffer() < 0 || init_playback_buffer() < 0)
         goto __error;
 
     int sample_rate = 8000;
@@ -1051,7 +1051,7 @@ int start_audio_monitor(struct sess_ctx*sess)
     int sock = sess->sc->audio_socket;
     sess->ucount ++;
 
-    start_buf = (char *)malloc(BOOT_SOUND_STORE_SIZE *2);
+    start_buf = (char *)malloc(BOOT_SOUND_STORE_SIZE * 2);
     if (!start_buf)
     {
         printf("error malloc sound cache before send\n");
@@ -1067,7 +1067,7 @@ int start_audio_monitor(struct sess_ctx*sess)
     s = 0;
     while (s < BOOT_SOUND_STORE_SIZE)
     {
-        buf = new_get_sound_data(sess->id,&size);
+        buf = new_get_sound_data(sess->id, &size);
         if (!buf)
         {
             usleep(50000);
@@ -1092,7 +1092,7 @@ int start_audio_monitor(struct sess_ctx*sess)
         if (size > 1024)
         {
             if (sess->is_tcp)
-                n = send(sock, start_buf + s,1024,0);
+                n = send(sock, start_buf + s, 1024, 0);
             else
                 n = udt_send(sock, SOCK_STREAM, start_buf + s, 1024);
         }
@@ -1109,7 +1109,7 @@ int start_audio_monitor(struct sess_ctx*sess)
             attempts ++;
             if (attempts <= 10)
             {
-                dbg("attempts send data now = %d\n",attempts);
+                dbg("attempts send data now = %d\n", attempts);
                 continue;
             }
             printf("send 3s sound data error\n");
@@ -1144,7 +1144,7 @@ tryget:
                 free(buf);
                 goto end;
             }
-            if (size>1024)
+            if (size > 1024)
             {
                 if (sess->is_tcp)
                     n = send(sock, buf + s, 1024, 0);
@@ -1169,7 +1169,7 @@ tryget:
                 attempts++;
                 if (attempts <= 10)
                 {
-                    dbg("attempts send data now = %d\n",attempts);
+                    dbg("attempts send data now = %d\n", attempts);
                     continue;
                 }
                 printf("send sound data error\n");
@@ -1209,10 +1209,10 @@ static inline int encode_and_syn_data(CHP_U32 bl_handle,
     p_enc_data->used_size = 0;
     pthread_rwlock_wrlock(&syn_buf.syn_buf_lock);
     memcpy(syn_buf.c_sound_array[syn_buf.end].buf , syn_buf.cache , SIZE_OF_AMR_PER_PERIOD);
-    memset(syn_buf.c_sound_array[syn_buf.end].sess_clean_mask, 0 ,sizeof(syn_buf.c_sound_array[syn_buf.end].sess_clean_mask));
-    syn_buf.end = (syn_buf.end+1)%NUM_BUFFERS;
+    memset(syn_buf.c_sound_array[syn_buf.end].sess_clean_mask, 0 , sizeof(syn_buf.c_sound_array[syn_buf.end].sess_clean_mask));
+    syn_buf.end = (syn_buf.end + 1) % NUM_BUFFERS;
     if (syn_buf.end == syn_buf.start)
-        syn_buf.start = (syn_buf.start +1)%NUM_BUFFERS;
+        syn_buf.start = (syn_buf.start + 1) % NUM_BUFFERS;
     pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
     return 0;
 }
@@ -1263,7 +1263,7 @@ static void *aec(void *arg)
 
     enc_data.p_in_buf       = malloc(chunk_bytes / channels);
     enc_data.p_out_buf      = syn_buf.cache;
-    enc_data.frame_cnt      = SIZE_OF_AMR_PER_PERIOD /32;
+    enc_data.frame_cnt      = SIZE_OF_AMR_PER_PERIOD / 32;
     enc_data.in_buf_len     = chunk_bytes / channels;
     enc_data.out_buf_len    = SIZE_OF_AMR_PER_PERIOD;
     enc_data.used_size      = 0;

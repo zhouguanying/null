@@ -43,9 +43,9 @@ uint32_t  fat_buffer_size;
 
 int get_sdcard_size()
 {
-    uint64_t bytes = ((uint64_t)bytes_per_sector)*((uint64_t)total_logical_sectors);
+    uint64_t bytes = ((uint64_t)bytes_per_sector) * ((uint64_t)total_logical_sectors);
     //Log("bytes  = %llu , bytes_per_sector = %d , total_logical_sectors = %u \n",bytes,bytes_per_sector , total_logical_sectors);
-    return (int)(bytes>>20);
+    return (int)(bytes >> 20);
 }
 
 uint32_t sector_of_cluster(uint32_t cluster_number)
@@ -164,8 +164,8 @@ int fat_find_free_cluster_16(off_t    start_offset,
     uint16_t  i, acc;
     uint16_t *buffer;
 
-    assert(start_offset >= fat_begin_sector*bytes_per_sector);
-    assert((start_offset - fat_begin_sector*bytes_per_sector) % 2 == 0);
+    assert(start_offset >= fat_begin_sector * bytes_per_sector);
+    assert((start_offset - fat_begin_sector * bytes_per_sector) % 2 == 0);
 
     if (start_offset + fat_buffer_size >
             (fat_begin_sector * bytes_per_sector + (max_fat_entries + 2) * 2))
@@ -220,8 +220,8 @@ int fat_find_free_cluster_32(off_t    start_offset,
     uint32_t  i, acc;
     uint32_t *buffer;
 
-    assert(start_offset >= fat_begin_sector*bytes_per_sector);
-    assert((start_offset - fat_begin_sector*bytes_per_sector) % 4 == 0);
+    assert(start_offset >= fat_begin_sector * bytes_per_sector);
+    assert((start_offset - fat_begin_sector * bytes_per_sector) % 4 == 0);
 
     if (start_offset + fat_buffer_size >
             (fat_begin_sector * bytes_per_sector + (max_fat_entries + 2) * 4))
@@ -658,7 +658,7 @@ void write_ipcam_file_16(uint16_t  sectors_per_fat,
                                prev_cluster * 2, &i, sizeof i);
                 }
                 else
-                    fat16_buffer[prev_cluster % (fat_buffer_size/2)] = i;
+                    fat16_buffer[prev_cluster % (fat_buffer_size / 2)] = i;
 
                 fat16_buffer[i % (fat_buffer_size / 2)] = 0xFFFF;
                 goto end;
@@ -682,7 +682,7 @@ void write_ipcam_file_16(uint16_t  sectors_per_fat,
                 if (acc_clusters == 0)
                     start_cluster = i;
                 else
-                    fat16_buffer[prev_cluster % (fat_buffer_size/2)] = i;
+                    fat16_buffer[prev_cluster % (fat_buffer_size / 2)] = i;
             }
 
             prev_cluster = i;
@@ -897,7 +897,7 @@ void write_ipcam_file_32(uint32_t  sectors_per_fat,
                                prev_cluster * 4, &i, sizeof i);
                 }
                 else
-                    fat32_buffer[prev_cluster % (fat_buffer_size/4)] = i;
+                    fat32_buffer[prev_cluster % (fat_buffer_size / 4)] = i;
 
                 fat32_buffer[i % (fat_buffer_size / 4)] = 0xFFFFFFFF;
                 goto end;
@@ -921,7 +921,7 @@ void write_ipcam_file_32(uint32_t  sectors_per_fat,
                 if (acc_clusters == 0)
                     start_cluster = i;
                 else
-                    fat32_buffer[prev_cluster % (fat_buffer_size/4)] = i;
+                    fat32_buffer[prev_cluster % (fat_buffer_size / 4)] = i;
             }
 
             prev_cluster = i;
@@ -1228,12 +1228,12 @@ int creat_record_file(int argc, char **argv)
         Log("./fatty 256 fat.img\n");
         return 1;
     }
-    Log("argv[0] = %s\nargv[1] = %s\nargv[2]=%s\n",argv[0],argv[1],argv[2]);
+    Log("argv[0] = %s\nargv[1] = %s\nargv[2]=%s\n", argv[0], argv[1], argv[2]);
     device_fd = open(argv[2], O_RDWR);
     if (device_fd < 0)
     {
         Log("open() failed\n");
-        Log("dev name = %s\n",argv[2]);
+        Log("dev name = %s\n", argv[2]);
         return 1;
     }
 

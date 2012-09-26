@@ -18,7 +18,7 @@
 #define    PTZ_DEV_NAME    "/dev/ptz"
 //#define    PTZ_DEV_NAME    "ptz"
 
-static    int     fd=-1;
+static    int     fd = -1;
 
 static    int    open_ptz(void)
 {
@@ -33,7 +33,7 @@ static    int    open_ptz(void)
     else
     {
         ioctl(fd , 15 , 0);
-        if (ioctl(fd, 16 ,0)<0)
+        if (ioctl(fd, 16 , 0) < 0)
         {
             printf("###########contrl ptz speed error############\n");
         }
@@ -52,32 +52,32 @@ static    int    open_ptz(void)
 */
 int    speed_ptz(int cmd, int speed)
 {
-    if (-1==fd)
+    if (-1 == fd)
     {
         if (open_ptz())
         {
             return -1;
         }
     }
-    return    ioctl(fd, cmd ,speed);
+    return    ioctl(fd, cmd , speed);
 }
 
 int    write_ptz(char *buffer, int length)
 {
-    if (-1==fd)
+    if (-1 == fd)
     {
         if (open_ptz())
         {
             return -1;
         }
     }
-    return    write(fd, buffer ,length);
+    return    write(fd, buffer , length);
 }
 
 int    read_ptz(char *buffer, int length)
 {
     int    nread;
-    nread = read(fd,buffer,length);
+    nread = read(fd, buffer, length);
     return    nread;
 }
 extern    int    write_ptz(char *buffer, int length);

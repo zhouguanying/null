@@ -22,7 +22,7 @@ struct wpa_ctrl * wpa_ctrl_open(const char *ctrl_path)
     //size_t res;
     int tries = 0;
 
-    ctrl =(struct wpa_ctrl*)malloc(sizeof(*ctrl));
+    ctrl = (struct wpa_ctrl*)malloc(sizeof(*ctrl));
     if (ctrl == NULL)
         return NULL;
     memset(ctrl, 0, sizeof(*ctrl));
@@ -66,15 +66,15 @@ try_again:
     }
 
     ctrl->dest.sun_family = AF_UNIX;
-    if (strlen(ctrl_path)>=sizeof(ctrl->dest.sun_path))
+    if (strlen(ctrl_path) >= sizeof(ctrl->dest.sun_path))
     {
         close(ctrl->s);
         free(ctrl);
         printf("ctrl_path tool long\n");
         return NULL;
     }
-    strncpy(ctrl->dest.sun_path, ctrl_path,sizeof(ctrl->dest.sun_path));
-    if (connect(ctrl->s, (struct sockaddr *) &ctrl->dest,sizeof(ctrl->dest)) < 0)
+    strncpy(ctrl->dest.sun_path, ctrl_path, sizeof(ctrl->dest.sun_path));
+    if (connect(ctrl->s, (struct sockaddr *) &ctrl->dest, sizeof(ctrl->dest)) < 0)
     {
         close(ctrl->s);
         unlink(ctrl->local.sun_path);

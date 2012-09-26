@@ -8,9 +8,9 @@ extern "C" {
 #include "server.h"
 
     enum  SOCKET_TYPE_T  {
-        TCP_SOCKET =0, UDT_SOCKET , UDP_SOCKET , NON_SOCKET
+        TCP_SOCKET = 0, UDT_SOCKET , UDP_SOCKET , NON_SOCKET
     };
-    enum  SOCKET_CAP_T {CAP_CMD =0 ,CAP_VIDEO ,CAP_AUDIO};
+    enum  SOCKET_CAP_T {CAP_CMD = 0 , CAP_VIDEO , CAP_AUDIO};
     typedef enum SOCKET_TYPE_T  SOCKET_TYPE;
     typedef enum SOCKET_CAP_T   SOCKET_CAP;
 
@@ -41,7 +41,7 @@ extern "C" {
     void close_socket(SOCKET_TYPE st , int socket);
     void get_cmd_socket(cmd_socket_t*fds , int *nums);
     void check_cmd_socket();
-    int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap,SOCKET_TYPE st , char is_lan);
+    int scl_add_socket(unsigned long long who , int socket , SOCKET_CAP cap, SOCKET_TYPE st , char is_lan);
     struct socket_container *get_socket_container(int cmdsocket , int waitsocket);
     int  close_socket_container(struct socket_container *sc);
     void clean_socket_container(unsigned long long who , int need_lock);

@@ -5,12 +5,12 @@
 #include "wpa_ctrl.h"
 
 
-static const char *wpa_cli_version =NULL;
+static const char *wpa_cli_version = NULL;
 
 
 
 
-static const char *wpa_cli_full_license =NULL;
+static const char *wpa_cli_full_license = NULL;
 
 
 static struct wpa_ctrl *ctrl_conn;
@@ -34,7 +34,7 @@ static int wpa_cli_open_connection(const char *ifname, int attach)
     cfile = (char *)malloc(flen);
     if (cfile == NULL)
         return -1L;
-    memset(cfile,0,flen);
+    memset(cfile, 0, flen);
     res = snprintf(cfile, flen, "%s/%s", ctrl_iface_dir, ifname);
     if (res < 0 || res >= flen)
     {
@@ -87,7 +87,7 @@ static int _wpa_ctrl_command(struct wpa_ctrl *ctrl, char *cmd, int print)
     len = 4000;
     ret = wpa_ctrl_request(ctrl, cmd, strlen(cmd), scanresult, &len,
                            wpa_cli_msg_cb);
-    printf("result len ==%d\n",len);
+    printf("result len ==%d\n", len);
     if (ret == -2)
     {
         printf("'%s' command timed out.\n", cmd);
@@ -1696,7 +1696,7 @@ static int wpa_request(struct wpa_ctrl *ctrl, int argc, char *argv[])
         cmd = wpa_cli_commands;
         while (cmd->cmd)
         {
-            if (strncmp(cmd->cmd, argv[0],strlen(argv[0])) == 0)
+            if (strncmp(cmd->cmd, argv[0], strlen(argv[0])) == 0)
             {
                 printf(" %s", cmd->cmd);
             }
