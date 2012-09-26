@@ -322,6 +322,7 @@ static int turn_on_speaker()
 
 }
 
+/*
 static int turn_off_speaker()
 {
     int fd; 
@@ -336,6 +337,7 @@ static int turn_off_speaker()
       close (fd);
        return 0;
 }
+*/
 
 static int open_snd()
 {
@@ -632,6 +634,7 @@ static int  xrun(snd_pcm_t*handle)
     return -1;
 }
 
+/*
 static void reset_pcm()
 {
     pthread_mutex_lock(&drop_pcm_lock);
@@ -650,6 +653,7 @@ static void reset_pcm()
     pthread_mutex_unlock(&drop_pcm_lock);
     printf("====================reset pcm ok===================\n");
 }
+*/
 
 /* I/O suspend handler */
 static int suspend(snd_pcm_t*handle)
@@ -759,6 +763,7 @@ static CBuffer *circular_init(int size, int step)
     return cb;
 }
 
+/*
 static void circular_free(CBuffer *buffer)
 {
     if (buffer)
@@ -767,6 +772,7 @@ static void circular_free(CBuffer *buffer)
         free(buffer);
     }
 }
+*/
 
 static int circular_empty(CBuffer *buffer)
 {

@@ -56,7 +56,6 @@
 
 #define BUF_SIZE	1024*128
 
-static nand_record_file_header record_header;
 char* test_jpeg_file="/720_480.jpg";
 extern int msqid;
 struct configstruct{
@@ -78,6 +77,8 @@ static inline char * gettimestamp()
                 curtm->tm_mday,curtm->tm_hour,curtm->tm_min,curtm->tm_sec);
 	 return timestamp;
 }
+
+void start_udt_lib();
 
 int test_video_record_and_monitor(struct sess_ctx* system_sess)
 {
@@ -577,8 +578,6 @@ int update_config_file_carefully()
 	char *old_file_buf;
 	char *p;
 	int version_flag = 0;
-	int brightness_flag = 0;
-	int contrast_flag = 0;
 	int pos;
 	dbg("try update configure file carefully , it may be slow\n");
 	fp = fopen(RECORD_PAR_FILE , "r");

@@ -1,5 +1,6 @@
 #define _LARGEFILE64_SOURCE
 #include <sys/types.h>
+#include <sys/shm.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -293,37 +294,6 @@ error:
 static int get_partition_sector_number()
 {
 	return file_index_table.index_count * ( FILE_SEGMENT_SIZE / 512 ); 
-}
-static int create_new_file_segment(char* fp_dir)
-{
-	int max_index = file_index_table.index_count;
-	char buf[100];
-	char* p;
-	unsigned new_index;
-	int new_file;
-
-	if( max_index == 0 ){
-		new_index = 0;
-	}
-	else{
-		p = file_index_table.table[max_index-1];
-		p += strlen(SAVE_FULL_PATH) + 1;
-		new_index = dec_string_to_int(p,8);
-		new_index++;
-	}
-	sprintf(buf,"%s/%.8d.dat", fp_dir, new_index);
-	printf("file_segment_name=%s\n", buf);
-	if( (new_file = open(buf,O_CREAT|O_RDWR))== -1 ){
-		return -1;
-	} 
-	if( ftruncate(new_file, FILE_SEGMENT_SIZE) == -1 ){
-		return -1;
-	}
-	close(new_file);
-	file_index_table.table[max_index] = malloc(strlen(buf)+1);
-	strcpy(file_index_table.table[max_index], buf );
-	file_index_table.index_count++;
-	return 0;
 }
 
 int create_file_segments(int free_msize, char* fp_dir)
@@ -787,7 +757,6 @@ char* nand_get_file_time(int file_start_sector)
 	nand_record_file_header header, end;
 	unsigned int data;
 	int sequence_head, sequence_end;
-	int last_sector;
 	int header_is_valid, end_is_valid;
 	unsigned char buf[1024];
 	struct nand_write_request req;

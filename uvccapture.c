@@ -14,8 +14,6 @@
 
 static const char version[] = "test";
 int run = 1;
-static struct v4l2_queryctrl queryctrl;
-static struct v4l2_querymenu querymenu;
 
 struct vdIn * init_camera(void) {
 	char *videodevice = "/dev/video0";

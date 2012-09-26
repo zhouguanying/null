@@ -9,13 +9,15 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/shm.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
 #include <fcntl.h>
-#include <sys/ipc.h>
 #include <linux/fs.h>
 #include <netdb.h>
 #include <sys/ioctl.h>
@@ -26,7 +28,6 @@
 #include "cli.h"
 //#include "mpegts.h"
 #include "config.h"
-//#include "encoder.h"
 #include "revision.h"
 //#include "ipl.h"
 #include "nand_file.h"
@@ -51,6 +52,7 @@ int nand_fd;
 /* Externs */
 extern void (*sigset(int sig, void (*disp)(int)))(int);
 extern int sigignore(int sig);
+extern int PTZ(void);
 
 /* Debug */
 #define ENCODER_DBG
@@ -309,7 +311,7 @@ static inline int kill_video(struct sess_ctx *sess)
 	printf("should do something, halt at 1\n");
 	while(1);
 	free_system_session(sess);
-
+    return 0;
 }
 
 static inline int kill_connection(struct sess_ctx *sess)
@@ -332,6 +334,7 @@ static inline int kill_connection(struct sess_ctx *sess)
 	} else ;
 	pthread_mutex_lock(&global_ctx_lock);
 	tmp=global_ctx_running_list;
+    // BUG here:
 	if(tmp=sess){
 		global_ctx_running_list=global_ctx_running_list->next;
 		currconnections--;
@@ -382,6 +385,8 @@ static inline int add_video_handler(struct sess_ctx *sess, void *handler,
 {
 	return 0;
 }
+
+int vpu_RemoveCallback(void *sess, void *cb);
 
 /**
  * remove_video_handler - remove video handler
@@ -598,7 +603,6 @@ int send_payload(struct sess_ctx *sess, u8 *payload, size_t len)
  * @len: length of payload
  * Returns number of bytes sent on success or 0 on error
  */
-static int stop_vid(struct sess_ctx *sess, char *arg);
 int process_video_payload(struct sess_ctx *sess, u8 *payload, size_t len)
 {
 	return 0;
@@ -714,7 +718,6 @@ static int do_server(struct sess_ctx *sess)
 	int ret;
 	struct sockaddr_in address;
 	int socket;
-	playback_t* pb;
 
 	dbg("Starting V2IP server");
 
@@ -732,11 +735,13 @@ static int do_server(struct sess_ctx *sess)
 						 sess->s1,
 						 (struct sockaddr *) &address,
 						 &fromlen);
+            /*
 			printf("connection in, addr=0x%x, port=0x%d\n",
 				   __func__, address.sin_addr.s_addr, address.sin_port);
+                   */
 			if(socket >= 0) {
 				int ret = playback_connect(address, socket);
-				printf("%s: ret = %d\n", __func__, ret);
+				//printf("%s: ret = %d\n", __func__, ret);
 				//conncect for playback firstly. if it fails, connect for monitor.
 				if(ret < 0) {
 //					monitor_new(socket, address);
@@ -966,7 +971,8 @@ int monitor_main(int argc, char **argv)
 	}
 
 done:
-	shmdt( v2ipd_shm_id );
+//  shmdt( v2ipd_shm_id ); // YYF: wrong
+	shmdt( v2ipd_share_mem );
 //	msgctl(msg_queue_id, IPC_RMID, NULL);
 	free(video_conf);
 	free(audio_conf);
@@ -1147,10 +1153,10 @@ void  del_sess(struct sess_ctx *sess)
 }
 
 #define UPDATE_FILE_HEAD_SIZE   11
+int udt_recv(int udtsocket , int sock_t , char *buf , int len , struct sockaddr *from , int *fromlen);
 
  int do_net_update(void *arg){
  	struct sess_ctx *sess = (struct sess_ctx *)arg;
-	socklen_t fromlen;
 	//int ret;
 	int socket = -1;
 	//char* buffer;
@@ -1439,11 +1445,11 @@ exit:
 	return 0;
  }
 
+int udt_send(int udtsocket ,int sock_t, char *buf , int len);
+
 int start_video_monitor(struct sess_ctx* sess)
 {
-	socklen_t fromlen;
 	int ret;
-	struct sockaddr_in address;
 	int socket = -1;
 	char* buffer;
 	int size;
@@ -1610,7 +1616,7 @@ static inline void write_syn_sound(int *need_video_internal_head)
 		i++;
 		if(!(i%60))
 			dbg("get sound data size == %d\n",size);		
-		ret = nand_write(&audio_internal_header, sizeof(audio_internal_header));
+		ret = nand_write((char *)&audio_internal_header, sizeof(audio_internal_header));
 		if( ret == 0 ){
 			ret = nand_write(buf,size);
 			if(ret ==0)
@@ -1625,6 +1631,7 @@ static inline void write_syn_sound(int *need_video_internal_head)
 #endif
 
 int snd_soft_restart();
+struct vdIn * init_camera(void);
 
 #define NO_RECORD_FILE   "/data/norecord"
 int start_video_record(struct sess_ctx* sess)
@@ -2072,7 +2079,7 @@ int start_video_record(struct sess_ctx* sess)
 			
 				table_item.location = nand_get_position();
 				if(*record_15sec_table_size + *attr_table_size +sizeof(index_table_item_t) + 8 <=INDEX_TABLE_SIZE){
-				 	if(nand_write(&video_internal_header,sizeof(video_internal_header))==0&&!internal_head_for_sound){
+				 	if(nand_write((char *)&video_internal_header,sizeof(video_internal_header))==0&&!internal_head_for_sound){
 						memcpy(attr_pos,&table_item ,sizeof(index_table_item_t));
 						(*attr_table_size)+=sizeof(index_table_item_t);
 						//dbg("write attr location  pos = %u,write in %p , attr table size = %u struct size = %d\n",table_item.location , attr_pos, *attr_table_size , sizeof video_internal_header);
@@ -2132,7 +2139,7 @@ retry:
 				memset(time_15sec_table , 0 ,INDEX_TABLE_SIZE);
 				attr_table_size = (unsigned int *)attr_table;
 				record_15sec_table_size = attr_table_size+1;
-				attr_pos =record_15sec_table_size+1;
+				attr_pos =(char *)(record_15sec_table_size+1);
 				record_15sec_pos = time_15sec_table;
 				gettimeofday(&index_table_15sec_last_time , NULL);
 				

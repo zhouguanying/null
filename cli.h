@@ -58,7 +58,9 @@ struct cli_sess_ctx {
 extern struct cli_sess_ctx *g_cli_ctx;
 
 struct cli_sess_ctx * start_cli(void* arg);
- int get_sdcard_size();
+int cli_deinit(struct cli_sess_ctx *sess);
+int start_vid(struct sess_ctx *sess, char *arg);
+int get_sdcard_size();
 
 #ifdef __cplusplus
 }

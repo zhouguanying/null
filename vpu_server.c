@@ -45,36 +45,6 @@ struct config_params  {
     int change_pending;
 };
 
-#if 0
-int IOSystemInit(void *callback)
-{
-	return 0;
-}
-int IOSystemShutdown(void)
-{
-	return 0;
-}
-
-int IOGetPhyMem(vpu_mem_desc * buff)
-{
-	return 0;
-}
-int IOFreePhyMem(vpu_mem_desc * buff)
-{
-	return 0;
-}
-int IOGetVirtMem(vpu_mem_desc * buff)
-	
-{
-	return 0;
-}
-int IOFreeVirtMem(vpu_mem_desc * buff)
-	
-{
-	return 0;
-}
-#endif
-
 /**
  * video_config_params - video configuration parameters
  * @framerate: video frame rate
@@ -153,6 +123,8 @@ static char * get_line(char *s, int size, FILE *stream, int *line,
 	return NULL;
 }
 
+char *strndup(const char *s, size_t n);
+
 static int populate_video(struct video_config_params *c, char *filename)
 {
         FILE *fp;
@@ -171,58 +143,41 @@ static int populate_video(struct video_config_params *c, char *filename)
                                         c->framerate.field_len) == 0) {
                         c->framerate.field_val = atoi(pos + 
                                         c->framerate.field_len); 
- //                       dbg("%s=%d", c->framerate.field_name, 
-                           //             c->framerate.field_val);
                 } else if (strncmp(pos, c->bitrate.field_name, 
                                         c->bitrate.field_len)
                         == 0) {
                         c->bitrate.field_val = atoi(pos + 
                                         c->bitrate.field_len); 
-                        //dbg("%s=%d", c->bitrate.field_name, 
-                              //          c->bitrate.field_val);
                 } else if (strncmp(pos, c->compression.field_name,
                            c->compression.field_len) == 0) {
                         free(c->compression.field_str);
                         c->compression.field_str =
                         strndup(pos + c->compression.field_len, 5); 
-                        //dbg("%s=%s", c->compression.field_name, 
-                               //         c->compression.field_str);
                 } else if (strncmp(pos, c->resolution.field_name,
                            c->resolution.field_len) == 0) {
                         free(c->resolution.field_str);
                         c->resolution.field_str = strndup(pos + 
                                         c->resolution.field_len, 7); 
-                       // dbg("%s=%s", c->resolution.field_name, 
-                               //         c->resolution.field_str);
                 } else if (strncmp(pos, c->gop.field_name, 
                                         c->gop.field_len) == 0) {
                         c->gop.field_val = atoi(pos + c->gop.field_len); 
-                       // dbg("%s=%d", c->gop.field_name, c->gop.field_val);
                 } else if (strncmp(pos, c->rotation_angle.field_name,
                            c->rotation_angle.field_len) == 0) {
                         c->rotation_angle.field_val =
                                 atoi(pos + c->rotation_angle.field_len); 
-                       // dbg("%s=%d", c->rotation_angle.field_name,
-                    //    c->rotation_angle.field_val);
                 } else if (strncmp(pos, c->output_ratio.field_name,
                            c->output_ratio.field_len) == 0) {
                         c->output_ratio.field_val = atoi(pos + 
                                         c->output_ratio.field_len); 
-                       // dbg("%s=%d", c->output_ratio.field_name, 
-                        //                c->output_ratio.field_val);
                 } else if (strncmp(pos, c->mirror_angle.field_name,
                            c->mirror_angle.field_len) == 0) {
                         c->mirror_angle.field_val = atoi(pos + 
                                         c->mirror_angle.field_len); 
-                        //dbg("%s=%d", c->mirror_angle.field_name, 
-                             //           c->mirror_angle.field_val);
                 } else if (strncmp(pos, c->name.field_name,
                            c->name.field_len) == 0) {
                         free(c->name.field_str);    
                         c->name.field_str = strndup(pos + 
                                         c->name.field_len, 20); 
-                        //dbg("%s=%s", c->name.field_name, 
-                                 //       c->name.field_str);
                 } else ;
         }
         
@@ -299,16 +254,19 @@ static int get_video_resolution(struct video_config_params *p,int* width, int* h
                 str = "VGA (640 x 480)";
         }
 //	dbg("resolution:%s\n", str);
+        return 0;
 }
 
 static int get_video_bitrate(struct video_config_params *p,int* bitrate)
 {
 	*bitrate = p->bitrate.field_val;
+        return 0;
 }
 
 static int get_video_framerate(struct video_config_params *p,int* framerate)
 {
 	*framerate = p->framerate.field_val;
+        return 0;
 }
 
 static vs_record_parameter* record_para = NULL;

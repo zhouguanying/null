@@ -1,6 +1,8 @@
 #ifndef __STUN_H__
 #define __STUN_H__
 
+#include <netdb.h>
+
 #ifndef WIN32
 #ifdef __cplusplus
 extern "C" {

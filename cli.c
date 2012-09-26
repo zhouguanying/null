@@ -23,6 +23,8 @@
 #include "includes.h"
 //#include <defines.h>
 
+#include "UART.h"
+#include "cfg_network.h"
 #include "cli.h"
 //#include "mpegts.h"
 #include "config.h"
@@ -327,7 +329,7 @@ static inline void do_cli_alive()
 	}
 }
 
-int tcp_get_readable_socket(int *sockfds , int sockfdnums , const struct timeval *tv)
+int tcp_get_readable_socket(int *sockfds , int sockfdnums , struct timeval *tv)
 {
 	fd_set rfds;
 	int i;
@@ -356,7 +358,7 @@ int tcp_get_readable_socket(int *sockfds , int sockfdnums , const struct timeval
 	return UDT_SELECT_UNKONW_ERROR;
 }
 
-int get_readable_socket(cmd_socket_t*sockfds , int sockfdnums , const struct timeval *tv , SOCKET_TYPE *type)
+int get_readable_socket(cmd_socket_t*sockfds , int sockfdnums , struct timeval *tv , SOCKET_TYPE *type)
 {
 	int udtsockfds[64];
 	int tcpsockfds[64];
@@ -672,15 +674,8 @@ int set_dest_port(struct sess_ctx *sess, char *arg)
  */
 int start_recording_video(struct sess_ctx *sess)
 {
-#if 0
-        vpu_StartSession(sess->video.params);
-        if (!sess->is_tcp) 
-                sess->connected = 1;
-        return 0;
-#else
-		printf("should do something, system halt at 0\n");
-		while(1);
-#endif
+    printf("should do something, system halt at 0\n");
+    while(1);
 }
 
 /**
@@ -1566,16 +1561,7 @@ static char *get_motion_detection(struct sess_ctx *sess, char *arg)
  */
 static int enable_motion_detection(struct sess_ctx *sess, char *arg)
 {
-#if 0
-        if (sess != NULL) {
-                return vpu_EnableMotionDetection(sess);
-        } else {
-                dbg("error");
-                return -1;
-        }
-#else
-	return NULL;
-#endif
+	return 0;
 }
 
 /**
@@ -1586,7 +1572,7 @@ static int enable_motion_detection(struct sess_ctx *sess, char *arg)
  */
 static int disable_motion_detection(struct sess_ctx *sess, char *arg)
 {
-	return NULL;
+	return 0;
 }
 
 static int SetRs485BautRate(char* arg)
@@ -1598,7 +1584,7 @@ static int SetRs485BautRate(char* arg)
 	return 0;
 }
 
-static const char stopcmd[8] = {0xa0 , 00 , 00 , 00 , 00 , 00 , 0xaf , 0x0f};
+static char stopcmd[8] = {0xa0 , 00 , 00 , 00 , 00 , 00 , 0xaf , 0x0f};
 static int Rs485Cmd(char* arg)
 {
 	int length;
@@ -2152,7 +2138,6 @@ static char* GetNandRecordFile(char* arg)
 		}
 		else{
 			dbg("#########the disk is empty############\n");
-			//goto search_finish;
 		}
 		do{
 			next_secotor = nand_get_next_file_start_sector(start_sector);
@@ -2165,18 +2150,14 @@ static char* GetNandRecordFile(char* arg)
 				start_sector = next_secotor;
 				continue;
 			}
-//			dbg("file at %d, time=%s\n", start_sector,time);
 			memcpy(&FileNameBuffer[i*48], time, 47 );
 			FileNameBuffer[i*48+47] = 0;
 			i++;
 			start_sector = next_secotor;
 		}while(1);
-search_finish:
-//		dbg("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^%s\n",FileNameBuffer);
 		nand_close_simple();	
 		total_file_number = i;
 	} 	
-	//dbg("#########id = %d , total file num = %d############\n",id , total_file_number);
 	ret = malloc(total_file_number*50+8+4 + 1);
 	memset(ret,0,total_file_number*50+8+4 + 1);
 	buffer = ret +4;

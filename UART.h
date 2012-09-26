@@ -20,6 +20,7 @@ extern	int		UartReadCharPolling(char *buffer);
 extern	int		SetUart(int speed, int databits, int stopbits, int parity);
 //*****************************************************************************
 extern	int		SetUartDirection(int	direction);
+void SetUartSpeed(int speed);
 //---------------------------------------------------------------------
 #endif
 

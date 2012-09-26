@@ -8,7 +8,6 @@
 static const char *wpa_cli_version =NULL;
 
 
-static const char *wpa_cli_license =NULL;
 
 
 static const char *wpa_cli_full_license =NULL;
@@ -17,15 +16,8 @@ static const char *wpa_cli_full_license =NULL;
 static struct wpa_ctrl *ctrl_conn;
 static struct wpa_ctrl *mon_conn;
 static int wpa_cli_quit = 0;
-static int wpa_cli_attached = 0;
-static int wpa_cli_connected = 0;
-static int wpa_cli_last_id = 0;
 static const char *ctrl_iface_dir = "/tmp/wpa_supplicant";
 static char *ctrl_ifname = NULL;
-static const char *pid_file = NULL;
-static const char *action_file = NULL;
-static int ping_interval = 5;
-static int interactive = 0;
 char *scanresult;
 int result_len;
 
@@ -1520,11 +1512,7 @@ static char * wpa_cli_get_default_ifname(void)
 
 int mywpa_cli(int argc, char *argv[])
 {
-	int warning_displayed = 0;
-	int c;
-	int daemonize = 0;
 	int ret = 0;
-	const char *global = NULL;
 	ctrl_ifname = wpa_cli_get_default_ifname();
 
 	

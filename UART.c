@@ -1,6 +1,7 @@
 #include     <stdio.h>      /*标准输入输出定义*/
 #include     <stdlib.h>     /*标准函数库定义*/
 #include     <unistd.h>     /*Unix 标准函数定义*/
+#include     <sys/ioctl.h>
 #include     <sys/types.h>  
 #include     <sys/stat.h>   
 #include     <fcntl.h>      /*文件控制定义*/
@@ -181,7 +182,6 @@ static	int 	set_Parity(int fd,int databits,int stopbits,int parity)
 //***************************************************************************
 
 static	int 	fd=-1;
-static	int	len,status;	
 
 /**
 *@brief 打开串口

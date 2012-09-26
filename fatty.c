@@ -790,9 +790,9 @@ end:
 
     if (start_cluster > written_cluster) // clear the last file
     {
-        uint16_t c = start_cluster;
+        uint16_t start = 0;
+        uint16_t c     = start_cluster;
         uint16_t p;
-        uint16_t start;
 
         offset = (int32_t) (fat_begin_sector * bytes_per_sector -
                             fat_buffer_size);
@@ -1030,9 +1030,9 @@ end:
 
     if (start_cluster > written_cluster) // clear the last file
     {
-        uint32_t c = start_cluster;
+        uint32_t start = 0;
+        uint32_t c     = start_cluster;
         uint32_t p;
-        uint32_t start;
 
         offset = (int32_t) (fat_begin_sector * bytes_per_sector -
                             fat_buffer_size);

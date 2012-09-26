@@ -139,7 +139,7 @@ static int checkreply(char *str,char *buf)
 	}
 	return 0;
 }
-static int en_base64(const char *sbuf,int ssize,char dbuf[],int *dsize)
+static int en_base64(char *sbuf,int ssize,char dbuf[],int *dsize)
 {
 	char *s;
 	char *d;
@@ -185,7 +185,7 @@ static int en_base64(const char *sbuf,int ssize,char dbuf[],int *dsize)
 	tlen=did;
 	for(did=0;did<tlen;did++)
 	{
-		d[did]=table[d[did]];
+		d[did]=table[(int)d[did]];
 	}
 	d[did]='\0';
 	if(dsize!=NULL)

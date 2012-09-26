@@ -201,6 +201,11 @@ int is_do_update();
 void set_msg_do_update();
 void prepare_do_update();
 void set_ignore_count(int num);
+void v2ipd_restart_all();
+void v2ipd_reboot_system();
+void v2ipd_disable_write_nand();
+void v2ipd_request_timeover_protect();
+void v2ipd_stop_timeover_protect();
 
 unsigned char checksum(unsigned char cksum, unsigned char *data, int size);
 #ifdef __cplusplus

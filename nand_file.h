@@ -115,6 +115,8 @@ int nand_close_simple( );
 int nand_get_max_file_num();
 int nand_get_next_file_start_sector(int cur_sector);
 char* nand_get_file_time(int file_start_sector);
+int nand_get_sector_num();
+int read_file_segment(struct nand_write_request* req);
 
 int nand_clean();
 int nand_invalid_file(int file_start_sector, int file_end_sector);
