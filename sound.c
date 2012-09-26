@@ -100,7 +100,8 @@ struct play_sound_buf
     int cache_play_pos;
 };
 
-typedef struct _CBuffer {
+typedef struct _CBuffer
+{
     char *buffer;
     char *start;
     char *end;
@@ -146,19 +147,22 @@ static pthread_mutex_t        drop_pcm_lock;
 static int init_syn_buffer()
 {
     int i;
-     syn_buf.buffsize = NUM_BUFFERS * SIZE_OF_AMR_PER_PERIOD;
+    syn_buf.buffsize = NUM_BUFFERS * SIZE_OF_AMR_PER_PERIOD;
     syn_buf.absolute_start_addr = (char *)malloc(syn_buf.buffsize);
-    if(!syn_buf.absolute_start_addr){
+    if(!syn_buf.absolute_start_addr)
+    {
         printf("error malloc syn_sound_buffer\n");
         return -1;
     }
     syn_buf.cache = (char *)malloc(SIZE_OF_AMR_PER_PERIOD);
-    if(!syn_buf.cache){
+    if(!syn_buf.cache)
+    {
         printf("malloc syn_buf cache error\n");
         free(syn_buf.absolute_start_addr);
         return -1;
     }
-    for(i=0;i<NUM_BUFFERS;i++){
+    for(i=0; i<NUM_BUFFERS; i++)
+    {
         syn_buf.c_sound_array[i].buf = syn_buf.absolute_start_addr+i*SIZE_OF_AMR_PER_PERIOD;
         memset(syn_buf.c_sound_array[i].sess_clean_mask,1,sizeof(syn_buf.c_sound_array[i].sess_clean_mask));
     }
@@ -180,7 +184,8 @@ void set_syn_sound_data_clean(int sess_id)
     int us_pos;
     pthread_rwlock_rdlock(&syn_buf.syn_buf_lock);
     us_pos = syn_buf.start;
-    while(us_pos!=syn_buf.end){
+    while(us_pos!=syn_buf.end)
+    {
         syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id] = 1;
         us_pos = (us_pos +1)%NUM_BUFFERS;
     }
@@ -193,29 +198,37 @@ char *new_get_sound_data(int sess_id , int *size)
     char *buf;
     pthread_rwlock_rdlock(&syn_buf.syn_buf_lock);
     us_pos = syn_buf.start;
-    while(us_pos!=syn_buf.end){
-        if(!syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id]){
+    while(us_pos!=syn_buf.end)
+    {
+        if(!syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id])
+        {
             break;
         }
         us_pos= (us_pos+1)%NUM_BUFFERS;
     }
-    if(us_pos == syn_buf.end){
+    if(us_pos == syn_buf.end)
+    {
         pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
         return NULL;
     }
-    if(syn_buf.end>us_pos){
+    if(syn_buf.end>us_pos)
+    {
         *size = syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.c_sound_array[us_pos].buf;
         buf = (char *)malloc(*size);
-        if(!buf){
+        if(!buf)
+        {
             printf("malloc sound buffer fail\n");
             pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
             return NULL;
         }
         memcpy(buf,syn_buf.c_sound_array[us_pos].buf,*size);
-    }else{
+    }
+    else
+    {
         *size = syn_buf.buffsize -(syn_buf.c_sound_array[us_pos].buf - syn_buf.absolute_start_addr);
         buf = (char *)malloc(*size +(syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr));
-        if(!buf){
+        if(!buf)
+        {
             printf("malloc sound buffer fail\n");
             pthread_rwlock_unlock(&syn_buf.syn_buf_lock);
             return NULL;
@@ -224,8 +237,10 @@ char *new_get_sound_data(int sess_id , int *size)
         memcpy(buf +*size,syn_buf.absolute_start_addr,syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr);
         (*size)+=(syn_buf.c_sound_array[syn_buf.end].buf - syn_buf.absolute_start_addr);
     }
-    while(us_pos!=syn_buf.end){
-        if(syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id]){
+    while(us_pos!=syn_buf.end)
+    {
+        if(syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id])
+        {
             printf("*************BUG we have read the newer one?************************\n");
         }
         syn_buf.c_sound_array[us_pos].sess_clean_mask[sess_id] =1;
@@ -251,7 +266,8 @@ static int init_playback_buffer()
         printf("error malloc buffer for playback sound cache\n");
         return -1;
     }
-    for(i = 0 ; i < MAX_NUM_IDS ; i++){
+    for(i = 0 ; i < MAX_NUM_IDS ; i++)
+    {
         p_sound_buf.p_sound_array[i].buf = p_sound_buf.absolute_start_addr + i *SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME;
         p_sound_buf.p_sound_array[i].maxlen = SIZE_OF_AMR_PER_PERIOD*PERIOD_TO_WRITE_EACH_TIME;
         p_sound_buf.p_sound_array[i].datalen = 0;
@@ -306,34 +322,34 @@ static char *get_play_sound_data(int *len)
 
 static int turn_on_speaker()
 {
-     int fd; 
-     fd = open ("/dev/mxs-gpio", O_RDWR);
-     if (fd<0)
-      {   
-           dbg ("file open error \n");
-            return -1; 
-      }
-     if(ioctl(fd, IOCTL_GET_SPK_CTL, 0)==0)
-          ioctl(fd, IOCTL_SET_SPK_CTL, 1);     
-     // dbg("speaker is %s\n",ioctl(fd, IOCTL_GET_SPK_CTL, 0)?"on":"off");
-      close (fd);
+    int fd;
+    fd = open ("/dev/mxs-gpio", O_RDWR);
+    if (fd<0)
+    {
+        dbg ("file open error \n");
+        return -1;
+    }
+    if(ioctl(fd, IOCTL_GET_SPK_CTL, 0)==0)
+        ioctl(fd, IOCTL_SET_SPK_CTL, 1);
+    // dbg("speaker is %s\n",ioctl(fd, IOCTL_GET_SPK_CTL, 0)?"on":"off");
+    close (fd);
 
-       return 0;
+    return 0;
 
 }
 
 /*
 static int turn_off_speaker()
 {
-    int fd; 
+    int fd;
      fd = open ("/dev/mxs-gpio", O_RDWR);
      if (fd<0)
-      {   
+      {
            dbg ("file open error \n");
-            return -1; 
-      }   
+            return -1;
+      }
      if(ioctl(fd, IOCTL_GET_SPK_CTL, 0)>0)
-          ioctl(fd, IOCTL_SET_SPK_CTL, 0);   
+          ioctl(fd, IOCTL_SET_SPK_CTL, 0);
       close (fd);
        return 0;
 }
@@ -342,97 +358,106 @@ static int turn_off_speaker()
 static int open_snd()
 {
     int err;
-    if ((err = snd_pcm_open(&playback_handle,PCM_NAME, SND_PCM_STREAM_PLAYBACK,0)) < 0) 
+    if ((err = snd_pcm_open(&playback_handle,PCM_NAME, SND_PCM_STREAM_PLAYBACK,0)) < 0)
     {
-                 printf("Playback open error: %s\n", snd_strerror(err));
-                 return -1;
-       }
-        if ((err = snd_pcm_open(&capture_handle, PCM_NAME, SND_PCM_STREAM_CAPTURE,SND_PCM_NONBLOCK)) < 0) 
+        printf("Playback open error: %s\n", snd_strerror(err));
+        return -1;
+    }
+    if ((err = snd_pcm_open(&capture_handle, PCM_NAME, SND_PCM_STREAM_CAPTURE,SND_PCM_NONBLOCK)) < 0)
     {
-                 printf("Record open error: %s\n", snd_strerror(err));
-                 return -1;
-        }
+        printf("Record open error: %s\n", snd_strerror(err));
+        return -1;
+    }
     return 0;
 }
 
 static int setparams_stream(snd_pcm_t *handle,
-                          snd_pcm_hw_params_t *params,
-                          const char *id)
- {
-         int err;
-         unsigned int rrate;
+                            snd_pcm_hw_params_t *params,
+                            const char *id)
+{
+    int err;
+    unsigned int rrate;
 
-        format = DEFAULT_FORMAT;
-        rate = DEFAULT_SPEED;
-        channels = DEFAULT_CHANNELS;
-    
-         err = snd_pcm_hw_params_any(handle, params);
-         if (err < 0) {
-                 printf("Broken configuration for %s PCM: no configurations available: %s\n", snd_strerror(err), id);
-                 return err;
-         }
-         err = snd_pcm_hw_params_set_rate_resample(handle, params,resample);
-         if (err < 0) {
-                 printf("Resample setup failed for %s (val %i): %s\n", id, resample, snd_strerror(err));
-                 return err;
-         }
-         err = snd_pcm_hw_params_set_access(handle, params, SND_PCM_ACCESS_RW_INTERLEAVED);
-         if (err < 0) {
-                 printf("Access type not available for %s: %s\n", id, snd_strerror(err));
-                 return err;
-         }
-         err = snd_pcm_hw_params_set_format(handle, params, DEFAULT_FORMAT);
-         if (err < 0) {
-                 printf("Sample format not available for %s: %s\n", id, snd_strerror(err));
-                 return err;
-         }
-         err = snd_pcm_hw_params_set_channels(handle, params, DEFAULT_CHANNELS);
-         if (err < 0) {
-                 printf("Channels count (%i) not available for %s: %s\n", DEFAULT_CHANNELS, id, snd_strerror(err));
-                 return err;
-         }
-         rrate =rate;
-         err = snd_pcm_hw_params_set_rate_near(handle, params, &rrate, 0);
-         if (err < 0) {
-                 printf("Rate %iHz not available for %s: %s\n", rate, id, snd_strerror(err));
-                 return err;
-         }
-         if ((int)rrate != rate) {
-                 printf("Rate doesn't match (requested %iHz, get %iHz)\n", rate, err);
-                 return -EINVAL;
-         }
-         bits_per_sample = snd_pcm_format_physical_width(format);
-        bits_per_frame =bits_per_sample* channels;
-         return 0;
- }
+    format = DEFAULT_FORMAT;
+    rate = DEFAULT_SPEED;
+    channels = DEFAULT_CHANNELS;
+
+    err = snd_pcm_hw_params_any(handle, params);
+    if (err < 0)
+    {
+        printf("Broken configuration for %s PCM: no configurations available: %s\n", snd_strerror(err), id);
+        return err;
+    }
+    err = snd_pcm_hw_params_set_rate_resample(handle, params,resample);
+    if (err < 0)
+    {
+        printf("Resample setup failed for %s (val %i): %s\n", id, resample, snd_strerror(err));
+        return err;
+    }
+    err = snd_pcm_hw_params_set_access(handle, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+    if (err < 0)
+    {
+        printf("Access type not available for %s: %s\n", id, snd_strerror(err));
+        return err;
+    }
+    err = snd_pcm_hw_params_set_format(handle, params, DEFAULT_FORMAT);
+    if (err < 0)
+    {
+        printf("Sample format not available for %s: %s\n", id, snd_strerror(err));
+        return err;
+    }
+    err = snd_pcm_hw_params_set_channels(handle, params, DEFAULT_CHANNELS);
+    if (err < 0)
+    {
+        printf("Channels count (%i) not available for %s: %s\n", DEFAULT_CHANNELS, id, snd_strerror(err));
+        return err;
+    }
+    rrate =rate;
+    err = snd_pcm_hw_params_set_rate_near(handle, params, &rrate, 0);
+    if (err < 0)
+    {
+        printf("Rate %iHz not available for %s: %s\n", rate, id, snd_strerror(err));
+        return err;
+    }
+    if ((int)rrate != rate)
+    {
+        printf("Rate doesn't match (requested %iHz, get %iHz)\n", rate, err);
+        return -EINVAL;
+    }
+    bits_per_sample = snd_pcm_format_physical_width(format);
+    bits_per_frame =bits_per_sample* channels;
+    return 0;
+}
 
 static int setparams_bufsize(snd_pcm_t *handle,
-                      snd_pcm_hw_params_t *params,
-                      snd_pcm_hw_params_t *tparams,
-                      snd_pcm_uframes_t bufsize,
-                      const char *id)
+                             snd_pcm_hw_params_t *params,
+                             snd_pcm_hw_params_t *tparams,
+                             snd_pcm_uframes_t bufsize,
+                             const char *id)
 {
-        int err;
-        snd_pcm_uframes_t periodsize;
+    int err;
+    snd_pcm_uframes_t periodsize;
 
-        snd_pcm_hw_params_copy(params, tparams);
-        periodsize = bufsize * PERIODS_PER_BUFFSIZE ;
-        err = snd_pcm_hw_params_set_buffer_size_near(handle, params, &periodsize);
-        if (err < 0) {
-                printf("Unable to set buffer size %li for %s: %s\n", bufsize * PERIODS_PER_BUFFSIZE, id, snd_strerror(err));
-                return err;
-        }
-        buffer_frames=periodsize;
-        periodsize /= PERIODS_PER_BUFFSIZE;
-        err = snd_pcm_hw_params_set_period_size_near(handle, params, &periodsize, 0);
-        if (err < 0) {
-                printf("Unable to set period size %li for %s: %s\n", periodsize, id, snd_strerror(err));
-                return err;
-        }
-        period_frames=periodsize;
-        chunk_size=periodsize;
-        chunk_bytes =chunk_size * bits_per_frame / 8;
-        return 0;
+    snd_pcm_hw_params_copy(params, tparams);
+    periodsize = bufsize * PERIODS_PER_BUFFSIZE ;
+    err = snd_pcm_hw_params_set_buffer_size_near(handle, params, &periodsize);
+    if (err < 0)
+    {
+        printf("Unable to set buffer size %li for %s: %s\n", bufsize * PERIODS_PER_BUFFSIZE, id, snd_strerror(err));
+        return err;
+    }
+    buffer_frames=periodsize;
+    periodsize /= PERIODS_PER_BUFFSIZE;
+    err = snd_pcm_hw_params_set_period_size_near(handle, params, &periodsize, 0);
+    if (err < 0)
+    {
+        printf("Unable to set period size %li for %s: %s\n", periodsize, id, snd_strerror(err));
+        return err;
+    }
+    period_frames=periodsize;
+    chunk_size=periodsize;
+    chunk_bytes =chunk_size * bits_per_frame / 8;
+    return 0;
 }
 
 static void check_hw_params(snd_pcm_t *handle, snd_pcm_hw_params_t *params ,const char *id)
@@ -448,144 +473,160 @@ static void check_hw_params(snd_pcm_t *handle, snd_pcm_hw_params_t *params ,cons
 }
 
 static int setparams_set(snd_pcm_t *handle,
-                   snd_pcm_hw_params_t *params,
-                   snd_pcm_sw_params_t *swparams,
-                   const char *id)
- {
-         int err;
-         snd_pcm_uframes_t val;
-         
-    monotonic = snd_pcm_hw_params_is_monotonic(params);
-     can_pause = snd_pcm_hw_params_can_pause(params);
- 
-         err = snd_pcm_hw_params(handle, params);
-         if (err < 0) {
-                 printf("Unable to set hw params for %s: %s\n", id, snd_strerror(err));
-                 return err;
-         }
-    check_hw_params( handle,  params,  id);
-         err = snd_pcm_sw_params_current(handle, swparams);
-         if (err < 0) {
-                 printf("Unable to determine current swparams for %s: %s\n", id, snd_strerror(err));
-                 return err;
-         }
-      if((strncmp(id,"capture",7))==0){
-          val=(double)(rate)*1/(double)1000000;
-      }
-      else
-          val=buffer_frames;
-      if(val<1)
-          val=1;
-      else if(val>buffer_frames)
-          val=buffer_frames;
-         err = snd_pcm_sw_params_set_start_threshold(handle, swparams, 1);
-         if (err < 0) {
-                 printf("Unable to set start threshold mode for %s: %s\n", id, snd_strerror(err));
-                 return err;
-         }
-         err = snd_pcm_sw_params_set_avail_min(handle, swparams,chunk_size);
-         if (err < 0) {
-                 printf("Unable to set avail min for %s: %s\n", id, snd_strerror(err));
-                 return err;
-         }
-     if((strncmp(id,"capture",7))==0){
-          val=buffer_frames;
-      }
-      else
-          val=buffer_frames<<1;
-      err = snd_pcm_sw_params_set_stop_threshold(handle, swparams, val);
-         if (err < 0) {
-                 printf("Unable to set stop threshold for %s: %s\n", id, snd_strerror(err));
-                 return err;
-         }
-         err = snd_pcm_sw_params(handle, swparams);
-         if (err < 0) {
-                 printf("Unable to set sw params for %s: %s\n", id, snd_strerror(err));
-                 return err;
-         }
-         return 0;
- }
- 
-static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, int *bufsize)
- {
-         int err, last_bufsize = *bufsize;
-         snd_pcm_hw_params_t *pt_params, *ct_params;     /* templates with rate, format and channels */
-         snd_pcm_hw_params_t *p_params, *c_params;
-         snd_pcm_sw_params_t *p_swparams, *c_swparams;
-         snd_pcm_uframes_t  p_psize, c_psize;
-         unsigned int p_time, c_time;
-         //unsigned int val;
- 
-         snd_pcm_hw_params_alloca(&p_params);
-         snd_pcm_hw_params_alloca(&c_params);
-         snd_pcm_hw_params_alloca(&pt_params);
-         snd_pcm_hw_params_alloca(&ct_params);
-         snd_pcm_sw_params_alloca(&p_swparams);
-         snd_pcm_sw_params_alloca(&c_swparams);
-         if ((err = setparams_stream(phandle, pt_params, "playback")) < 0) {
-                 printf("Unable to set parameters for playback stream: %s\n", snd_strerror(err));
-                 return err;
-         }
-         if ((err = setparams_stream(chandle, ct_params, "capture")) < 0) {
-                 printf("Unable to set parameters for playback stream: %s\n", snd_strerror(err));
-                 return err;
-         }
-     buffer_frames = PERIODS_SIZE *PERIODS_PER_BUFFSIZE ;
-     *bufsize=(int)(buffer_frames/PERIODS_PER_BUFFSIZE);
-     *bufsize=((int)(((*bufsize)+L_PCM_USE-1)/L_PCM_USE))*L_PCM_USE;//set the period size round to 160 for 8k raw sound data convert to amr (8000HZ*0.02s=160 frames)
-     *bufsize-=L_PCM_USE;
-     last_bufsize=*bufsize;
- 
-       __again:
-         if (last_bufsize == *bufsize)
-                 *bufsize += L_PCM_USE;
-         last_bufsize = *bufsize;
-         if (*bufsize >( CHAUNK_BYTES_MAX/(bits_per_frame/8))){
-                  printf("chunk_size too big!\n");
-                 return -1;
-         }
-         if ((err = setparams_bufsize(phandle, p_params, pt_params, *bufsize, "playback")) < 0) {
-                 printf("Unable to set sw parameters for playback stream: %s\n", snd_strerror(err));
-                 return err;
-         }
-         if ((err = setparams_bufsize(chandle, c_params, ct_params, *bufsize, "capture")) < 0) {
-                 printf("Unable to set sw parameters for playback stream: %s\n", snd_strerror(err));
-                 return err;
-         }
- 
-         snd_pcm_hw_params_get_period_size(p_params, &p_psize, NULL);
-         if (p_psize > (unsigned int)*bufsize)
-                 *bufsize = p_psize;
-         snd_pcm_hw_params_get_period_size(c_params, &c_psize, NULL);
-         if (c_psize > (unsigned int)*bufsize)
-                 *bufsize = c_psize;
-         snd_pcm_hw_params_get_period_time(p_params, &p_time, NULL);
-         snd_pcm_hw_params_get_period_time(c_params, &c_time, NULL);
-         if (p_time != c_time)
-                 goto __again;
-         
-         if((*bufsize)%L_PCM_USE!=0){
-               *bufsize=((int)(((*bufsize)+L_PCM_USE-1)/L_PCM_USE))*L_PCM_USE;
-            last_bufsize=*bufsize;
-            goto __again;
-         }
+                         snd_pcm_hw_params_t *params,
+                         snd_pcm_sw_params_t *swparams,
+                         const char *id)
+{
+    int err;
+    snd_pcm_uframes_t val;
 
-         snd_pcm_uframes_t p_size , c_size;
-         snd_pcm_hw_params_get_buffer_size(p_params, &p_size);
-          snd_pcm_hw_params_get_buffer_size(c_params, &c_size);
-          
-    chunk_size=*bufsize; 
-        chunk_bytes=(*bufsize)*bits_per_frame/8;
-         if ((err = setparams_set(phandle, p_params, p_swparams, "playback")) < 0) {
-                 printf("Unable to set sw parameters for playback stream: %s\n", snd_strerror(err));
-                 return err;
-         }
-         if ((err = setparams_set(chandle, c_params, c_swparams, "capture")) < 0) {
-                 printf("Unable to set sw parameters for playback stream: %s\n", snd_strerror(err));
-                 return err;
-         }
-         return 0;
- }
+    monotonic = snd_pcm_hw_params_is_monotonic(params);
+    can_pause = snd_pcm_hw_params_can_pause(params);
+
+    err = snd_pcm_hw_params(handle, params);
+    if (err < 0)
+    {
+        printf("Unable to set hw params for %s: %s\n", id, snd_strerror(err));
+        return err;
+    }
+    check_hw_params( handle,  params,  id);
+    err = snd_pcm_sw_params_current(handle, swparams);
+    if (err < 0)
+    {
+        printf("Unable to determine current swparams for %s: %s\n", id, snd_strerror(err));
+        return err;
+    }
+    if((strncmp(id,"capture",7))==0)
+    {
+        val=(double)(rate)*1/(double)1000000;
+    }
+    else
+        val=buffer_frames;
+    if(val<1)
+        val=1;
+    else if(val>buffer_frames)
+        val=buffer_frames;
+    err = snd_pcm_sw_params_set_start_threshold(handle, swparams, 1);
+    if (err < 0)
+    {
+        printf("Unable to set start threshold mode for %s: %s\n", id, snd_strerror(err));
+        return err;
+    }
+    err = snd_pcm_sw_params_set_avail_min(handle, swparams,chunk_size);
+    if (err < 0)
+    {
+        printf("Unable to set avail min for %s: %s\n", id, snd_strerror(err));
+        return err;
+    }
+    if((strncmp(id,"capture",7))==0)
+    {
+        val=buffer_frames;
+    }
+    else
+        val=buffer_frames<<1;
+    err = snd_pcm_sw_params_set_stop_threshold(handle, swparams, val);
+    if (err < 0)
+    {
+        printf("Unable to set stop threshold for %s: %s\n", id, snd_strerror(err));
+        return err;
+    }
+    err = snd_pcm_sw_params(handle, swparams);
+    if (err < 0)
+    {
+        printf("Unable to set sw params for %s: %s\n", id, snd_strerror(err));
+        return err;
+    }
+    return 0;
+}
+
+static int setparams(snd_pcm_t *phandle, snd_pcm_t *chandle, int *bufsize)
+{
+    int err, last_bufsize = *bufsize;
+    snd_pcm_hw_params_t *pt_params, *ct_params;     /* templates with rate, format and channels */
+    snd_pcm_hw_params_t *p_params, *c_params;
+    snd_pcm_sw_params_t *p_swparams, *c_swparams;
+    snd_pcm_uframes_t  p_psize, c_psize;
+    unsigned int p_time, c_time;
+    //unsigned int val;
+
+    snd_pcm_hw_params_alloca(&p_params);
+    snd_pcm_hw_params_alloca(&c_params);
+    snd_pcm_hw_params_alloca(&pt_params);
+    snd_pcm_hw_params_alloca(&ct_params);
+    snd_pcm_sw_params_alloca(&p_swparams);
+    snd_pcm_sw_params_alloca(&c_swparams);
+    if ((err = setparams_stream(phandle, pt_params, "playback")) < 0)
+    {
+        printf("Unable to set parameters for playback stream: %s\n", snd_strerror(err));
+        return err;
+    }
+    if ((err = setparams_stream(chandle, ct_params, "capture")) < 0)
+    {
+        printf("Unable to set parameters for playback stream: %s\n", snd_strerror(err));
+        return err;
+    }
+    buffer_frames = PERIODS_SIZE *PERIODS_PER_BUFFSIZE ;
+    *bufsize=(int)(buffer_frames/PERIODS_PER_BUFFSIZE);
+    *bufsize=((int)(((*bufsize)+L_PCM_USE-1)/L_PCM_USE))*L_PCM_USE;//set the period size round to 160 for 8k raw sound data convert to amr (8000HZ*0.02s=160 frames)
+    *bufsize-=L_PCM_USE;
+    last_bufsize=*bufsize;
+
+__again:
+    if (last_bufsize == *bufsize)
+        *bufsize += L_PCM_USE;
+    last_bufsize = *bufsize;
+    if (*bufsize >( CHAUNK_BYTES_MAX/(bits_per_frame/8)))
+    {
+        printf("chunk_size too big!\n");
+        return -1;
+    }
+    if ((err = setparams_bufsize(phandle, p_params, pt_params, *bufsize, "playback")) < 0)
+    {
+        printf("Unable to set sw parameters for playback stream: %s\n", snd_strerror(err));
+        return err;
+    }
+    if ((err = setparams_bufsize(chandle, c_params, ct_params, *bufsize, "capture")) < 0)
+    {
+        printf("Unable to set sw parameters for playback stream: %s\n", snd_strerror(err));
+        return err;
+    }
+
+    snd_pcm_hw_params_get_period_size(p_params, &p_psize, NULL);
+    if (p_psize > (unsigned int)*bufsize)
+        *bufsize = p_psize;
+    snd_pcm_hw_params_get_period_size(c_params, &c_psize, NULL);
+    if (c_psize > (unsigned int)*bufsize)
+        *bufsize = c_psize;
+    snd_pcm_hw_params_get_period_time(p_params, &p_time, NULL);
+    snd_pcm_hw_params_get_period_time(c_params, &c_time, NULL);
+    if (p_time != c_time)
+        goto __again;
+
+    if((*bufsize)%L_PCM_USE!=0)
+    {
+        *bufsize=((int)(((*bufsize)+L_PCM_USE-1)/L_PCM_USE))*L_PCM_USE;
+        last_bufsize=*bufsize;
+        goto __again;
+    }
+
+    snd_pcm_uframes_t p_size , c_size;
+    snd_pcm_hw_params_get_buffer_size(p_params, &p_size);
+    snd_pcm_hw_params_get_buffer_size(c_params, &c_size);
+
+    chunk_size=*bufsize;
+    chunk_bytes=(*bufsize)*bits_per_frame/8;
+    if ((err = setparams_set(phandle, p_params, p_swparams, "playback")) < 0)
+    {
+        printf("Unable to set sw parameters for playback stream: %s\n", snd_strerror(err));
+        return err;
+    }
+    if ((err = setparams_set(chandle, c_params, c_swparams, "capture")) < 0)
+    {
+        printf("Unable to set sw parameters for playback stream: %s\n", snd_strerror(err));
+        return err;
+    }
+    return 0;
+}
 
 /* I/O suspend handler */
 static int  xrun(snd_pcm_t*handle)
@@ -593,37 +634,46 @@ static int  xrun(snd_pcm_t*handle)
     snd_pcm_status_t *status;
     int res;
     snd_pcm_status_alloca(&status);
-    if ((res = snd_pcm_status(handle, status))<0) {
+    if ((res = snd_pcm_status(handle, status))<0)
+    {
         printf("status error: %s\n", snd_strerror(res));
         return -1;
     }
-    if (snd_pcm_status_get_state(status) == SND_PCM_STATE_XRUN) {
-        if (monotonic) {
+    if (snd_pcm_status_get_state(status) == SND_PCM_STATE_XRUN)
+    {
+        if (monotonic)
+        {
             struct timespec now, diff, tstamp;
             clock_gettime(CLOCK_MONOTONIC, &now);
             snd_pcm_status_get_trigger_htstamp(status, &tstamp);
             timermsub(&now, &tstamp, &diff);
             fprintf(stderr, "overrun or underrun!!! (at least %.3f ms long)\n",
-                diff.tv_sec * 1000 + diff.tv_nsec / 10000000.0);
-        } else {
+                    diff.tv_sec * 1000 + diff.tv_nsec / 10000000.0);
+        }
+        else
+        {
             struct timeval now, diff, tstamp;
             gettimeofday(&now, 0);
             snd_pcm_status_get_trigger_tstamp(status, &tstamp);
             timersub(&now, &tstamp, &diff);
             fprintf(stderr, "overrun or underrun!!! (at least %.3f ms long)\n",
-                diff.tv_sec * 1000 + diff.tv_usec / 1000.0);
+                    diff.tv_sec * 1000 + diff.tv_usec / 1000.0);
         }
-        if ((res = snd_pcm_prepare(handle))<0) {
+        if ((res = snd_pcm_prepare(handle))<0)
+        {
             printf("xrun: prepare error: %s\n", snd_strerror(res));
             return -1;
         }
         return 0 ;        /* ok, data should be accepted again */
-    } 
-    if (snd_pcm_status_get_state(status) == SND_PCM_STATE_DRAINING) {
+    }
+    if (snd_pcm_status_get_state(status) == SND_PCM_STATE_DRAINING)
+    {
         printf("Status(DRAINING)!\n");
-        if (capture_tid==pthread_self()) {
+        if (capture_tid==pthread_self())
+        {
             printf("capture stream format change? attempting recover...\n");
-            if ((res = snd_pcm_prepare(handle))<0) {
+            if ((res = snd_pcm_prepare(handle))<0)
+            {
                 printf("xrun(DRAINING): prepare error: %s\n", snd_strerror(res));
                 return -1;
             }
@@ -661,9 +711,11 @@ static int suspend(snd_pcm_t*handle)
     int res;
     while ((res = snd_pcm_resume(handle)) == -EAGAIN)
         sleep(1);    /* wait until suspend flag is released */
-    if (res < 0) {
+    if (res < 0)
+    {
         printf("Failed. Restarting stream. \n");
-        if ((res = snd_pcm_prepare(handle)) < 0) {
+        if ((res = snd_pcm_prepare(handle)) < 0)
+        {
             printf("suspend: prepare error: %s\n", snd_strerror(res));
             return -1;
         }
@@ -677,28 +729,38 @@ static ssize_t pcm_write(u_char *data, size_t count)
     ssize_t r;
     ssize_t result = 0;
 
-    if (count <chunk_size) {
-        snd_pcm_format_set_silence(format, 
-            data + count *bits_per_frame / 8,
-            (chunk_size - count) * channels);
+    if (count <chunk_size)
+    {
+        snd_pcm_format_set_silence(format,
+                                   data + count *bits_per_frame / 8,
+                                   (chunk_size - count) * channels);
         count = chunk_size;
     }
-    while (count > 0) {
+    while (count > 0)
+    {
         r = snd_pcm_writei(playback_handle, data, count);
-        if (r == -EAGAIN || (r >= 0 && (size_t)r < count)) {
+        if (r == -EAGAIN || (r >= 0 && (size_t)r < count))
+        {
             snd_pcm_wait(playback_handle, 100);
-        } else if (r == -EPIPE) {
+        }
+        else if (r == -EPIPE)
+        {
             printf("pcm_write under run\n");
             if(xrun(playback_handle)<0)
                 return -1;
-        } else if (r == -ESTRPIPE) {
+        }
+        else if (r == -ESTRPIPE)
+        {
             if(suspend(playback_handle)<0)
                 return -1;
-        } else if (r < 0) {
+        }
+        else if (r < 0)
+        {
             printf("write error: %s\n", snd_strerror(r));
             return -1;
         }
-        if (r > 0) {
+        if (r > 0)
+        {
             result += r;
             count -= r;
             data += r *(bits_per_frame / 8);
@@ -713,36 +775,47 @@ static ssize_t pcm_read(u_char *data, size_t rcount)
     size_t result = 0;
     size_t count = rcount;
 
-    if (count != chunk_size) {
+    if (count != chunk_size)
+    {
         printf("pcm_read rcount do not equal chunk_size\n");
         count = chunk_size;
     }
-    while (count > 0) {
+    while (count > 0)
+    {
         r = snd_pcm_readi(capture_handle, data, count);
-        if (r == -EAGAIN || (r >= 0 && (size_t)r < count)) {
+        if (r == -EAGAIN || (r >= 0 && (size_t)r < count))
+        {
             snd_pcm_wait(capture_handle, 100);
-        } else if (r == -EPIPE) {
+        }
+        else if (r == -EPIPE)
+        {
             printf("pcm_read over run\n");
             if(xrun(capture_handle)<0)
                 return -1;
             //increase_video_thread_sleep_time();
-        } else if (r == -ESTRPIPE) {
+        }
+        else if (r == -ESTRPIPE)
+        {
             if(suspend(capture_handle)<0)
                 return -1;
-        } else if (r < 0) {
-        //for debuf
+        }
+        else if (r < 0)
+        {
+            //for debuf
             snd_pcm_status_t *status;
             int res;
             snd_pcm_status_alloca(&status);
             printf("read error: %s\n", snd_strerror(r));
-            if ((res = snd_pcm_status(capture_handle, status))<0) {
+            if ((res = snd_pcm_status(capture_handle, status))<0)
+            {
                 printf("status error: %s\n", snd_strerror(res));
                 return -1;
             }
             printf("state=%s\n",snd_pcm_state_name(snd_pcm_status_get_state(status)));
             return -1;
         }
-        if (r > 0) {
+        if (r > 0)
+        {
             result += r;
             count -= r;
             data += r *(bits_per_frame / 8);
@@ -817,7 +890,7 @@ int init_and_start_sound()
     if(open_snd()<0)
         return -1;
     if (setparams(playback_handle, capture_handle, &latency) < 0)
-            goto __error;
+        goto __error;
 
     chunk_size = latency;
     chunk_bytes = latency * bits_per_frame / 8;
@@ -826,14 +899,14 @@ int init_and_start_sound()
     capture_buffer = (char *)malloc(chunk_bytes);
     near_end_buffer = circular_init(chunk_bytes * 256, chunk_bytes);
     echo_buffer = circular_init(chunk_bytes * 256, chunk_bytes);
-      if(!playback_buffer || !capture_buffer||!near_end_buffer)
-      {
-          printf("cannot malloc buffer for playback and capture\n");
+    if(!playback_buffer || !capture_buffer||!near_end_buffer)
+    {
+        printf("cannot malloc buffer for playback and capture\n");
         goto __error;
-      }
+    }
 
     if(init_syn_buffer()<0||init_playback_buffer()<0)
-        goto __error;        
+        goto __error;
 
     int sample_rate = 8000;
     printf("### period_frames %li\n", period_frames);
@@ -882,13 +955,13 @@ __error:
 static int put_play_sound_data(int sess_id, char *buf, int len)
 {
     while (p_sound_buf.p_sound_array[sess_id].datalen >=
-           p_sound_buf.p_sound_array[sess_id].maxlen)
+            p_sound_buf.p_sound_array[sess_id].maxlen)
     {
         usleep(1000);
     }
 
     if (len + p_sound_buf.p_sound_array[sess_id].datalen >
-        p_sound_buf.p_sound_array[sess_id].maxlen)
+            p_sound_buf.p_sound_array[sess_id].maxlen)
     {
         len = p_sound_buf.p_sound_array[sess_id].maxlen -
               p_sound_buf.p_sound_array[sess_id].datalen;
@@ -977,7 +1050,7 @@ int start_audio_monitor(struct sess_ctx*sess)
     int attempts = 0;
     int sock = sess->sc->audio_socket;
     sess->ucount ++;
-        
+
     start_buf = (char *)malloc(BOOT_SOUND_STORE_SIZE *2);
     if (!start_buf)
     {
@@ -990,7 +1063,7 @@ int start_audio_monitor(struct sess_ctx*sess)
 
     set_syn_sound_data_clean(sess->id);
 
-     /*prepare 3sec sound data before send*/
+    /*prepare 3sec sound data before send*/
     s = 0;
     while (s < BOOT_SOUND_STORE_SIZE)
     {
@@ -1128,7 +1201,8 @@ static inline int encode_and_syn_data(CHP_U32 bl_handle,
 {
     CHP_RTN_T error_flag;
     error_flag = amrnb_encode(bl_handle, p_enc_data);
-    if(error_flag == CHP_RTN_AUD_ENC_FAIL || error_flag == CHP_RTN_AUD_ENC_NEED_MORE_DATA){
+    if(error_flag == CHP_RTN_AUD_ENC_FAIL || error_flag == CHP_RTN_AUD_ENC_NEED_MORE_DATA)
+    {
         printf("###########amr encode fail##################\n");
         return -1;
     }
@@ -1232,14 +1306,14 @@ static void *aec(void *arg)
             if (aec_start)
             {
                 if (!circular_empty(near_end_buffer) &&
-                    !circular_empty(echo_buffer))
+                        !circular_empty(echo_buffer))
                 {
                     speex_echo_cancellation(echo_state,
-                        (spx_int16_t *)near_end_buffer->first,
-                        (spx_int16_t *)echo_buffer->first,
-                        (spx_int16_t *)enc_data.p_in_buf);
+                                            (spx_int16_t *)near_end_buffer->first,
+                                            (spx_int16_t *)echo_buffer->first,
+                                            (spx_int16_t *)enc_data.p_in_buf);
                     speex_preprocess_run(echo_pp,
-                        (spx_int16_t *)enc_data.p_in_buf);
+                                         (spx_int16_t *)enc_data.p_in_buf);
 
                     circular_consume(near_end_buffer);
                     pthread_mutex_unlock(&drop_pcm_lock );

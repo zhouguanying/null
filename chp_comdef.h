@@ -19,28 +19,28 @@
 /*Return value type of functions*/
 #define CHP_RTN_T	unsigned int
 
-enum 
-{ 
-	CHP_RTN_SUCCESS,
-	CHP_RTN_MEM_INIT_FAIL,
-	CHP_RTN_MEM_MALLOC_FAIL
+enum
+{
+    CHP_RTN_SUCCESS,
+    CHP_RTN_MEM_INIT_FAIL,
+    CHP_RTN_MEM_MALLOC_FAIL
 };
 
 
 
 typedef void *(*CHP_MALLOC_FUNC)(CHP_U32);
-typedef void (*CHP_FREE_FUNC)(void *); 
+typedef void (*CHP_FREE_FUNC)(void *);
 typedef void *(*CHP_MEMSET)(void *, CHP_32 c, CHP_U32);
 typedef void *(*CHP_MEMCPY)(void *, const void *, CHP_U32);
 
 
 typedef struct
 {
-	CHP_MALLOC_FUNC 	chp_malloc;
-	CHP_FREE_FUNC 		chp_free;
-	CHP_MEMSET			chp_memset;
-	CHP_MEMCPY			chp_memcpy;
-}CHP_MEM_FUNC_T;
+    CHP_MALLOC_FUNC 	chp_malloc;
+    CHP_FREE_FUNC 		chp_free;
+    CHP_MEMSET			chp_memset;
+    CHP_MEMCPY			chp_memcpy;
+} CHP_MEM_FUNC_T;
 
 
 
@@ -55,7 +55,7 @@ typedef struct
 /*switch little endian long to local endian long, x is a char pointer*/
 #define PLE32TOCPU(X)   ((CHP_U32)(*(X+3))<<24 | (CHP_U32)(*(X+2))<<16 \
 		             | (CHP_U32)(*(X+1))<<8 | *(X))
-		             
+
 /*switch little endian short to local endian short, x is a char pointer*/
 #define PLE16TOCPU(X)   ((CHP_U16)(*(X+1))<<8 | *(X))
 

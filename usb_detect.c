@@ -2,8 +2,8 @@
 #include     <stdlib.h>     /*标准函数库定义*/
 #include     <unistd.h>     /*Unix 标准函数定义*/
 #include     <sys/ioctl.h>
-#include     <sys/types.h>  
-#include     <sys/stat.h>   
+#include     <sys/types.h>
+#include     <sys/stat.h>
 #include     <fcntl.h>      /*文件控制定义*/
 #include     <termios.h>    /*PPSIX 终端控制定义*/
 #include     <errno.h>      /*错误号定义*/
@@ -22,46 +22,53 @@ static	int 	fd=-1;
 
 int	open_usbdet(void)
 {
-	//fd = open(dev, O_RDWR | O_NOCTTY ); 
-	
-	fd = open(USBDET_DEV_NAME, O_RDWR);				//| O_NOCTTY | O_NDELAY这种方式看open函数
-	if (fd == -1)	{
-		printf("Can't Open USBDET	\n");
-		return -1;
-	} else {
-		fcntl(fd , F_SETFD , 1); //close on exec
-		return	0;
-	}
+    //fd = open(dev, O_RDWR | O_NOCTTY );
+
+    fd = open(USBDET_DEV_NAME, O_RDWR);				//| O_NOCTTY | O_NDELAY这种方式看open函数
+    if (fd == -1)
+    {
+        printf("Can't Open USBDET	\n");
+        return -1;
+    }
+    else
+    {
+        fcntl(fd , F_SETFD , 1); //close on exec
+        return	0;
+    }
 }
 
 int	ioctl_usbdet_read(void)
 {
-	int	ret;
+    int	ret;
 
-	if(-1==fd)	{
-		if( open_usbdet() )	{
-			return -1;
-		}
-	}
+    if(-1==fd)
+    {
+        if( open_usbdet() )
+        {
+            return -1;
+        }
+    }
 
-	ret = ioctl(fd,IOCTL_USBDET_READ,0);
+    ret = ioctl(fd,IOCTL_USBDET_READ,0);
 
-	return	ret;
+    return	ret;
 }
 
 int	ioctl_usbdet_led(int led)
 {
-	int	ret;
+    int	ret;
 
-	if(-1==fd)	{
-		if( open_usbdet() )	{
-			return -1;
-		}
-	}
+    if(-1==fd)
+    {
+        if( open_usbdet() )
+        {
+            return -1;
+        }
+    }
 
-	ret = ioctl(fd,IOCTL_USBDET_LED_DRIVE,led);
+    ret = ioctl(fd,IOCTL_USBDET_LED_DRIVE,led);
 
-	return	ret;
+    return	ret;
 }
 
 //----------------------------------------------------------------------------

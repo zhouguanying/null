@@ -15,38 +15,39 @@
 #define V4L2_CID_PANTILT_RELATIVE	(V4L2_CID_PRIVATE_BASE+7)
 #define V4L2_CID_PANTILT_RESET		(V4L2_CID_PRIVATE_BASE+8)
 
-struct vdIn {
-  pthread_mutex_t vd_data_lock;
-  int fd;
-  char *videodevice;
-  char *status;
-  char *pictName;
-  struct v4l2_capability cap;
-  struct v4l2_format fmt;
-  struct v4l2_buffer buf;
-  struct v4l2_requestbuffers rb;
-  void *mem[NB_BUFFER];
-  pthread_mutex_t tmpbufflock;
-  pthread_t hrb_tid[MAX_CONNECTIONS];
- // char buffinvalue;
-  unsigned char *tmpbuffer;
-  unsigned char *framebuffer;
-  int isstreaming;
-  int grabmethod;
-  int width;
-  int height;
-  int formatIn;
-  int formatOut;
-  int framesizeIn;
-  int signalquit;
-  int toggleAvi;
-  int getPict;
+struct vdIn
+{
+    pthread_mutex_t vd_data_lock;
+    int fd;
+    char *videodevice;
+    char *status;
+    char *pictName;
+    struct v4l2_capability cap;
+    struct v4l2_format fmt;
+    struct v4l2_buffer buf;
+    struct v4l2_requestbuffers rb;
+    void *mem[NB_BUFFER];
+    pthread_mutex_t tmpbufflock;
+    pthread_t hrb_tid[MAX_CONNECTIONS];
+// char buffinvalue;
+    unsigned char *tmpbuffer;
+    unsigned char *framebuffer;
+    int isstreaming;
+    int grabmethod;
+    int width;
+    int height;
+    int formatIn;
+    int formatOut;
+    int framesizeIn;
+    int signalquit;
+    int toggleAvi;
+    int getPict;
 
 };
 
 int
-  init_videoIn (struct vdIn *vd, char *device, int width, int height,
-		int format, int grabmethod);
+init_videoIn (struct vdIn *vd, char *device, int width, int height,
+              int format, int grabmethod);
 int uvcGrab (struct vdIn *vd);
 int close_v4l2 (struct vdIn *vd);
 

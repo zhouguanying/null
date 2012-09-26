@@ -68,7 +68,7 @@
 #define CFG_VALUE_NORMAL				 "normal"
 #define CFG_VALUE_INTELLIGENT			 "inteligent"
 
-/*this file mark if this kernel is a encryption kernel or no encryption kernel 
+/*this file mark if this kernel is a encryption kernel or no encryption kernel
 *encryption kernel if this file exist , otherwise no encryption kernel
 */
 #define ENCRYPTION_FILE_PATH 	"/encryption"

@@ -29,6 +29,6 @@ int get_dns(char  *dns1 , char *dns2);
 int set_dns(char  *dns1 , char *dns2);
 int config_wifi();
 int get_netlink_status(const char *if_name);
- char * scan_wifi(int *len);
+char * scan_wifi(int *len);
 void * network_thread(void * arg);
 #endif

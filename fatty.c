@@ -41,11 +41,11 @@ uint16_t *fat16_buffer;
 uint32_t *fat32_buffer;
 uint32_t  fat_buffer_size;
 
- int get_sdcard_size()
+int get_sdcard_size()
 {
-	uint64_t bytes = ((uint64_t)bytes_per_sector)*((uint64_t)total_logical_sectors);
-	//Log("bytes  = %llu , bytes_per_sector = %d , total_logical_sectors = %u \n",bytes,bytes_per_sector , total_logical_sectors);
-	return (int)(bytes>>20);
+    uint64_t bytes = ((uint64_t)bytes_per_sector)*((uint64_t)total_logical_sectors);
+    //Log("bytes  = %llu , bytes_per_sector = %d , total_logical_sectors = %u \n",bytes,bytes_per_sector , total_logical_sectors);
+    return (int)(bytes>>20);
 }
 
 uint32_t sector_of_cluster(uint32_t cluster_number)
@@ -89,20 +89,21 @@ void entry_write_16(off_t     offset,
                     uint16_t  cluster,
                     uint32_t  size)
 {
-    uint8_t entry[32] = {
+    uint8_t entry[32] =
+    {
         0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, // filename
         0x20, 0x20, 0x20,      // extention
         0x10,                  // 00010000, bit is set for directory
-         0x0,                  // reserved for NT
-         0x0,                  // creation ms
-         0x0,  0x0,            // creation time
-         0x0,  0x0,            // creation date
-         0x0,  0x0,            // last access date
-         0x0,  0x0,            // reserved for 32
-         0x0,  0x0,            // last write time
-         0x0,  0x0,            // last write date
-         0x0,  0x0,            // starting cluster
-         0x0,  0x0,  0x0,  0x0 // filesize
+        0x0,                  // reserved for NT
+        0x0,                  // creation ms
+        0x0,  0x0,            // creation time
+        0x0,  0x0,            // creation date
+        0x0,  0x0,            // last access date
+        0x0,  0x0,            // reserved for 32
+        0x0,  0x0,            // last write time
+        0x0,  0x0,            // last write date
+        0x0,  0x0,            // starting cluster
+        0x0,  0x0,  0x0,  0x0 // filesize
     };
     size_t len = strlen(name);
     assert(len >= 1 && len <= 8);
@@ -124,20 +125,21 @@ void entry_write_32(off_t     offset,
                     uint32_t  cluster,
                     uint32_t  size)
 {
-    uint8_t entry[32] = {
+    uint8_t entry[32] =
+    {
         0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, // filename
         0x20, 0x20, 0x20,      // extention
         0x10,                  // 00010000, bit is set for directory
-         0x0,                  // reserved for NT
-         0x0,                  // creation ms
-         0x0,  0x0,            // creation time
-         0x0,  0x0,            // creation date
-         0x0,  0x0,            // last access date
-         0x0,  0x0,            // reserved for 32
-         0x0,  0x0,            // last write time
-         0x0,  0x0,            // last write date
-         0x0,  0x0,            // starting cluster
-         0x0,  0x0,  0x0,  0x0 // filesize
+        0x0,                  // reserved for NT
+        0x0,                  // creation ms
+        0x0,  0x0,            // creation time
+        0x0,  0x0,            // creation date
+        0x0,  0x0,            // last access date
+        0x0,  0x0,            // reserved for 32
+        0x0,  0x0,            // last write time
+        0x0,  0x0,            // last write date
+        0x0,  0x0,            // starting cluster
+        0x0,  0x0,  0x0,  0x0 // filesize
     };
     size_t len = strlen(name);
     assert(len >= 1 && len <= 8);
@@ -166,7 +168,7 @@ int fat_find_free_cluster_16(off_t    start_offset,
     assert((start_offset - fat_begin_sector*bytes_per_sector) % 2 == 0);
 
     if (start_offset + fat_buffer_size >
-       (fat_begin_sector * bytes_per_sector + (max_fat_entries + 2) * 2))
+            (fat_begin_sector * bytes_per_sector + (max_fat_entries + 2) * 2))
     {
         Log("Warning (harmless): no free clusters available\n");
         return 0;
@@ -197,8 +199,8 @@ find:
         offset += fat_buffer_size;
 
         if (offset + fat_buffer_size >
-           (fat_begin_sector * bytes_per_sector +
-           (max_fat_entries + 2) * 2))
+                (fat_begin_sector * bytes_per_sector +
+                 (max_fat_entries + 2) * 2))
         {
             Log("Warning (harmless): no free clusters available\n");
             return 0;
@@ -222,7 +224,7 @@ int fat_find_free_cluster_32(off_t    start_offset,
     assert((start_offset - fat_begin_sector*bytes_per_sector) % 4 == 0);
 
     if (start_offset + fat_buffer_size >
-       (fat_begin_sector * bytes_per_sector + (max_fat_entries + 2) * 4))
+            (fat_begin_sector * bytes_per_sector + (max_fat_entries + 2) * 4))
     {
         Log("Warning (harmless): no free clusters available\n");
         return 0;
@@ -253,8 +255,8 @@ find:
         offset += fat_buffer_size;
 
         if (offset + fat_buffer_size >
-           (fat_begin_sector * bytes_per_sector +
-           (max_fat_entries + 2) * 4))
+                (fat_begin_sector * bytes_per_sector +
+                 (max_fat_entries + 2) * 4))
         {
             Log("Warning (harmless): no free clusters available\n");
             return 0;
@@ -291,7 +293,7 @@ int check_ipcam_dir_16(uint16_t  max_root_entries,
                       sizeof(uint16_t));
 
             if (!strcasecmp(filename, "IPCAM   ") &&
-                *ipcam_begin_cluster >= 2)
+                    *ipcam_begin_cluster >= 2)
             {
                 Log("\n==> IPCAM exists\n");
                 return 1;
@@ -316,7 +318,7 @@ int check_ipcam_dir_32(uint32_t  sectors_per_fat,
 
 check:
     offset = (uint64_t) sector_of_cluster(next_cluster) *
-                        bytes_per_sector;
+             bytes_per_sector;
     for (i = 0; i < max_dir_entries; i++)
     {
         seek_read(offset, dir_entry, sizeof dir_entry);
@@ -329,11 +331,11 @@ check:
             seek_read(offset + 0x1A, ipcam_begin_cluster,
                       sizeof(uint16_t));
             seek_read(offset + 0x14, // high two bytes
-                     ((uint16_t *)ipcam_begin_cluster + 1),
-                     sizeof(uint16_t));
+                      ((uint16_t *)ipcam_begin_cluster + 1),
+                      sizeof(uint16_t));
 
             if (!strcasecmp(filename, "IPCAM   ") &&
-                *ipcam_begin_cluster >= 2)
+                    *ipcam_begin_cluster >= 2)
             {
                 Log("\n==> IPCAM exists\n");
                 return 1;
@@ -347,7 +349,7 @@ check:
     {
         // look up FAT for the next cluster of the directory
         offset = (uint64_t) fat_begin_sector * bytes_per_sector +
-                            next_cluster * 4;
+                 next_cluster * 4;
         seek_read(offset, &next_cluster, sizeof next_cluster);
         goto check;
     }
@@ -371,7 +373,7 @@ void read_ipcam_dir_16(char *max_filename, uint16_t ipcam_begin_cluster)
 
 read:
     offset = (uint64_t) sector_of_cluster(next_cluster) *
-                        bytes_per_sector;
+             bytes_per_sector;
     for (i = 0; i < max_dir_entries; i++)
     {
         s = seek_read(offset, dir_entry, sizeof dir_entry);
@@ -402,7 +404,7 @@ read:
     {
         // look up FAT for the next cluster of the directory
         offset = (uint64_t) fat_begin_sector * bytes_per_sector +
-                            next_cluster * 2;
+                 next_cluster * 2;
         seek_read(offset, &next_cluster, sizeof next_cluster);
         goto read;
     }
@@ -427,7 +429,7 @@ void read_ipcam_dir_32(char *max_filename, uint32_t ipcam_begin_cluster)
 
 read:
     offset = (uint64_t) sector_of_cluster(next_cluster) *
-                        bytes_per_sector;
+             bytes_per_sector;
     for (i = 0; i < max_dir_entries; i++)
     {
         s = seek_read(offset, dir_entry, sizeof dir_entry);
@@ -441,7 +443,7 @@ read:
             filename[8] = '\0';
             seek_read(offset + 0x1A, &cluster, sizeof(uint16_t));
             seek_read(offset + 0x14, // high two bytes
-                     ((uint16_t *)&cluster + 1), sizeof(uint16_t));
+                      ((uint16_t *)&cluster + 1), sizeof(uint16_t));
             seek_read(offset + 0x1C, &file_size, sizeof file_size);
 
             // yes, strcmp can do this!
@@ -460,7 +462,7 @@ read:
     {
         // look up FAT for the next cluster of the directory
         offset = (uint64_t) fat_begin_sector * bytes_per_sector +
-                            next_cluster * 4;
+                 next_cluster * 4;
         seek_read(offset, &next_cluster, sizeof next_cluster);
         goto read;
     }
@@ -484,7 +486,7 @@ int write_ipcam_dir_16(uint16_t max_root_entries,
 
     // find the free cluster to place the "IPCAM" directory
     cluster_free = fat_find_free_cluster_16(
-                   fat_begin_sector * bytes_per_sector, sectors_per_fat);
+                       fat_begin_sector * bytes_per_sector, sectors_per_fat);
     if (cluster_free == 0)
         goto end;
 
@@ -494,7 +496,7 @@ int write_ipcam_dir_16(uint16_t max_root_entries,
     {
         seek_read(offset, dir_entry, sizeof dir_entry);
         if (dir_entry[0] == 0x0 || dir_entry[0] == 0xE5 ||
-            dir_entry[0] == 0x05)
+                dir_entry[0] == 0x05)
         {
             entry_write_16(offset, "IPCAM", cluster_free, 0);
             break;
@@ -511,7 +513,7 @@ int write_ipcam_dir_16(uint16_t max_root_entries,
     // sub-directories are created by allocating a cluster which
     // then are cleared so it doesn't contain any directory entries
     offset = (uint64_t) sector_of_cluster(cluster_free) *
-                        bytes_per_sector;
+             bytes_per_sector;
     seek_write(offset, cluster_zero, bytes_per_cluster);
 
     // write the "." ".." special entry in the "IPCAM" directory
@@ -539,19 +541,19 @@ int write_ipcam_dir_32(uint32_t sectors_per_fat,
 
     // free cluster for "IPCAM"
     cluster_free = fat_find_free_cluster_32(
-                   fat_begin_sector * bytes_per_sector, sectors_per_fat);
+                       fat_begin_sector * bytes_per_sector, sectors_per_fat);
     if (cluster_free == 0)
         goto end;
 
 write:
     // write the "IPCAM" in root directory
     offset = (uint64_t) sector_of_cluster(next_cluster) *
-                        bytes_per_sector;
+             bytes_per_sector;
     for (i = 0; i < max_dir_entries; i++)
     {
         seek_read(offset, dir_entry, sizeof dir_entry);
         if (dir_entry[0] == 0x0 || dir_entry[0] == 0xE5 ||
-            dir_entry[0] == 0x05)
+                dir_entry[0] == 0x05)
         {
             entry_write_32(offset, "IPCAM", cluster_free, 0);
             break;
@@ -563,20 +565,20 @@ write:
     if (i == max_dir_entries)
     {
         offset = (uint64_t) fat_begin_sector * bytes_per_sector +
-                            next_cluster * 4;
+                 next_cluster * 4;
         seek_read(offset, &next_cluster, sizeof next_cluster);
         if (next_cluster == 0xFFFFFFFF) // must expand root directory
         {
             next_cluster = fat_find_free_cluster_32(
-                           fat_begin_sector * bytes_per_sector,
-                           sectors_per_fat); // 0XFF
+                               fat_begin_sector * bytes_per_sector,
+                               sectors_per_fat); // 0XFF
             if (next_cluster == 0)
                 goto end;
 
             seek_write(offset, &next_cluster, sizeof next_cluster);
             // clear the new cluster
             offset = (uint64_t) sector_of_cluster(next_cluster) *
-                                bytes_per_sector;
+                     bytes_per_sector;
             seek_write(offset, cluster_zero, bytes_per_cluster);
         }
 
@@ -587,7 +589,7 @@ write:
     // sub-directories are created by allocating a cluster which
     // then are cleared so it doesn't contain any directory entries
     offset = (uint64_t) sector_of_cluster(cluster_free) *
-                        bytes_per_sector;
+             bytes_per_sector;
     seek_write(offset, cluster_zero, bytes_per_cluster);
 
     // write the "." ".." special entry in the "IPCAM" directory
@@ -627,7 +629,7 @@ void write_ipcam_file_16(uint16_t  sectors_per_fat,
     offset       = (int32_t) (fat_begin_sector * bytes_per_sector -
                               fat_buffer_size);
     offset_entry = (uint64_t) sector_of_cluster(next_cluster) *
-                              bytes_per_sector;
+                   bytes_per_sector;
 
     for (i = 0, j = 0; i < max_fat_entries + 2; i++)
     {
@@ -695,7 +697,7 @@ write_entry:
                 {
                     seek_read(offset_entry, dir_entry, sizeof dir_entry);
                     if (dir_entry[0] == 0x0 || dir_entry[0] == 0xE5 ||
-                        dir_entry[0] == 0x05)
+                            dir_entry[0] == 0x05)
                     {
                         Log("start_cluster: %i\n", start_cluster);
                         entry_write_16(offset_entry, filename,
@@ -727,8 +729,8 @@ write_entry:
                         // the current one is used by the file writing
                         // procedure, which will overwrite data on disk.
                         next_cluster = fat_find_free_cluster_16(
-                                       offset + fat_buffer_size,
-                                       sectors_per_fat); // 0XFF
+                                           offset + fat_buffer_size,
+                                           sectors_per_fat); // 0XFF
                         if (next_cluster == 0)
                             goto end;
 
@@ -736,10 +738,10 @@ write_entry:
                         // the current fat16_buffer, we must write into
                         // the buffer instead of the disk
                         if (offset_util >= offset &&
-                            offset_util <  offset + fat_buffer_size)
+                                offset_util <  offset + fat_buffer_size)
                         {
                             fat16_buffer[prev_next %
-                                (fat_buffer_size / 2)] = next_cluster;
+                                         (fat_buffer_size / 2)] = next_cluster;
                         }
                         else
                         {
@@ -779,11 +781,13 @@ end:
         uint16_t c = start_cluster;
         uint16_t p;
 
-        do {
+        do
+        {
             p = fat16_buffer[c % (fat_buffer_size / 2)];
             fat16_buffer[c % (fat_buffer_size / 2)] = 0;
             c = p;
-        } while (c != 0xFFFF);
+        }
+        while (c != 0xFFFF);
     }
 #endif
     seek_write(offset, fat16_buffer, fat_buffer_size);
@@ -812,12 +816,14 @@ end:
 
             if (i == c)
             {
-                do {
+                do
+                {
                     p = fat16_buffer[c % (fat_buffer_size / 2)];
                     fat16_buffer[c % (fat_buffer_size / 2)] = 0;
                     c = p;
-                } while (c < start + (fat_buffer_size / 2) &&
-                         c != 0xFFFF);
+                }
+                while (c < start + (fat_buffer_size / 2) &&
+                        c != 0xFFFF);
             }
         }
         // this is one tricky thing we keep forgetting
@@ -862,7 +868,7 @@ void write_ipcam_file_32(uint32_t  sectors_per_fat,
     offset       = (int32_t) (fat_begin_sector * bytes_per_sector -
                               fat_buffer_size);
     offset_entry = (uint64_t) sector_of_cluster(next_cluster) *
-                              bytes_per_sector;
+                   bytes_per_sector;
 
     for (i = 0, j = 0; i < max_fat_entries + 2; i++)
     {
@@ -930,7 +936,7 @@ write_entry:
                 {
                     seek_read(offset_entry, dir_entry, sizeof dir_entry);
                     if (dir_entry[0] == 0x0 || dir_entry[0] == 0xE5 ||
-                        dir_entry[0] == 0x05)
+                            dir_entry[0] == 0x05)
                     {
                         Log("start_cluster: %i - %s\n",
                             start_cluster, filename);
@@ -963,8 +969,8 @@ write_entry:
                         // the current one is used by the file writing
                         // procedure, which will overwrite data on disk.
                         next_cluster = fat_find_free_cluster_32(
-                                       offset + fat_buffer_size,
-                                       sectors_per_fat); // 0XFF
+                                           offset + fat_buffer_size,
+                                           sectors_per_fat); // 0XFF
                         if (next_cluster == 0)
                             goto end;
 
@@ -972,10 +978,10 @@ write_entry:
                         // the current fat32_buffer, we must write into
                         // the buffer instead of the disk
                         if (offset_util >= offset &&
-                            offset_util <  offset + fat_buffer_size)
+                                offset_util <  offset + fat_buffer_size)
                         {
                             fat32_buffer[prev_next %
-                                (fat_buffer_size / 4)] = next_cluster;
+                                         (fat_buffer_size / 4)] = next_cluster;
                         }
                         else
                         {
@@ -1019,11 +1025,13 @@ end:
         uint32_t c = start_cluster;
         uint32_t p;
 
-        do {
+        do
+        {
             p = fat32_buffer[c % (fat_buffer_size / 4)];
             fat32_buffer[c % (fat_buffer_size / 4)] = 0;
             c = p;
-        } while (c != 0xFFFFFFFF);
+        }
+        while (c != 0xFFFFFFFF);
     }
 #endif
     seek_write(offset, fat32_buffer, fat_buffer_size);
@@ -1052,12 +1060,14 @@ end:
 
             if (i == c)
             {
-                do {
+                do
+                {
                     p = fat32_buffer[c % (fat_buffer_size / 4)];
                     fat32_buffer[c % (fat_buffer_size / 4)] = 0;
                     c = p;
-                } while (c < start + (fat_buffer_size / 4) &&
-                         c != 0xFFFFFFFF);
+                }
+                while (c < start + (fat_buffer_size / 4) &&
+                        c != 0xFFFFFFFF);
             }
         }
         // this is one tricky thing we keep forgetting
@@ -1090,15 +1100,15 @@ void fat16(int mb)
     root_begin_sector    = partition_begin_sector + reserved_sector_num +
                            fat_num * sectors_per_fat;
     max_fat_entries      = (total_logical_sectors - reserved_sector_num -
-                           fat_num * sectors_per_fat -
-                           max_root_entries * 32 / bytes_per_sector) /
+                            fat_num * sectors_per_fat -
+                            max_root_entries * 32 / bytes_per_sector) /
                            sectors_per_cluster;
 
     // calculate the number of clusters needed by each file
     file_size            = 1024 * 1024 * mb;
     file_clusters        = (file_size % bytes_per_cluster) == 0 ?
-                            file_size / bytes_per_cluster :
-                            file_size / bytes_per_cluster + 1;
+                           file_size / bytes_per_cluster :
+                           file_size / bytes_per_cluster + 1;
 
     fat_buffer_size      = file_clusters * 2 * 4;
     fat16_buffer         = malloc(fat_buffer_size);
@@ -1124,7 +1134,7 @@ void fat16(int mb)
     else // write the "IPCAM" directory
     {
         ipcam_begin_cluster = write_ipcam_dir_16(max_root_entries,
-                                                 sectors_per_fat);
+                              sectors_per_fat);
         if (ipcam_begin_cluster == 0)
             goto end;
     }
@@ -1160,14 +1170,14 @@ void fat32(int mb)
                            fat_num * sectors_per_fat;
     root_begin_sector    = sector_of_cluster(root_begin_cluster);
     max_fat_entries      = (total_logical_sectors - reserved_sector_num -
-                           fat_num * sectors_per_fat) /
+                            fat_num * sectors_per_fat) /
                            sectors_per_cluster;
 
     // calculate the number of clusters needed by each file
     file_size            = 1024 * 1024 * mb;
     file_clusters        = (file_size % bytes_per_cluster) == 0 ?
-                            file_size / bytes_per_cluster :
-                            file_size / bytes_per_cluster + 1;
+                           file_size / bytes_per_cluster :
+                           file_size / bytes_per_cluster + 1;
 
     fat_buffer_size      = file_clusters * 4 * 4;
     fat32_buffer         = malloc(fat_buffer_size);
@@ -1194,7 +1204,7 @@ void fat32(int mb)
     else // write the "IPCAM" directory
     {
         ipcam_begin_cluster = write_ipcam_dir_32(sectors_per_fat,
-                                                 root_begin_cluster);
+                              root_begin_cluster);
         if (ipcam_begin_cluster == 0)
             goto end;
     }
@@ -1223,7 +1233,7 @@ int creat_record_file(int argc, char **argv)
     if (device_fd < 0)
     {
         Log("open() failed\n");
-	Log("dev name = %s\n",argv[2]);
+        Log("dev name = %s\n",argv[2]);
         return 1;
     }
 
@@ -1273,7 +1283,7 @@ int creat_record_file(int argc, char **argv)
     max_dir_entries   = bytes_per_cluster / 32;
 
     // This is a very dirty way to determine FAT type, as indicated by
-    // wikipedia: 
+    // wikipedia:
     //
     // This entry is meant for display purposes only and must not be
     // used by the operating system to identify the type of the file

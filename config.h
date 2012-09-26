@@ -12,7 +12,8 @@
  * @field_str: string value associated with field
  * @change_pending: Indicates param has changed
  */
-struct config_params  {
+struct config_params
+{
     char field_name[256];
     int field_len;
     int field_val;
@@ -24,14 +25,15 @@ struct config_params  {
  * video_config_params - video configuration parameters
  * @framerate: video frame rate
  * @bitrate: bitrate used by compressor
- * @resolution: capture device resolution 
+ * @resolution: capture device resolution
  * @gop: group of pictures format
- * @rotation_angle: output image rotation angle 
+ * @rotation_angle: output image rotation angle
  * @output_ration:
  * @mirror_angle: mirror angle
  * @name: camera name
  */
-struct video_config_params {
+struct video_config_params
+{
     struct config_params framerate;
     struct config_params bitrate;
     struct config_params compression;
@@ -49,11 +51,13 @@ struct video_config_params {
  * @io: input source or output destination
  * @sample_rate: rate at which audio is sampled
  * @sample_size: size at which audio is sampled
- * @buffer_size: audio buffer size 
+ * @buffer_size: audio buffer size
  * @full_duplex: full duplex operation supported
  */
-struct audio_config_params {
-    struct io {
+struct audio_config_params
+{
+    struct io
+    {
         struct config_params stereo;
         struct config_params io;
         struct config_params sample_rate;
@@ -110,7 +114,7 @@ int free_video_conf(struct video_config_params *conf);
 /**
  * video_params_changed - check if config params have changed
  * @conf: configuration params
- * Returns 1 on success or 0 
+ * Returns 1 on success or 0
  */
 int video_params_changed(struct video_config_params *conf);
 

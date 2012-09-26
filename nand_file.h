@@ -23,7 +23,7 @@
 
 #define MAX_FILE_COUNT		32000/(FILE_SEGMENT_SIZE/(1024*1024))	//32G at most now
 
-#define NAND_RECORD_FILE_SIZE		FILE_SEGMENT_SIZE		
+#define NAND_RECORD_FILE_SIZE		FILE_SEGMENT_SIZE
 #define NAND_RECORD_FILE_SECTOR_SIZE		( NAND_RECORD_FILE_SIZE / 512 )
 
 #define VS_MESSAGE_NEED_START_HEADER		7
@@ -49,46 +49,46 @@
 
 
 
-#pragma pack(1) 
+#pragma pack(1)
 typedef struct __nand_record_file_internal_header
 {
-	char head[5]; /*{0,0,0,1,0xc}*/
-	char flag[4];
-	char StartTimeStamp[14];
-	char FrameRateUs[8];
-	char FrameWidth[4];
-	char FrameHeight[4];
-}__attribute__((packed)) nand_record_file_internal_header;
+    char head[5]; /*{0,0,0,1,0xc}*/
+    char flag[4];
+    char StartTimeStamp[14];
+    char FrameRateUs[8];
+    char FrameWidth[4];
+    char FrameHeight[4];
+} __attribute__((packed)) nand_record_file_internal_header;
 typedef struct __index_table_item
 {
-	unsigned int location;
-}__attribute__((packed)) index_table_item_t;
+    unsigned int location;
+} __attribute__((packed)) index_table_item_t;
 typedef struct nand_record_file_header
 {
-	char head[5];
-	char PackageSequenceNumber[8];
-	char StartTimeStamp[14];
-	char LastTimeStamp[14];
-	char TotalPackageSize[8];
-	char FrameRateUs[8];
-	char FrameWidth[4];
-	char FrameHeight[4];
-}__attribute__((packed)) nand_record_file_header;
-#pragma pack() 
+    char head[5];
+    char PackageSequenceNumber[8];
+    char StartTimeStamp[14];
+    char LastTimeStamp[14];
+    char TotalPackageSize[8];
+    char FrameRateUs[8];
+    char FrameWidth[4];
+    char FrameHeight[4];
+} __attribute__((packed)) nand_record_file_header;
+#pragma pack()
 
 struct nand_write_request
 {
-	unsigned int  start;
-	unsigned int sector_num;
-	unsigned char* buf;
-	int erase;
+    unsigned int  start;
+    unsigned int sector_num;
+    unsigned char* buf;
+    int erase;
 };
 
 struct nand_cache
 {
-	unsigned char* buf;
-	int index;
-	int size;
+    unsigned char* buf;
+    int index;
+    int size;
 };
 
 extern char  *nand_shm_addr;

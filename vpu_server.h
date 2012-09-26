@@ -60,7 +60,7 @@
 #define 	VS_MESSAGE_DEBUG					23
 #define 	VS_MESSAGE_CLOSE_RECORD_FILE	24
 
- #define KERNAL_UPDATE_FILE   	"/tmp/kernel.update"
+#define KERNAL_UPDATE_FILE   	"/tmp/kernel.update"
 #define SYSTEM_UPDATE_FILE		"/tmp/system.update"
 
 #define VS_MESSAGE_NEED_START_HEADER		7
@@ -87,90 +87,90 @@ typedef struct _vs_instance vs_instance;
 
 typedef struct
 {
-	int replay_file_start_sectors;
-	int replay_file_seek_percent;
-	int sended_frames;
-	int v2ipd_to_client0_msg;
-	int v2ipd_to_v2ipd_msg;
-	int client0_to_v2ipd_msg;
-	int record_enabled;
-	int monitor_enabled;
-	int replay_enabled;
-	int total_buf_size;
-	int size;
-	int rd_ptr;
-	int wr_ptr;
-	char data[2];
-}vs_share_mem;
+    int replay_file_start_sectors;
+    int replay_file_seek_percent;
+    int sended_frames;
+    int v2ipd_to_client0_msg;
+    int v2ipd_to_v2ipd_msg;
+    int client0_to_v2ipd_msg;
+    int record_enabled;
+    int monitor_enabled;
+    int replay_enabled;
+    int total_buf_size;
+    int size;
+    int rd_ptr;
+    int wr_ptr;
+    char data[2];
+} vs_share_mem;
 
 typedef struct
 {
-	long msg_type;  //should always = FIFO_CONTRAL_MESSAGE_ID
-	char msg[2];
-}vs_ctl_message;
+    long msg_type;  //should always = FIFO_CONTRAL_MESSAGE_ID
+    char msg[2];
+} vs_ctl_message;
 
 typedef struct
 {
-	unsigned long rd;
-	unsigned long wr;
-	unsigned long consumed;
-	unsigned int size;
-}vs_ring_buffer;
+    unsigned long rd;
+    unsigned long wr;
+    unsigned long consumed;
+    unsigned int size;
+} vs_ring_buffer;
 
 #if 0
 typedef struct
 {
-	int index;
-	vpu_mem_desc desc;
-	FrameBuffer phy;
-	unsigned char* virt_server;
-	unsigned char* virt_client;
-	EncOutputInfo output_info;
-	int state;
-	int force_iframe;
+    int index;
+    vpu_mem_desc desc;
+    FrameBuffer phy;
+    unsigned char* virt_server;
+    unsigned char* virt_client;
+    EncOutputInfo output_info;
+    int state;
+    int force_iframe;
 
-	//the instance this frame belong to.
-	int instance;
+    //the instance this frame belong to.
+    int instance;
 
-	//unsigned char bitstream[1024*512];
-}vs_frame;
+    //unsigned char bitstream[1024*512];
+} vs_frame;
 
-typedef struct 
+typedef struct
 {
-	unsigned char buf[1024];
-	int size;
-	int headerType;
-}vs_header;
+    unsigned char buf[1024];
+    int size;
+    int headerType;
+} vs_header;
 
 struct _vs_instance
 {
-	int id;
-	EncHandle handle;
-	EncOpenParam open_param;
-	vpu_mem_desc bit_stream_buf;
-	vs_ring_buffer ring;
-	vs_frame frame[VS_FRAME_BUFFER_NUM];
-	vs_header header;
-	int owner;
+    int id;
+    EncHandle handle;
+    EncOpenParam open_param;
+    vpu_mem_desc bit_stream_buf;
+    vs_ring_buffer ring;
+    vs_frame frame[VS_FRAME_BUFFER_NUM];
+    vs_header header;
+    int owner;
 };
 
 typedef struct
 {
-	vs_instance* instance;
-	unsigned char* bitstream_buffer_virt;
-	int shm_handle;
-	void* shm_addr;
-	sem_t* sem;
-}vs_context;
+    vs_instance* instance;
+    unsigned char* bitstream_buffer_virt;
+    int shm_handle;
+    void* shm_addr;
+    sem_t* sem;
+} vs_context;
 #endif
 
-typedef struct 
+typedef struct
 {
-	int width;
-	int height;
-	int framerate;
-	int bitrate;
-}vs_record_parameter;
+    int width;
+    int height;
+    int framerate;
+    int bitrate;
+} vs_record_parameter;
 
 extern int daemon_msg_queue;
 extern int v2ipd_shm_id;
