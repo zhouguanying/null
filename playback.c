@@ -333,7 +333,7 @@ END:
 }
 /*
 |----------------------------------------------------------------------------------------------------------------------------------------------|
-|table1 data size 4B |table2 data size 4B|       table1 （max size..k）         |           table2   （max size..k）												     |
+|table1 data size 4B |table2 data size 4B|       table1 （max size..k）         |           table2   （max size..k）                                                     |
 |----------------------------------------------------------------------------------------------------------------------------------------------|
 |<-----------------------------------------------total size <=32*1024 bytes---------------------------------------------------------------------->|
 第一个表为属性改变时插入的内部头结构的位置，第二个表为每15秒图像写入文件
@@ -424,15 +424,15 @@ void send_raw_record_file(playback_t *pb)
     /*
     for(start_sector = pb->file , seek = 0; seek < NAND_RECORD_FILE_SECTOR_SIZE ; seek += PLAYBACK_SECTOR_NUM_ONE_READ)
     {
-    	req.buf = (unsigned char *)buf;
-    	req.sector_num = PLAYBACK_SECTOR_NUM_ONE_READ;
-    	req.start = start_sector + seek;
-    	if(read_file_segment(& req)<0){
-    		dbg("##############playback file end?#############\n");
-    		goto out;
-    	}
-    	if(playback_send_raw_data( socket,  pb, buf, PLAYBACK_SECTOR_NUM_ONE_READ * 512)<0)
-    		goto out ;
+        req.buf = (unsigned char *)buf;
+        req.sector_num = PLAYBACK_SECTOR_NUM_ONE_READ;
+        req.start = start_sector + seek;
+        if(read_file_segment(& req)<0){
+            dbg("##############playback file end?#############\n");
+            goto out;
+        }
+        if(playback_send_raw_data( socket,  pb, buf, PLAYBACK_SECTOR_NUM_ONE_READ * 512)<0)
+            goto out ;
     }
     */
     dbg("################ok the file send completely################\n");
@@ -464,9 +464,9 @@ void* playback_thread(void * arg)
     unsigned int reserve_seek;
     int socket;
     int end_wait_time;
-//	struct timeval old_send_time , currtime;
-//	unsigned long long timeuse;
-//	unsigned int snd_size;
+//    struct timeval old_send_time , currtime;
+//    unsigned long long timeuse;
+//    unsigned int snd_size;
     socket = pb->sess->sc->video_socket;
     pb->sess->ucount = 1;
     add_sess(pb->sess);
@@ -646,9 +646,9 @@ no_table:
                 gettimeofday(&currtime , NULL);
                 timeuse = (currtime.tv_sec - old_send_time.tv_sec)*1000000 + currtime.tv_usec -old_send_time.tv_usec;
                 if(timeuse >=1000000){
-                	dbg("send %u per sec\n",snd_size);
-                	snd_size = 0;
-                	memcpy(&old_send_time , &currtime , sizeof(struct timeval));
+                    dbg("send %u per sec\n",snd_size);
+                    snd_size = 0;
+                    memcpy(&old_send_time , &currtime , sizeof(struct timeval));
                 }
                 */
             }
@@ -711,7 +711,7 @@ __SEEK__:
                     memcpy(internal_header.head , file_header->head , sizeof(internal_header.head));
                     /*
                     internal_header.flag[0]  |=(1<<FLAG0_TS_CHANGED_BIT | 1<<FLAG0_FR_CHANGED_BIT |
-                    	1<<FLAG0_FW_CHANGED_BIT | 1<<FLAG0_FH_CHANGED_BIT);
+                        1<<FLAG0_FW_CHANGED_BIT | 1<<FLAG0_FH_CHANGED_BIT);
                     internal_header.flag[1] = 1;
                     */
                     internal_header.flag[0] = internal_header.flag[1] = internal_header.flag[2] = internal_header.flag[3] = 0xff;

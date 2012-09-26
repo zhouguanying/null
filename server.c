@@ -63,7 +63,7 @@ extern char *v2ipd_logfile;
         printf(__FILE__ ": %s: " fmt , __func__, ## args); \
     } while (0)
 #else
-#define dbg(fmt, args...)	do {} while (0)
+#define dbg(fmt, args...)    do {} while (0)
 #endif
 
 #undef AUDIO_SUPPORTED
@@ -121,7 +121,7 @@ static unsigned char do_update_flag = 0;
 
 pthread_mutex_t global_ctx_lock;
 struct sess_ctx *global_ctx_running_list=NULL; //each connection have a sesction
-int 	     		     currconnections=0;
+int                       currconnections=0;
 
 struct threadconfig threadcfg;  //we use this variable to control the the speed of record thread
 int msqid= -1;
@@ -134,7 +134,7 @@ int msqid= -1;
 pthread_mutex_t g_sess_id_mask_lock;
 char g_sess_id_mask[MAX_NUM_IDS];
 /*
-int 			     globalsocket=-1;
+int                  globalsocket=-1;
 we have wanted to  use this socket to listen,
 now we create a listen socket each set_transport_type
 then close it after we accpet.
@@ -264,7 +264,7 @@ void v2ipd_reboot_system()
     return;
 }
 
-void v2ipd_disable_write_nand()	// if disable_wirte_nand, means update is writing nand and will reboot the system right now
+void v2ipd_disable_write_nand()    // if disable_wirte_nand, means update is writing nand and will reboot the system right now
 {
     vs_ctl_message msg;
     msg.msg_type = VS_MESSAGE_ID;
@@ -726,7 +726,7 @@ static void daemonise(const char *pid_file)
         FILE *f = fopen(PID_FILE, "w");
         if (f != NULL)
         {
-//			fprintf(f, "%u\n", getpid()); /* Save pid to file */
+//            fprintf(f, "%u\n", getpid()); /* Save pid to file */
             fclose(f);
         }
     }
@@ -768,7 +768,7 @@ static int do_server(struct sess_ctx *sess)
     sess->soft_reset = 0; /* Clear soft reset condition */
 
     playback_init();
-//	monitor_init();
+//    monitor_init();
     //while (sess->running && !sess->soft_reset) {
     while(1)
     {
@@ -781,7 +781,7 @@ static int do_server(struct sess_ctx *sess)
                          &fromlen);
             /*
             printf("connection in, addr=0x%x, port=0x%d\n",
-            	   __func__, address.sin_addr.s_addr, address.sin_port);
+                   __func__, address.sin_addr.s_addr, address.sin_port);
                    */
             if(socket >= 0)
             {
@@ -790,7 +790,7 @@ static int do_server(struct sess_ctx *sess)
                 //conncect for playback firstly. if it fails, connect for monitor.
                 if(ret < 0)
                 {
-//					monitor_new(socket, address);
+//                    monitor_new(socket, address);
                     if(!sess->connected)
                     {
                         sess->connected = 1;
@@ -842,7 +842,7 @@ static void sig_handler(int signum)
     if (signum == SIGINT || signum == SIGIO)
     {
         exit(-1);
-//		kill_server(s);
+//        kill_server(s);
     }
     else if (signum == SIGPIPE)
     {
@@ -880,7 +880,7 @@ int monitor_main(int argc, char **argv)
     struct sched_param  mysched;
     char* argv_local[]=
     {
-//		"v2ipd","-C","-v","/etc/v2ipd/video.cfg",
+//        "v2ipd","-C","-v","/etc/v2ipd/video.cfg",
         "v2ipd","-C","-v","/tmp/video.cfg",
     };
 
@@ -926,7 +926,7 @@ int monitor_main(int argc, char **argv)
         }
     }
 //        dbg("v2ipd logfile:  %s, %s\n", __DATE__, __TIME__);
-//	dbg("\n\n\nStarting V2IPd (Voice/Video over IP) client/server daemon");
+//    dbg("\n\n\nStarting V2IPd (Voice/Video over IP) client/server daemon");
 
     /* Make this a real time process */
     mysched.sched_priority = sched_get_priority_max(SCHED_FIFO) - 1;
@@ -1043,7 +1043,7 @@ int monitor_main(int argc, char **argv)
 done:
 //  shmdt( v2ipd_shm_id ); // YYF: wrong
     shmdt( v2ipd_share_mem );
-//	msgctl(msg_queue_id, IPC_RMID, NULL);
+//    msgctl(msg_queue_id, IPC_RMID, NULL);
     free(video_conf);
     free(audio_conf);
     free_system_session(sess);
@@ -1268,7 +1268,7 @@ int do_net_update(void *arg)
     unsigned int system_f_size;
     unsigned int __kernal_f_size;
     unsigned int __system_f_size;
-    struct stat	st;
+    struct stat    st;
 
     add_sess( sess);
     take_sess_up( sess);
@@ -1665,10 +1665,10 @@ exit:
 
 /*record function set*/
 
-#define RECORD_STATE_STOP 	 	0
-#define RECORD_STATE_SLOW	 	1
-#define RECORD_STATE_FAST		2
-#define RECORD_STATE_NORMAL	3
+#define RECORD_STATE_STOP          0
+#define RECORD_STATE_SLOW         1
+#define RECORD_STATE_FAST        2
+#define RECORD_STATE_NORMAL    3
 //extern struct __syn_sound_buf syn_buf;
 static nand_record_file_header *record_header;
 static nand_record_file_internal_header video_internal_header=
@@ -1841,7 +1841,7 @@ int start_video_record(struct sess_ctx* sess)
     char * record_15sec_pos = NULL;
     unsigned int *attr_table_size ;
     unsigned int *record_15sec_table_size;
-    index_table_item_t	  table_item;
+    index_table_item_t      table_item;
     int pic_size[COMPARE_STEP];
     int size_count = 0;
     int pic_to_alarm = 0;
@@ -2346,7 +2346,7 @@ retry:
                 {
                     dbg("write pictures: %d\n",i);
                 }
-                //			dbg("write to nand=%d\n",size);
+                //            dbg("write to nand=%d\n",size);
             }
             else if( ret == VS_MESSAGE_NEED_START_HEADER )
             {

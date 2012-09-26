@@ -68,7 +68,7 @@ init_videoIn (struct vdIn *vd, char *device, int width, int height,
     if (width == 0 || height == 0)
         return -1;
     if (grabmethod < 0 || grabmethod > 1)
-        grabmethod = 1;		//mmap by default;
+        grabmethod = 1;        //mmap by default;
     vd->videodevice = NULL;
     vd->status = NULL;
     vd->pictName = NULL;

@@ -36,7 +36,7 @@ record_file_t* record_file_open(int start_sector)
         return 0;
     }
 
-//	file->fd = open("/dev/nand-user", O_RDWR);
+//    file->fd = open("/dev/nand-user", O_RDWR);
     file->fd = 0;
     if(file->fd < 0)
     {
@@ -45,13 +45,13 @@ record_file_t* record_file_open(int start_sector)
         return 0;
     }
 
-//	ioctl(file->fd, BLKGETSIZE, &partition_sector_num);
+//    ioctl(file->fd, BLKGETSIZE, &partition_sector_num);
     partition_sector_num = nand_get_sector_num();
 
     req.buf = buffer;
     req.start = start_sector;
     req.sector_num = 1;
-//	ioctl(file->fd, BLK_NAND_READ_DATA, &req);
+//    ioctl(file->fd, BLK_NAND_READ_DATA, &req);
     if(read_file_segment(&req)<0)
     {
         free(file);
@@ -69,7 +69,7 @@ record_file_t* record_file_open(int start_sector)
     req.buf = buffer;
     req.start = end_sector;
     req.sector_num = 1;
-//	ioctl(file->fd, BLK_NAND_READ_DATA, &req);
+//    ioctl(file->fd, BLK_NAND_READ_DATA, &req);
     if(read_file_segment(&req)<0)
     {
         free(file);
@@ -130,9 +130,9 @@ record_file_t* record_file_open(int start_sector)
 
 
 /*
-	return the real byte num that read.
-	if error, reture -1;
-	if get the end, return 0;
+    return the real byte num that read.
+    if error, reture -1;
+    if get the end, return 0;
 */
 int record_file_read(record_file_t* file, unsigned char* buf, int sector_num)
 {
@@ -160,7 +160,7 @@ int record_file_read(record_file_t* file, unsigned char* buf, int sector_num)
         req.buf = buf;
         req.start = file->cur_sector + file->start_sector;
         req.sector_num = sec_num_to_read;
-//		ioctl(file->fd, BLK_NAND_READ_DATA, &req);
+//        ioctl(file->fd, BLK_NAND_READ_DATA, &req);
         if(read_file_segment(&req)<0)
             return -1;
 
@@ -171,7 +171,7 @@ int record_file_read(record_file_t* file, unsigned char* buf, int sector_num)
 }
 
 /*
-	file size, in byte.
+    file size, in byte.
 */
 int record_file_get_size(record_file_t* file)
 {

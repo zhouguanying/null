@@ -3,7 +3,7 @@
 
 #include <linux/ioctl.h>
 
-#define BLKGETSIZE _IO(0x12,96)	/* return device size /512 (long *arg) */
+#define BLKGETSIZE _IO(0x12,96)    /* return device size /512 (long *arg) */
 #define BLK_NAND_WRITE_DATA _IO(0x12,120)
 #define BLK_NAND_READ_DATA _IO(0x12,121)
 
@@ -17,27 +17,27 @@
 #define NAND_BLOCK_SIZE 512*1024
 #endif
 
-#define SAVE_FILE_BLOCK_SIZE	(1024*1024)
-#define SAVE_FILE_BLOCK_COUNT 	200
-#define FILE_SEGMENT_SIZE		(SAVE_FILE_BLOCK_SIZE*SAVE_FILE_BLOCK_COUNT)
+#define SAVE_FILE_BLOCK_SIZE    (1024*1024)
+#define SAVE_FILE_BLOCK_COUNT     200
+#define FILE_SEGMENT_SIZE        (SAVE_FILE_BLOCK_SIZE*SAVE_FILE_BLOCK_COUNT)
 
-#define MAX_FILE_COUNT		32000/(FILE_SEGMENT_SIZE/(1024*1024))	//32G at most now
+#define MAX_FILE_COUNT        32000/(FILE_SEGMENT_SIZE/(1024*1024))    //32G at most now
 
-#define NAND_RECORD_FILE_SIZE		FILE_SEGMENT_SIZE
-#define NAND_RECORD_FILE_SECTOR_SIZE		( NAND_RECORD_FILE_SIZE / 512 )
+#define NAND_RECORD_FILE_SIZE        FILE_SEGMENT_SIZE
+#define NAND_RECORD_FILE_SECTOR_SIZE        ( NAND_RECORD_FILE_SIZE / 512 )
 
-#define VS_MESSAGE_NEED_START_HEADER		7
-#define VS_MESSAGE_NEED_END_HEADER			8
+#define VS_MESSAGE_NEED_START_HEADER        7
+#define VS_MESSAGE_NEED_END_HEADER            8
 
-#define INDEX_TABLE_SIZE		(32*1024)
+#define INDEX_TABLE_SIZE        (32*1024)
 // the location is from the end of file
-#define END_HEADER_LOCATION		(INDEX_TABLE_SIZE/512+1)
-#define INDEX_TABLE_LOCATION	(INDEX_TABLE_SIZE/512)
+#define END_HEADER_LOCATION        (INDEX_TABLE_SIZE/512+1)
+#define INDEX_TABLE_LOCATION    (INDEX_TABLE_SIZE/512)
 
 /*recorded files are saved in directory SAVE_FULL_PATH, looks like: RECORDXXXXXXXX.DAT*/
-#define SAVE_DISK	"/sdcard"
-#define SAVE_DIRECTORY	"IPCAM"
-#define SAVE_FULL_PATH	"/sdcard/IPCAM"
+#define SAVE_DISK    "/sdcard"
+#define SAVE_DIRECTORY    "IPCAM"
+#define SAVE_FULL_PATH    "/sdcard/IPCAM"
 #define RECORD_FILE_NAME ""
 
 #define FLAG0_TS_CHANGED_BIT   0

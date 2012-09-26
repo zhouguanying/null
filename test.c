@@ -50,11 +50,11 @@
         printf(__FILE__ ": %s: " fmt , __func__, ## args); \
     } while (0)
 #else
-#define dbg(fmt, args...)	do {} while (0)
+#define dbg(fmt, args...)    do {} while (0)
 #endif
 
 
-#define BUF_SIZE	1024*128
+#define BUF_SIZE    1024*128
 
 char* test_jpeg_file="/720_480.jpg";
 extern int msqid;
@@ -508,21 +508,21 @@ int get_cam_id(unsigned int *id)
     return 0;
 }
 
-#define HID_READ_VIDEO_CFG 		   1
-#define HID_WRITE_VIDEO_CFG	 	   2
-#define HID_READ_SEARCH_WIFI		   3
-#define HID_RESET_TO_DEFAULT		   4
-#define HID_SET_PSWD				   5
-#define HID_SET_SYS_TIME			   6
-#define HID_GET_WIFI_RESULT		   7
+#define HID_READ_VIDEO_CFG            1
+#define HID_WRITE_VIDEO_CFG            2
+#define HID_READ_SEARCH_WIFI           3
+#define HID_RESET_TO_DEFAULT           4
+#define HID_SET_PSWD                   5
+#define HID_SET_SYS_TIME               6
+#define HID_GET_WIFI_RESULT           7
 
-//#define HID_FAILE					   4
+//#define HID_FAILE                       4
 
-#define HIDCMD_SCAN_WIFI	0
+#define HIDCMD_SCAN_WIFI    0
 #define HIDCMD_SET_NETWORK_MODE 1
-#define HIDCMD_GET_CONFIG	2
-#define HIDCMD_SET_NETWORK_ADDRESS	3
-#define HIDCMD_GET_NETWORK_ADDRESS	4
+#define HIDCMD_GET_CONFIG    2
+#define HIDCMD_SET_NETWORK_ADDRESS    3
+#define HIDCMD_GET_NETWORK_ADDRESS    4
 int test_printf_getConfig();
 //int querryfs(char *fs , unsigned long long*maxsize,unsigned long long* freesize);
 char * get_clean_video_cfg(int *size);
@@ -660,10 +660,10 @@ int update_config_file_carefully()
         {
             version_flag = 1;
         }/*else if(!contrast_flag&&strncmp(p,CFG_CONTRAST,strlen(CFG_CONTRAST))==0){
-			contrast_flag = 1;
-		}else if(!brightness_flag&&strncmp(p,CFG_BRIGHTNESS,strlen(CFG_BRIGHTNESS))==0){
-			brightness_flag = 1;
-		}*/else
+            contrast_flag = 1;
+        }else if(!brightness_flag&&strncmp(p,CFG_BRIGHTNESS,strlen(CFG_BRIGHTNESS))==0){
+            brightness_flag = 1;
+        }*/else
         {
             memcpy(old_file_buf+pos,p,strlen(p));
             pos+=strlen(p);
@@ -682,7 +682,7 @@ int update_config_file_carefully()
     free(old_file_buf);
     return 0;
 }
-#define HID_RDWR_UNIT		63
+#define HID_RDWR_UNIT        63
 int main()
 {
     int ret;

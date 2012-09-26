@@ -70,12 +70,12 @@ extern "C"
     struct sess_ctx
     {
         u8 *                    name;
-        int 			    id;
+        int                 id;
         int                     s1;  //cmd socket  it is udt socket
         int                     s2;  //video socket it is tcp or udt socket
-        int 			     s3; //audio socket it is tcp or udt socket
+        int                  s3; //audio socket it is tcp or udt socket
         int                     s1_type;
-        // int 			    debugsocket;
+        // int                 debugsocket;
         struct sockaddr_in *    myaddr;
         struct sockaddr_in *    to;
         struct sockaddr_un *    to_un;
@@ -83,7 +83,7 @@ extern "C"
         pthread_t tid;
         pthread_t srtid;
         pthread_t swtid;
-        pthread_mutex_t		sesslock;
+        pthread_mutex_t        sesslock;
         int ucount;
         struct runtime
         {
@@ -128,13 +128,13 @@ extern "C"
     {
         pthread_mutex_t threadcfglock;
         char pswd[128];
-        unsigned int 		cam_id;
-        int 		sdcard_exist;
-        char     	name[64];
-        //char    	password[64];
-        char 	server_addr[64];
-        char 	monitor_mode[64];
-        volatile int framerate;				//frame rate
+        unsigned int         cam_id;
+        int         sdcard_exist;
+        char         name[64];
+        //char        password[64];
+        char     server_addr[64];
+        char     monitor_mode[64];
+        volatile int framerate;                //frame rate
         char compression[64];
         char resolution[64];  //vga qvga
         //volatile int width;
@@ -152,12 +152,12 @@ extern "C"
         char     record_mode[64];
         char     record_resolution[64];
         char     original_resolution[64];
-        //int 	    qvga_flag;
+        //int         qvga_flag;
         volatile int record_sensitivity;
         volatile int record_normal_speed;
         volatile int record_normal_duration;
         volatile int record_slow_speed;
-        //char	    record_slow_resolution[64];
+        //char        record_slow_resolution[64];
         volatile int record_fast_speed;
         //char     record_fast_resolution[64];
         volatile int record_fast_duration;
@@ -170,8 +170,8 @@ extern "C"
     /* Housekeeping globals used termintate program */
     extern struct sess_ctx *global_ctx; // EJA
     extern struct sess_ctx *global_ctx_running_list;
-    extern int 			 currconnections;
-//extern int 			 globalsocket;
+    extern int              currconnections;
+//extern int              globalsocket;
     extern pthread_mutex_t  global_ctx_lock;
 
     extern struct threadconfig threadcfg;

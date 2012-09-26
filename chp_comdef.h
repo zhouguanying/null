@@ -2,22 +2,22 @@
 #define _CHP_COMDEF_H
 
 #ifndef NULL
-#define NULL 		0
+#define NULL         0
 #endif
 
-#define CHP_U8		unsigned char
-#define CHP_U16		unsigned short
-#define CHP_U32		unsigned long
-#define CHP_U64		__int64
+#define CHP_U8        unsigned char
+#define CHP_U16        unsigned short
+#define CHP_U32        unsigned long
+#define CHP_U64        __int64
 
-#define CHP_8		signed char
-#define CHP_16		signed short
-#define CHP_32		signed long
+#define CHP_8        signed char
+#define CHP_16        signed short
+#define CHP_32        signed long
 
-#define CHP_FILE			int
+#define CHP_FILE            int
 
 /*Return value type of functions*/
-#define CHP_RTN_T	unsigned int
+#define CHP_RTN_T    unsigned int
 
 enum
 {
@@ -36,10 +36,10 @@ typedef void *(*CHP_MEMCPY)(void *, const void *, CHP_U32);
 
 typedef struct
 {
-    CHP_MALLOC_FUNC 	chp_malloc;
-    CHP_FREE_FUNC 		chp_free;
-    CHP_MEMSET			chp_memset;
-    CHP_MEMCPY			chp_memcpy;
+    CHP_MALLOC_FUNC     chp_malloc;
+    CHP_FREE_FUNC         chp_free;
+    CHP_MEMSET            chp_memset;
+    CHP_MEMCPY            chp_memcpy;
 } CHP_MEM_FUNC_T;
 
 
@@ -47,21 +47,21 @@ typedef struct
 
 /*switch little endian long long to local endian long long, x is a char pointer*/
 #define PLE64TOCPU(X)   ((CHP_U64)(*(X+7))<<56 | (CHP_U64)(*(X+6))<<48 \
-				|(CHP_U64)(*(X+5))<<40 | (CHP_U64)(*(X+4))<<32 \
-				|(CHP_U64)(*(X+3))<<24 | (CHP_U64)(*(X+2))<<16 \
-		              | (CHP_U64)(*(X+1))<<8 | *(X))
+                |(CHP_U64)(*(X+5))<<40 | (CHP_U64)(*(X+4))<<32 \
+                |(CHP_U64)(*(X+3))<<24 | (CHP_U64)(*(X+2))<<16 \
+                      | (CHP_U64)(*(X+1))<<8 | *(X))
 
 
 /*switch little endian long to local endian long, x is a char pointer*/
 #define PLE32TOCPU(X)   ((CHP_U32)(*(X+3))<<24 | (CHP_U32)(*(X+2))<<16 \
-		             | (CHP_U32)(*(X+1))<<8 | *(X))
+                     | (CHP_U32)(*(X+1))<<8 | *(X))
 
 /*switch little endian short to local endian short, x is a char pointer*/
 #define PLE16TOCPU(X)   ((CHP_U16)(*(X+1))<<8 | *(X))
 
 /*switch big endian long to local endian long, x is a char pointer*/
 #define PBE32TOCPU(X)   ((CHP_U32)(*(X))<<24 | (CHP_U32)(*(X+1))<<16 \
-		             | (CHP_U32)(*(X+2))<<8 | *(X+3))
+                     | (CHP_U32)(*(X+2))<<8 | *(X+3))
 
 /*switch big endian short to local endian short, x is a char pointer*/
 #define PBE16TOCPU(X)   ((CHP_U16)(*(X))<<8 | *(X+1))

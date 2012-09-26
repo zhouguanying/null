@@ -20,7 +20,7 @@
         printf(__FILE__ ": %s: " fmt, __func__, ## args); \
     } while (0)
 #else
-#define dbg(fmt, args...)	do {} while (0)
+#define dbg(fmt, args...)    do {} while (0)
 #endif
 
 
@@ -297,7 +297,7 @@ static int get_video_resolution(struct video_config_params *p,int* width, int* h
         *height = 480;
         str = "VGA (640 x 480)";
     }
-//	dbg("resolution:%s\n", str);
+//    dbg("resolution:%s\n", str);
     return 0;
 }
 
@@ -377,7 +377,7 @@ int vs_get_record_config()
         return -1;
     }
     close(fd);
-//	dbg("get record mode: %d\n",buffer[4096]);
+//    dbg("get record mode: %d\n",buffer[4096]);
     return (int)buffer[4096];
 }
 
@@ -401,7 +401,7 @@ int vs_set_record_config(int mode)
         return -1;
     }
     buffer[4096] = (char)mode;
-//	dbg("write data file\n");
+//    dbg("write data file\n");
     close(fd);
     fd = open("/dev/nand-data", O_RDWR|O_SYNC);
     if( fd < 0 )
@@ -409,9 +409,9 @@ int vs_set_record_config(int mode)
         perror("open nand-data");
         return -1;
     }
-//	dbg("write file\n");
+//    dbg("write file\n");
     write( fd, buffer, 512*1024 );
-//	ioctl(fd, BLKFLSBUF, NULL );
+//    ioctl(fd, BLKFLSBUF, NULL );
     close(fd);
     system("sync");
     system("/nand-flush /dev/nand-data");

@@ -1,4 +1,4 @@
-* make
+* makefile
 * eliminate dead files & functions
 * eliminate warnings
 * code beautifier

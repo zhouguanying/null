@@ -10,36 +10,36 @@
 
 //---------------------------------------------------------------
 
-#define	IOCTL_USBDET_READ				11
-#define	IOCTL_USBDET_LED_DRIVE		15
+#define    IOCTL_USBDET_READ                11
+#define    IOCTL_USBDET_LED_DRIVE        15
 
-#define	USBDET_DEV_NAME	"/dev/usbdet"
-//#define	USBDET_DEV_NAME	"usbdet"
+#define    USBDET_DEV_NAME    "/dev/usbdet"
+//#define    USBDET_DEV_NAME    "usbdet"
 //---------------------------------------------------------------
 
 
-static	int 	fd=-1;
+static    int     fd=-1;
 
-int	open_usbdet(void)
+int    open_usbdet(void)
 {
     //fd = open(dev, O_RDWR | O_NOCTTY );
 
-    fd = open(USBDET_DEV_NAME, O_RDWR);				//| O_NOCTTY | O_NDELAY这种方式看open函数
+    fd = open(USBDET_DEV_NAME, O_RDWR);                //| O_NOCTTY | O_NDELAY这种方式看open函数
     if (fd == -1)
     {
-        printf("Can't Open USBDET	\n");
+        printf("Can't Open USBDET    \n");
         return -1;
     }
     else
     {
         fcntl(fd , F_SETFD , 1); //close on exec
-        return	0;
+        return    0;
     }
 }
 
-int	ioctl_usbdet_read(void)
+int    ioctl_usbdet_read(void)
 {
-    int	ret;
+    int    ret;
 
     if(-1==fd)
     {
@@ -51,12 +51,12 @@ int	ioctl_usbdet_read(void)
 
     ret = ioctl(fd,IOCTL_USBDET_READ,0);
 
-    return	ret;
+    return    ret;
 }
 
-int	ioctl_usbdet_led(int led)
+int    ioctl_usbdet_led(int led)
 {
-    int	ret;
+    int    ret;
 
     if(-1==fd)
     {
@@ -68,13 +68,13 @@ int	ioctl_usbdet_led(int led)
 
     ret = ioctl(fd,IOCTL_USBDET_LED_DRIVE,led);
 
-    return	ret;
+    return    ret;
 }
 
 //----------------------------------------------------------------------------
 
-extern	int	ioctl_usbdet_led(int led);
-extern	int	ioctl_usbdet_read(void);
+extern    int    ioctl_usbdet_led(int led);
+extern    int    ioctl_usbdet_read(void);
 
 //*************************************************************************************
 

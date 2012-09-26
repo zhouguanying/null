@@ -1,6 +1,6 @@
 #ifndef __CFG_NETWORK_H__
 #define __CFG_NETWORK_H__
-#define RESERVE_SCAN_FILE		 "/data/wifi_last_scan.cfg"
+#define RESERVE_SCAN_FILE         "/data/wifi_last_scan.cfg"
 
 extern char *scanresult;
 extern int result_len;

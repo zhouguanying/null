@@ -4,8 +4,8 @@
 extern "C"
 {
 #endif
-#define UDT_SELECT_TIMEOUT 		  -1
-#define UDT_SELECT_ERROR	 		  -2
+#define UDT_SELECT_TIMEOUT           -1
+#define UDT_SELECT_ERROR               -2
 #define UDT_SELECT_UNKONW_ERROR     -3
     void start_udt_lib();
     int udt_socket(int af ,int type , int protocol);

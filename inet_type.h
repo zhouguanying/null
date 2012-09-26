@@ -68,10 +68,10 @@ extern "C"
         NET_CAMERA_INTERACTIVE_PORT,
     } ;
 
-#define PORT_COUNT		 3
-#define NAT_CLI_PORT	 0
-#define NAT_V_PORT		 1
-#define NAT_A_PORT		 2
+#define PORT_COUNT         3
+#define NAT_CLI_PORT     0
+#define NAT_V_PORT         1
+#define NAT_A_PORT         2
     struct udp_transfer
     {
         uint32_t ip;

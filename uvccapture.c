@@ -53,7 +53,7 @@ struct vdIn * init_camera(void)
     brightness = threadcfg.brightness;
     contrast    = threadcfg.contrast;
     saturation = threadcfg.saturation;
-    gain		 = threadcfg.gain;
+    gain         = threadcfg.gain;
 
     if (init_videoIn(videoIn, (char *) videodevice, width, height, format, grabmethod) < 0)
     {
@@ -70,8 +70,8 @@ struct vdIn * init_camera(void)
     /*
     #define V4L2_CID_ROTATE  (V4L2_CID_BASE + 34)
     if(v4l2SetControl(videoIn, V4L2_CID_ROTATE, 180)<0)
-    	printf("########################v4l2 not support rotate#####################\n");
-    	*/
+        printf("########################v4l2 not support rotate#####################\n");
+        */
     if (brightness != 0)
     {
         //v4l2SetControl (videoIn, V4L2_CID_BRIGHTNESS, brightness);

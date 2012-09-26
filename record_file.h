@@ -26,15 +26,15 @@ extern "C"
     record_file_t* record_file_open(int start_sector);
 
     /*
-    	return the real byte num that read.
-    	if error, reture -1;
-    	if get the end, return 0;
+        return the real byte num that read.
+        if error, reture -1;
+        if get the end, return 0;
     */
     int record_file_read(record_file_t* file, unsigned char* buf, int sector_num);
 
 
     /*
-    	file size, in byte.
+        file size, in byte.
     */
     int record_file_get_size(record_file_t* file);
 

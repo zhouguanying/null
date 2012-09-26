@@ -8,26 +8,26 @@
 #include     <termios.h>    /*PPSIX 终端控制定义*/
 #include     <errno.h>      /*错误号定义*/
 
-//#include		"PTZ.h"
+//#include        "PTZ.h"
 //******************************************************************
 /****
   server.c
 ****/
 //------------------------------------------------------------------
 
-#define	PTZ_DEV_NAME	"/dev/ptz"
-//#define	PTZ_DEV_NAME	"ptz"
+#define    PTZ_DEV_NAME    "/dev/ptz"
+//#define    PTZ_DEV_NAME    "ptz"
 
-static	int 	fd=-1;
+static    int     fd=-1;
 
-static	int	open_ptz(void)
+static    int    open_ptz(void)
 {
     //fd = open(dev, O_RDWR | O_NOCTTY );
 
-    fd = open(PTZ_DEV_NAME, O_RDWR);				//| O_NOCTTY | O_NDELAY这种方式看open函数
+    fd = open(PTZ_DEV_NAME, O_RDWR);                //| O_NOCTTY | O_NDELAY这种方式看open函数
     if (fd == -1)
     {
-        printf("Can't Open PTZ	\n");
+        printf("Can't Open PTZ    \n");
         return -1;
     }
     else
@@ -39,7 +39,7 @@ static	int	open_ptz(void)
         }
         else
             printf("#################contrl ptz sucess#############\n");
-        return	0;
+        return    0;
     }
 }
 
@@ -50,7 +50,7 @@ static	int	open_ptz(void)
 *
 *speed 0 - 10  , 0 最快 ， 10 最慢
 */
-int	speed_ptz(int cmd, int speed)
+int    speed_ptz(int cmd, int speed)
 {
     if(-1==fd)
     {
@@ -59,10 +59,10 @@ int	speed_ptz(int cmd, int speed)
             return -1;
         }
     }
-    return	ioctl(fd, cmd ,speed);
+    return    ioctl(fd, cmd ,speed);
 }
 
-int	write_ptz(char *buffer, int length)
+int    write_ptz(char *buffer, int length)
 {
     if(-1==fd)
     {
@@ -71,22 +71,22 @@ int	write_ptz(char *buffer, int length)
             return -1;
         }
     }
-    return	write(fd, buffer ,length);
+    return    write(fd, buffer ,length);
 }
 
-int	read_ptz(char *buffer, int length)
+int    read_ptz(char *buffer, int length)
 {
-    int	nread;
+    int    nread;
     nread = read(fd,buffer,length);
-    return	nread;
+    return    nread;
 }
-extern	int	write_ptz(char *buffer, int length);
-extern	int	read_ptz(char *buffer, int length);
+extern    int    write_ptz(char *buffer, int length);
+extern    int    read_ptz(char *buffer, int length);
 
-int	PTZ(void)
+int    PTZ(void)
 {
     printf("PTZ INIT !!! \n \n\n\n\n");
-    open_ptz();			// 打开 设备,指向默认的目标设备
+    open_ptz();            // 打开 设备,指向默认的目标设备
 
     return 0;
 }
