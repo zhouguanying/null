@@ -1597,7 +1597,7 @@ int start_video_monitor(struct sess_ctx* sess)
 
     if (threadcfg.sound_duplex)
     {
-        if (pthread_create(&tid, NULL, (void *) start_audio_monitor, sess) < 0)
+        if (pthread_create(&tid, NULL, sound_start_session, sess) < 0)
         {
             goto exit;
         }
@@ -1757,7 +1757,7 @@ static inline void write_syn_sound(int *need_video_internal_head)
     if (!threadcfg.sdcard_exist)
         return ;
     *need_video_internal_head = 0;
-    buf = new_get_sound_data(MAX_NUM_IDS - 1, & size);
+    buf = sound_amr_buffer_fetch(MAX_NUM_IDS - 1, & size);
     if (buf)
     {
         i++;
@@ -1988,7 +1988,7 @@ NORMAL_MODE:
     memcpy(audio_internal_header.StartTimeStamp, timestamp, sizeof(audio_internal_header.StartTimeStamp));
     memcpy(video_internal_header.StartTimeStamp, timestamp, sizeof(video_internal_header.StartTimeStamp));
 
-    reset_syn_buf();
+    sound_amr_buffer_reset();
 
     if (threadcfg.sdcard_exist)
     {
@@ -2143,7 +2143,7 @@ NORMAL_MODE:
                     if (record_last_state == RECORD_STATE_STOP)
                     {
 #ifdef RECORD_SOUND
-                        set_syn_sound_data_clean(MAX_NUM_IDS - 1);
+                        sound_amr_buffer_clean(MAX_NUM_IDS - 1);
                         timestamp = gettimestamp();
                         memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
                         memcpy(&prev_write_sound_time, &starttime, sizeof(struct timeval));
@@ -2383,7 +2383,7 @@ FORCE_CLOSE_FILE:
                 dbg("write 15sec location  pos = %u , write in %p , 15sec table size = %u\n", table_item.location , record_15sec_pos, *record_15sec_table_size);
                 record_15sec_pos += sizeof(index_table_item_t);
 #ifdef RECORD_SOUND
-                set_syn_sound_data_clean(MAX_NUM_IDS - 1);
+                sound_amr_buffer_clean(MAX_NUM_IDS - 1);
                 timestamp = gettimestamp();
                 memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
                 gettimeofday(&prev_write_sound_time , NULL);

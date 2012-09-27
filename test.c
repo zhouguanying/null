@@ -97,7 +97,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
         exit(0);
     }
 
-    start_sound_thread();
+    sound_start_thread();
     sleep(1);
     if (pthread_create(&tid, NULL, (void *) start_video_record, system_sess) < 0)
     {
@@ -1597,7 +1597,7 @@ wlan_udhcpc:
 
 
     test_set_sound_card();
-    if ((init_and_start_sound()) < 0)
+    if ((sound_init()) < 0)
     {
         printf("start sound error\n");
         return -1;
