@@ -11,7 +11,7 @@
 #define PERIOD_FRAMES             160
 #define AMR_PERIOD_BYTES          32 // 160 * 2 / 10 (1:10)
 #define AMR_PERIODS               256
-#define AEC_DELAY                 3
+#define AEC_DELAY                 5
 
 typedef struct _SoundAmrBuffer
 {
@@ -281,10 +281,13 @@ static void *receive(void *arg)
     int              sock = sess->sc->audio_socket;
     char             buf[1024];
     int              i, r, rs;
+    int              n = 0;
     ssize_t          dst_size;
 
     // FIXME: no need to lock here?
     sess->ucount++;
+
+    usleep(1000000);
 
     while (1)
     {
@@ -317,6 +320,10 @@ static void *receive(void *arg)
                        1);
             circular_write(playback_buffer, pcm);
         }
+
+        n++;
+        if (n == 2)
+            playback_start = 1;
         pthread_mutex_unlock(&circular_mutex);
     }
 
@@ -432,13 +439,17 @@ static void *encode(void *arg)
                 if (!circular_empty(capture_buffer) &&
                     !circular_empty(echo_buffer))
                 {
+#if 1
                     speex_echo_cancellation(echo_state,
                         (spx_int16_t *)capture_buffer->first,
                         (spx_int16_t *)echo_buffer->first,
                         (spx_int16_t *)data.p_in_buf);
                     speex_preprocess_run(echo_pp,
                         (spx_int16_t *)data.p_in_buf);
-
+#else
+                    memcpy(data.p_in_buf, capture_buffer->first,
+                           period_bytes);
+#endif
                     amr_encode(handle, &data);
 
                     circular_consume(capture_buffer);
