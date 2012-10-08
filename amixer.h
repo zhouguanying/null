@@ -1,6 +1,8 @@
 #ifndef __AMIXER_H__
 #define __AMIXER_H__
-int test_set_sound_card();
-int alsa_set_volume(int value);
-#endif
 
+int alsa_set_mic_volume(int value);
+int alsa_set_hp_volume(int value);
+int alsa_set_volume(int value);
+
+#endif

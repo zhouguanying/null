@@ -1,12 +1,12 @@
 #include <alsa/asoundlib.h>
 #include <sys/ioctl.h>
+#include "speex/speex_echo.h"
+#include "speex/speex_preprocess.h"
 #include "amr.h"
 #include "cli.h"
 #include "sound.h"
 #include "amrnb_encode.h"
 #include "udttools.h"
-#include "speex_echo.h"
-#include "speex_preprocess.h"
 
 #define PERIOD_FRAMES             160
 #define AMR_PERIOD_BYTES          32 // 160 * 2 / 10 (1:10)
@@ -64,7 +64,6 @@ static int                   period_bytes;
 // amr buffer
 static SoundAmrBuffer        amr_buf;
 
-// ok
 void sound_amr_buffer_init()
 {
     int i;
@@ -85,7 +84,6 @@ void sound_amr_buffer_init()
     pthread_rwlock_init(&amr_buf.lock , NULL);
 }
 
-// ok
 void sound_amr_buffer_reset()
 {
     pthread_rwlock_wrlock(&amr_buf.lock);
@@ -93,7 +91,6 @@ void sound_amr_buffer_reset()
     pthread_rwlock_unlock(&amr_buf.lock);
 }
 
-// ok
 void sound_amr_buffer_clean(int sess_id)
 {
     int i;
@@ -103,7 +100,6 @@ void sound_amr_buffer_clean(int sess_id)
     pthread_rwlock_unlock(&amr_buf.lock);
 }
 
-// ok
 char *sound_amr_buffer_fetch(int sess_id , int *size)
 {
     int   i;
@@ -154,7 +150,6 @@ char *sound_amr_buffer_fetch(int sess_id , int *size)
 #define IOCTL_GET_SPK_CTL _IOR('x',0x01,int)
 #define IOCTL_SET_SPK_CTL _IOW('x',0x02,int)
 
-// ok
 static int speaker_on()
 {
     int fd = open("/dev/mxs-gpio", O_RDWR);
@@ -168,7 +163,6 @@ static int speaker_on()
     return 0;
 }
 
-// ok
 static CBuffer *circular_init(int size, int step)
 {
     CBuffer *cb = malloc(sizeof(CBuffer));
@@ -182,7 +176,6 @@ static CBuffer *circular_init(int size, int step)
     return cb;
 }
 
-// ok
 static void circular_free(CBuffer *buffer)
 {
     if (buffer)
@@ -192,13 +185,11 @@ static void circular_free(CBuffer *buffer)
     }
 }
 
-// ok
 static int circular_empty(CBuffer *buffer)
 {
     return buffer->start == buffer->first;
 }
 
-// ok
 static void circular_consume(CBuffer *buffer)
 {
     if (buffer->start != buffer->first)
@@ -210,7 +201,6 @@ static void circular_consume(CBuffer *buffer)
     }
 }
 
-// ok
 static void circular_write(CBuffer *buffer, char *data)
 {
     memcpy(buffer->start, data, buffer->step);
@@ -235,7 +225,6 @@ static void circular_write(CBuffer *buffer, char *data)
     }
 }
 
-// ok
 static void *capture(void *arg)
 {
     snd_pcm_sframes_t  r;
@@ -343,7 +332,6 @@ end:
     return NULL;
 }
 
-// ok
 static inline void amr_encode(CHP_U32 handle, CHP_AUD_ENC_DATA_T *data)
 {
     amrnb_encode(handle, data);
@@ -362,7 +350,6 @@ static inline void amr_encode(CHP_U32 handle, CHP_AUD_ENC_DATA_T *data)
     pthread_rwlock_unlock(&amr_buf.lock);
 }
 
-// ok
 static void *encode(void *arg)
 {
     int                n         = 0;
@@ -489,7 +476,6 @@ no_aec:
     return NULL;
 }
 
-// ok
 static snd_pcm_t *handle_init(snd_pcm_stream_t stream)
 {
     snd_pcm_t           *handle = NULL;
@@ -621,7 +607,6 @@ end:
     return handle;
 }
 
-// ok
 int sound_init()
 {
     int sample_rate = 8000;
@@ -672,7 +657,6 @@ end:
     return -1;
 }
 
-// ok
 void sound_start_thread(void)
 {
     pthread_t thread;
@@ -682,7 +666,6 @@ void sound_start_thread(void)
     pthread_detach(thread);
 }
 
-// ok
 void *sound_start_session(void *arg)
 {
     struct sess_ctx *sess     = arg;

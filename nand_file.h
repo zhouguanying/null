@@ -59,10 +59,12 @@ typedef struct __nand_record_file_internal_header
     char FrameWidth[4];
     char FrameHeight[4];
 } __attribute__((packed)) nand_record_file_internal_header;
+
 typedef struct __index_table_item
 {
     unsigned int location;
 } __attribute__((packed)) index_table_item_t;
+
 typedef struct nand_record_file_header
 {
     char head[5];

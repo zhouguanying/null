@@ -18,16 +18,12 @@
 #include "utilities.h"
 #include "vpu_server.h"
 
-#if 1
 #define dbg(fmt, args...)  \
     do { \
         printf(__FILE__ ": %s: " fmt, __func__, ## args); \
     } while (0)
-#else
-#define dbg(fmt, args...)    do {} while (0)
-#endif
 
-char  *nand_shm_addr;
+char *nand_shm_addr;
 char *nand_shm_file_path;
 char *nand_shm_file_end_head;
 
@@ -99,7 +95,6 @@ int nand_find_start_sector()
             next_sector = 0;
         }
         sequence = nand_get_sequence(sectors);
-//        dbg("sectors=%d, sequence=%d\n", sectors, sequence);
         if (sectors == 0)
         {
             if (sequence != -1)
@@ -115,15 +110,12 @@ int nand_find_start_sector()
             cur_max_sequence = sequence;
             continue;
         }
-        //cur_max_sequence > sequence, maybe it is the last one
-        //dbg("try next_sector:%x\n",next_sector);
         sequence2 = nand_get_sequence(next_sector);
         if (sequence2 == -1)
         {
             dbg("sequence2 = -1, so we found\n");
             goto found;
         }
-        //dbg("try second sectors, max=%d,sequence2=%x\n", cur_max_sequence, sequence2);
         if (cur_max_sequence + 2 == sequence2)
         {
             cur_max_sequence = sequence2;
@@ -137,10 +129,8 @@ int nand_find_start_sector()
     sectors = 0;
 
 found:
-//    printf("found the start sector at %d, sequence=%d\n", ret, max_sequence);
     ret = sectors;
     max_sequence = cur_max_sequence + 1;
-    //dbg("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^find the start of sector:%d, sequence=%d\n", sectors, max_sequence);
     return ret;
 }
 
@@ -175,6 +165,7 @@ struct FILE_INDEX_TABLE
     int cur_fd;
     char* table[MAX_FILE_COUNT];    //for 32G SDCARD, 32000/200 = 210
 };
+
 struct FILE_INDEX_TABLE file_index_table;
 
 static int add_to_file_index_table(char* full_path_file_name)
@@ -211,6 +202,7 @@ static void init_file_index_table()
     file_index_table.cur_index = -1;
     file_index_table.cur_fd = -1;
 }
+
 int open_download_file(int start_sector)
 {
     int file_index;
@@ -297,7 +289,6 @@ int write_file_segment(struct nand_write_request* req)
         file_index_table.cur_index = file_index;
         dbg("file segment %s opened ok\n", file_index_table.table[file_index]);
     }
-    //dbg("write to file segment: file_index=%d, file_offset=%x, sector_num=%x\n", file_index, file_offset, req->sector_num);
     lseek(fd, file_offset, SEEK_SET);
     if (file_offset + req->sector_num * 512 <= FILE_SEGMENT_SIZE)
     {
@@ -566,24 +557,20 @@ int nand_write(char* buf, int size)
 
     if (size)
     {
-        //printf("%s: cache, index=%d, buf=0x%x\n", __func__, cache.index, cache.buf);
         memcpy(&(cache.buf[cache.index]), buf, size);
         cache.index += size;
     }
 #else
     end_sector = cur_sector + (cache.index + size) / 512 + 1;
-//    dbg("write:header_sector=%d,cur_sector=%d,cach.index=%d,end_sector=%d\n", header_sector,cur_sector, cache.index,end_sector );
     if (header_sector == cur_sector && cache.index == 0)
     {
         // TODO: we need a header data at first
-//        dbg("need to open a header data file\n");
         nand_blocked = 1;
         return VS_MESSAGE_NEED_START_HEADER;
     }
     else if (end_sector + END_HEADER_LOCATION * 512 / 512 >= header_sector + NAND_RECORD_FILE_SECTOR_SIZE || end_sector + END_HEADER_LOCATION * 512 / 512 >= partition_sector_num)
     {
         // TODO:  should close a header at last
-//        dbg("need to close a header data file\n");
         if (cache.index != 0)
         {
             nand_flush();
@@ -593,7 +580,6 @@ int nand_write(char* buf, int size)
     }
     if (nand_blocked)
     {
-//        dbg("-----------------nand write is blocked-----------------------\n");
         return -1;
     }
     record_file_size += write_size;
@@ -631,14 +617,12 @@ int nand_write(char* buf, int size)
 
     if (size)
     {
-        //printf("%s: cache, index=%d, buf=0x%x\n", __func__, cache.index, cache.buf);
         memcpy(&(cache.buf[cache.index]), buf, size);
         cache.index += size;
     }
 
 #endif
 
-    //printf("%s: leave\n", __func__);
     return 0;
 }
 
@@ -647,7 +631,6 @@ int nand_flush()
     int ret = 0;
     struct nand_write_request req;
 
-    //printf("%s: enter\n", __func__);
 #ifndef NAND_MODE_IOCTL
     if (cache.index)
     {
@@ -657,13 +640,11 @@ int nand_flush()
 #else
     if (cache.index)
     {
-        //ret = write(fd, cache.buf, cache.index);
         memset(&(cache.buf[cache.index]), 0xff, cache.size - cache.index);
         req.start = cur_sector;
         req.sector_num = cache.index / 512 + 1;
         req.buf = cache.buf;
         req.erase = 1;
-        //printf("nand write: buf[0] = 0x%x\n", ((int*)req.buf)[0]);
         //ioctl(fd, BLK_NAND_WRITE_DATA, &req);
         write_file_segment(&req);
         cache.index = 0;
@@ -675,7 +656,6 @@ int nand_flush()
 
 int nand_read(char* buf, int size)
 {
-    //printf("%s: enter\n", __func__);
     nand_flush();
     return read(fd, buf, size);
 }
@@ -687,7 +667,6 @@ int nand_get_size(char* disk)
     // file_index_table may not be built yet
     sector_size = file_index_table.index_count * (FILE_SEGMENT_SIZE / 512);
     printf("to do 0\n");
-//    dbg("%s have total %d sectors\n", disk, sector_size);
     return sector_size;
 }
 
@@ -699,6 +678,7 @@ long long nand_seekto(long long position)
     ret = lseek64(fd, position, SEEK_SET);
     return ret;
 }
+
 unsigned int nand_get_position()
 {
     return (unsigned int)record_file_size;
@@ -721,7 +701,6 @@ int nand_close()
     return 0;
 }
 
-//下面的API是为回放功能而做的
 static char file_time_buffer[64];
 int nand_open_simple(char* name)
 {
@@ -770,27 +749,13 @@ int nand_get_next_file_start_sector(int cur_sector)
     sequence_next = nand_get_sequence(next_sector);
     if (sequence_next != -1)
         return next_sector;
-    //dbg("next sector is bad, try next next sector\n");
     for (next_sector += NAND_RECORD_FILE_SECTOR_SIZE; sequence_next == -1 && next_sector < partition_sector_num; next_sector += NAND_RECORD_FILE_SECTOR_SIZE)
     {
-        //printf("next_sector = %d , partition_sector_num = %d\n",next_sector , partition_sector_num);
         sequence_next = nand_get_sequence(next_sector);
     }
     if (next_sector == partition_sector_num)
         return -1;
     return next_sector;
-    /*
-    next_sector = next_sector + NAND_RECORD_FILE_SECTOR_SIZE;
-    if( next_sector >= partition_sector_num ){
-        dbg("meet the disk end\n");
-        return -1;
-    }
-    sequence_next = nand_get_sequence( next_sector );
-    if( sequence_next != -1 )
-        return next_sector;
-    dbg("meet the recorded disk end at %d\n", cur_sector);
-    return -1;
-    */
 }
 
 int check_nand_file(int file_start_sector)
@@ -831,13 +796,6 @@ char* nand_get_file_time(int file_start_sector)
     int header_package_size;
     unsigned int flag;
 
-    /*
-        //curr file we also need to send !!
-        if(header_sector == file_start_sector){
-            dbg("###########curr file we will not send #############\n");
-            return (char*)0xffffffff;
-        }
-    */
     req.start = file_start_sector + NAND_RECORD_FILE_SECTOR_SIZE;
     if (req.start > partition_sector_num)
     {
@@ -873,9 +831,7 @@ char* nand_get_file_time(int file_start_sector)
     if (header.head[0] != 0 || header.head[1] != 0 || header.head[2] != 0 || header.head[3] != 1 || header.head[4] != 0xc)
     {
         memcpy(&data, header.head, 4);
-        //dbg("-----------------can't find sequence at START sector:%d, head=%x\n", file_start_sector,data);
         header_is_valid = 0;
-//        return 0;
     }
     else
     {
@@ -884,7 +840,6 @@ char* nand_get_file_time(int file_start_sector)
     if (end.head[0] != 0 || end.head[1] != 0 || end.head[2] != 0 || end.head[3] != 1 || end.head[4] != 0xc)
     {
         memcpy(&data, end.head, 4);
-        //dbg("-----------------can't find sequence at END sector:%d, head=%x\n", last_sector,data);
         end_is_valid = 0;
     }
     else
@@ -894,12 +849,9 @@ char* nand_get_file_time(int file_start_sector)
     sequence_head = hex_string_to_int(header.PackageSequenceNumber, sizeof(header.PackageSequenceNumber));
     sequence_end = hex_string_to_int(end.PackageSequenceNumber, sizeof(end.PackageSequenceNumber));
     header_package_size = hex_string_to_int(header.TotalPackageSize, sizeof(header.TotalPackageSize));
-    //dbg("sequence_head= %d,sequence_end = %d\n", sequence_head, sequence_end);
-    //dbg("header_is_valid = %d , end_is_valid = %d\n",header_is_valid , end_is_valid);
     if (header_is_valid && sequence_end == sequence_head && end_is_valid)
     {
         // so good to found the exact one
-//        dbg("%d,%d\n", sequence_head, sequence_end);
         sprintf(file_time_buffer, "%08x", file_start_sector);
         file_time_buffer[8] = ':';
         if (header_package_size == 1)
@@ -915,7 +867,6 @@ char* nand_get_file_time(int file_start_sector)
         memcpy(&file_time_buffer[8 + 1 + 8 + 1], header.StartTimeStamp, 14);
         file_time_buffer[8 + 1 + 8 + 1 + 14] = '-';
         memcpy(&file_time_buffer[8 + 1 + 8 + 1 + 14 + 1], end.LastTimeStamp, 14);
-        //dbg("a good file: sector=%d, time=%s\n", file_start_sector, file_time_buffer);
         return file_time_buffer;
     }
     if (header_is_valid)
@@ -935,7 +886,6 @@ char* nand_get_file_time(int file_start_sector)
         memcpy(&file_time_buffer[8 + 1 + 8 + 1], header.StartTimeStamp, 14);
         file_time_buffer[8 + 1 + 8 + 1 + 14] = '-';
         memcpy(&file_time_buffer[8 + 1 + 8 + 1 + 14 + 1], "              ", 14);
-        //dbg("only head is good: sector=%d, time=%s\n", file_start_sector, file_time_buffer);
         return file_time_buffer;
     }
     return 0;
@@ -1106,7 +1056,6 @@ int nand_prepare_record_header(nand_record_file_header* header)
 
     time(&timep);
     gtm = localtime(&timep);
-//    dbg("year:%d,month:%d,day:%d,hour:%d,minute:%d,second:%d\n", gtm->tm_year+1900,gtm->tm_mon+1,gtm->tm_mday,gtm->tm_hour,gtm->tm_min,gtm->tm_sec);
     sprintf(buffer, "%04d%02d%02d%02d%02d%02d", gtm->tm_year + 1900, gtm->tm_mon + 1, gtm->tm_mday, gtm->tm_hour, gtm->tm_min, gtm->tm_sec);
     memcpy((char*)header->StartTimeStamp, buffer, sizeof(header->StartTimeStamp));
 

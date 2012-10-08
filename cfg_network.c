@@ -49,6 +49,7 @@ static int is_chareter(char a)
     else
         return 0;
 }
+
 static int __strncmp(char *s1 , char *s2, int n)
 {
     int i;
@@ -388,6 +389,7 @@ int get_dns(char  *dns1 , char *dns2)
     fclose(dnsfp);
     return 0;
 }
+
 int set_dns(char  *dns1 , char *dns2)
 {
     FILE *dnsfp;
@@ -723,7 +725,6 @@ error:
 }
 
 int get_netlink_status(const char *if_name)
-
 {
 
     int skfd, err;
@@ -762,7 +763,7 @@ int get_netlink_status(const char *if_name)
 
 }
 
-char * scan_wifi(int *len)
+char *scan_wifi(int *len)
 {
     struct stat st;
     int i;

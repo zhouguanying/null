@@ -23,38 +23,30 @@
 #include <sys/ioctl.h>
 
 #include "includes.h"
-//#include <defines.h>
 #include "mail_alarm.h"
 #include "cli.h"
-//#include "mpegts.h"
 #include "config.h"
 #include "revision.h"
-//#include "ipl.h"
 #include "nand_file.h"
 #include "vpu_server.h"
 #include "server.h"
 #include "playback.h"
 #include "record_file.h"
 #include "utilities.h"
-//#include "monitor.h"
 #include "v4l2uvc.h"
 #include "sound.h"
 #include "picture_info.h"
 #include "video_cfg.h"
 
-/* Process ID file name */
 #define PID_FILE    "/var/run/v2ipd.pid"
 #define LOG_FILE    "/tmp/v2ipd.log"
 char *v2ipd_logfile = LOG_FILE; /* Fix me */
 
 int nand_fd;
 
-/* Externs */
 extern void (*sigset(int sig, void (*disp)(int)))(int);
 extern int sigignore(int sig);
-extern int PTZ(void);
 
-/* Debug */
 #define ENCODER_DBG
 #ifdef ENCODER_DBG
 extern char *v2ipd_logfile;
@@ -66,7 +58,6 @@ extern char *v2ipd_logfile;
 #define dbg(fmt, args...)    do {} while (0)
 #endif
 
-#undef AUDIO_SUPPORTED
 #undef AUDIO_STATS
 #undef VIDEO_STATS
 #define EXIT_SUCCESS    0
@@ -141,7 +132,6 @@ then close it after we accpet.
 not need the global listen socket now!*/
 
 int daemon_msg_queue;
-int v2ipd_shm_id;
 vs_share_mem* v2ipd_share_mem;
 
 int is_do_update()
@@ -150,6 +140,7 @@ int is_do_update()
     update = (int)do_update_flag;
     return update;
 }
+
 void set_do_update()
 {
     do_update_flag = 1;
@@ -178,6 +169,7 @@ void prepare_do_update()
     set_msg_do_update();
     //set_do_update();
 }
+
 unsigned char checksum(unsigned char cksum, unsigned char *data, int size)
 {
     int i;
@@ -193,9 +185,7 @@ void init_sleep_time()
     pthread_mutex_init(&v_thread_sleep_t_lock , NULL);
     v_thread_sleep_time = (1000000 / threadcfg.framerate) >> 1;
 }
-void increase_video_thread_sleep_time()
-{
-}
+
 void handle_video_thread()
 {
     usleep(v_thread_sleep_time);
@@ -602,225 +592,6 @@ error1:
     return NULL;
 }
 
-/**
- * send_payload - sends formatted payload through socket layer.
- * @sess: session id
- * @payload: payload data
- * @len: length of payload
- * Returns number of bytes sent on success or 0 on error
- */
-int send_payload(struct sess_ctx *sess, u8 *payload, size_t len)
-{
-    //nand_write(payload, len);
-    if (sess->paused) return 0;
-
-    if (sess->is_pipe && sess->pipe_fd > 0)
-        return write(sess->pipe_fd, payload, len);
-    if (sess->is_file && sess->file_fd > 0)
-    {
-        return write(sess->file_fd, payload, len);
-    }
-    else if (sess->is_tcp && sess->connected && sess->s2 >= 0)
-        return send(sess->s2, (void *) payload, len, 0);
-    else if (sess->is_udp && sess->s1 >= 0)
-        return sendto(sess->s1, (void *) payload, len, 0,
-                      (struct sockaddr *) sess->to, sizeof(*sess->to));
-    else
-    {
-        dbg("error");
-        return 0;
-    }
-}
-
-/**
- * process_video_payload - process video payload to forward to server
- * @sess: session id
- * @payload: payload data
- * @len: length of payload
- * Returns number of bytes sent on success or 0 on error
- */
-int process_video_payload(struct sess_ctx *sess, u8 *payload, size_t len)
-{
-    return 0;
-}
-
-/**
- * process_audio_payload - process audio payload and forward to server
- * @sess: session id
- * @payload: payload data
- * @len: length of payload
- * Returns number of bytes sent on success or 0 on error
- */
-#ifdef AUDIO_SUPPORTED
-static int process_audio_payload(struct sess_ctx *sess, u8 *payload,
-                                 size_t len)
-{
-    /* Perform any data processing if required */
-    struct sess_ctx *s = global_ctx;
-#ifdef AUDIO_STATS
-    u32 delta = update_timeval(sess->audio.tv);
-    sess->audio.curr_frame_idx++;
-    sess->audio.nbytes += len;
-    dbg("time video audio packets (%d) usecs", delta);
-#endif /* AUDIO_STATS */
-    return send_payload(s, payload, len);
-}
-#endif /* SUPPORT_AUDIO */
-
-/**
- * handle_session - handles data transmission
- * @sess: session context
- */
-static void handle_session(struct sess_ctx *sess)
-{
-    usleep(1000); /* microseconds */
-}
-
-/**
- * daemonise - force program to run as a background process
- * @pid_file: file that contains PID (process id)
- */
-static void daemonise(const char *pid_file)
-{
-    pid_t pid, sid;
-
-    /* already a daemon */
-    if (getppid() == 1) return;
-
-    /* Fork off the parent process */
-    pid = fork();
-    if (pid < 0)
-    {
-        printf("fork error\n");
-        exit(EXIT_FAILURE);
-    }
-    /* If we got a good PID, then we can exit the parent process. */
-    if (pid > 0)
-    {
-        exit(EXIT_SUCCESS);
-    }
-
-    /* At this point we are executing as the child process */
-
-    /* Change the file mode mask */
-    umask(0);
-
-    /* Create a new SID for the child process */
-    sid = setsid();
-    if (sid < 0)
-    {
-        printf("setsid error\n");
-        exit(EXIT_FAILURE);
-    }
-
-    /* Change the current working directory.  This prevents
-     * the current directory from being locked; hence not
-     * being able to remove it. */
-    if ((chdir("/")) < 0)
-    {
-        exit(EXIT_FAILURE);
-    }
-
-    if (pid_file != NULL)
-    {
-        FILE *f = fopen(PID_FILE, "w");
-        if (f != NULL)
-        {
-//            fprintf(f, "%u\n", getpid()); /* Save pid to file */
-            fclose(f);
-        }
-    }
-}
-
-/**
- * usage - displays various program options
- * @name: parameter name
- */
-static void usage(char *name)
-{
-    printf("Usage: %s [-v <config>] [-a <config>] [-F] [-C]\n"
-           "\t-v    video configuration file\n"
-           "\t-a    audio configuration file\n"
-           "\t-C    start up cli\n"
-           "\t-F    do not daemonize\n", name);
-}
-
-void handle_sig(int signo)
-{
-    printf("%s, sig num:%d\n", __func__, signo);
-}
-
-/**
- * do_server - main server loop
- * @sess: session context
- */
-static int do_server(struct sess_ctx *sess)
-{
-    socklen_t fromlen;
-    int ret;
-    struct sockaddr_in address;
-    int socket;
-
-    dbg("Starting V2IP server");
-
-    /* Spin */
-    sess->running = 1;
-    sess->soft_reset = 0; /* Clear soft reset condition */
-
-    playback_init();
-//    monitor_init();
-    //while (sess->running && !sess->soft_reset) {
-    while (1)
-    {
-        if (sess->is_tcp)
-        {
-            fromlen = sizeof(struct sockaddr_in);
-            socket = accept(
-                         sess->s1,
-                         (struct sockaddr *) &address,
-                         &fromlen);
-            /*
-            printf("connection in, addr=0x%x, port=0x%d\n",
-                   __func__, address.sin_addr.s_addr, address.sin_port);
-                   */
-            if (socket >= 0)
-            {
-                int ret = playback_connect(address, socket);
-                //printf("%s: ret = %d\n", __func__, ret);
-                //conncect for playback firstly. if it fails, connect for monitor.
-                if (ret < 0)
-                {
-//                    monitor_new(socket, address);
-                    if (!sess->connected)
-                    {
-                        sess->connected = 1;
-                        if (start_vid(sess, NULL) < 0)
-                        {
-                            dbg("error starting video");
-                        }
-                    }
-                }
-            }
-        }
-        handle_session(sess);
-    }
-
-    /* Take down session */
-    if (sess->soft_reset)
-        ret = kill_connection(sess);
-    else
-    {
-        //ret = vpu_ExitSession();
-        ret = 0;
-    }
-
-    printf("end/exit returned=%d\n", ret);
-
-    dbg("Exitting server");
-
-    return 0;
-}
-
 static inline int kill_server(struct sess_ctx *sess)
 {
     dbg("called");
@@ -852,208 +623,9 @@ static void sig_handler(int signum)
     else ;
 }
 
-//if some unrecoverable system error is occured, use it to reset whole system
-void force_reset_v2ipd()
-{
-    global_ctx->soft_reset = 1;
-}
-
-/**
- * main - program entry
- * @argc: number of arguments
- * @argv: argument vectors
- * Returns 1 on successful program exit or 0 on error
- */
-int monitor_main(int argc, char **argv)
-{
-    int val;
-    int i;
-    int err = 0;
-    char *video_conf = NULL;
-    char *audio_conf = NULL;
-    int daemon = 1; /* Default */
-    struct sigaction sa;
-    struct sess_ctx *sess = NULL;
-    static int sess_idx = 0;
-    char name[80];
-    int start_cli = 0;
-    struct sched_param  mysched;
-    char* argv_local[] =
-    {
-//        "v2ipd","-C","-v","/etc/v2ipd/video.cfg",
-        "v2ipd", "-C", "-v", "/tmp/video.cfg",
-    };
-
-    argc = 4;
-    argv = argv_local;
-
-    if (argc == 1)
-    {
-        usage(argv[0]);
-        exit(EXIT_SUCCESS);
-    }
-
-    while (1)
-    {
-        if ((val = getopt(argc, argv, ":v:a:FC")) < 0)
-            break; /* Check next arg */
-
-        switch (val)
-        {
-        case 'v': /* video driver config */
-            if (optarg != NULL)
-                video_conf = strdup(optarg);
-            break;
-        case 'a': /* audio driver config */
-            if (optarg != NULL)
-                audio_conf = strdup(optarg);
-            break;
-        case 'F':
-            daemon = 0;
-            break;
-        case 'C':
-            start_cli = 1;
-            break;
-        case '?':
-            if (isprint(optopt))
-                printf("Unknown option -%c\n",
-                       optopt);
-            else
-                printf("Unknown option %x\n",
-                       optopt);
-            usage(argv[0]);
-            return -1;
-        }
-    }
-//        dbg("v2ipd logfile:  %s, %s\n", __DATE__, __TIME__);
-//    dbg("\n\n\nStarting V2IPd (Voice/Video over IP) client/server daemon");
-
-    /* Make this a real time process */
-    mysched.sched_priority = sched_get_priority_max(SCHED_FIFO) - 1;
-    if (sched_setscheduler(0, SCHED_FIFO, &mysched) == -1)
-    {
-        printf("%s: Error changing priority\n", __func__);
-    }
-//        printf("%s: New priority is %d\n", __func__, mysched.sched_priority);
-
-
-    if (daemon)
-    {
-//                dbg("daemonising");
-        daemonise(PID_FILE);
-    }
-
-
-    /* Set up signals */
-    for (i = 1; i <= _NSIG; i++)
-    {
-        if (i == SIGIO || i == SIGINT)
-            sigset(i, sig_handler);
-        else
-            sigignore(i);
-    }
-
-    /* Set up exit handler */
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = &sig_handler;
-    sigaction(SIGINT | SIGPIPE, &sa, NULL);
-
-    /* Set up session */
-    memset(name, 0, sizeof(name));
-    sprintf(name, "%s-%d", "Session", ++sess_idx);
-    sess = new_system_session(name);
-    if (sess == NULL)
-    {
-        printf("Error starting session - exitting\n");
-        err = EXIT_FAILURE;
-        goto done;
-    }
-
-    sess->daemon = daemon;
-    global_ctx = sess;
-
-//        printf("mypid %d\n", getpid());
-
-    PTZ();
-
-    /* Add video ES handler */
-    if (add_video_handler(sess, process_video_payload, NULL) < 0)
-    {
-        printf("%s error installing video callback - \
-                                exitting\n", __func__);
-        goto done;
-    }
-
-    if ((daemon_msg_queue = msgget(DAEMON_MESSAGE_QUEUE_KEY, 0)) < 0)
-    {
-        perror("msgget: open");
-        return -1;
-    }
-
-    if ((v2ipd_shm_id = shmget(V2IPD_SHARE_MEM_KEY, V2IPD_SHARE_MEM_SIZE, IPC_CREAT)) < 0)
-    {
-        perror("shmget in v2ipd");
-        return -1;
-    }
-    if ((v2ipd_share_mem = (vs_share_mem*)shmat(v2ipd_shm_id, 0, 0)) < (vs_share_mem*) 0)
-    {
-        perror("shmat in v2ipd");
-        return -1;
-    }
-
-    /* Load config files */
-    do
-    {
-        /* Load config files */
-        if (audio_conf != NULL)
-        {
-            free_audio_conf(sess->audio.params);
-            if (sess->audio.cfgfile == NULL)
-                sess->audio.cfgfile = strdup(audio_conf);
-            sess->video.params =
-                parse_video_conf(sess->video.cfgfile);
-        }
-
-        if (video_conf != NULL)
-        {
-            /* Reload config */
-            if (video_params_changed(sess->video.params))
-                save_video_conf(sess->video.params,
-                                sess->video.cfgfile);
-
-            free_video_conf(sess->video.params);
-            if (sess->video.cfgfile == NULL)
-                sess->video.cfgfile = strdup(video_conf);
-            sess->video.params =
-                parse_video_conf(sess->video.cfgfile);
-        }
-
-        /* Main loop - does not retun unless forced */
-        err = do_server(sess);
-
-        //      } while (sess->soft_reset);
-    }
-    while (!sess->soft_reset);
-
-    if (sess->soft_reset)
-    {
-        v2ipd_restart_all();
-    }
-
-done:
-//  shmdt( v2ipd_shm_id ); // YYF: wrong
-    shmdt(v2ipd_share_mem);
-//    msgctl(msg_queue_id, IPC_RMID, NULL);
-    free(video_conf);
-    free(audio_conf);
-    free_system_session(sess);
-    dbg("Exitting program\n\n\n\n");
-
-    exit(err);
-}
-
 struct vdIn * vdin_camera = NULL;
 //we need tow functions to get data beacause we wo only allow one thread get data from kernal buffers that is function get_data
+
 char * get_video_data(int *size)
 {
     int i;
@@ -1093,6 +665,7 @@ have_readed:
     usleep(20000);
     goto try_again;
 }
+
 static char* get_data(int* size, int *width, int *height)
 {
     const char *videodevice = "/dev/video0";
@@ -1146,6 +719,7 @@ retry:
 *如果退出的是最后一个连接的会话则恢复原来分辨率
 */
 void restart_v4l2(int width , int height);
+
 void change_camera_status(struct sess_ctx *sess , int sess_in)
 {
     if (strncmp(threadcfg.monitor_mode , "inteligent", 10) != 0)
@@ -1186,6 +760,7 @@ void change_camera_status(struct sess_ctx *sess , int sess_in)
         }
     }
 }
+
 void  add_sess(struct sess_ctx *sess)
 {
     pthread_mutex_lock(&global_ctx_lock);
@@ -1196,6 +771,7 @@ void  add_sess(struct sess_ctx *sess)
         change_camera_status(sess, 1);
     pthread_mutex_unlock(&global_ctx_lock);
 }
+
 void  del_sess(struct sess_ctx *sess)
 {
     struct sess_ctx **p;
@@ -1671,11 +1247,13 @@ exit:
 #define RECORD_STATE_NORMAL    3
 //extern struct __syn_sound_buf syn_buf;
 static nand_record_file_header *record_header;
+
 static nand_record_file_internal_header video_internal_header =
 {
     {0, 0, 0, 1, 0xc},
     {0, 1, 0, 0},
 };
+
 static nand_record_file_internal_header audio_internal_header =
 {
     {0, 0, 0, 1, 0xc},

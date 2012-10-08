@@ -29,7 +29,6 @@ struct vdIn
     void *mem[NB_BUFFER];
     pthread_mutex_t tmpbufflock;
     pthread_t hrb_tid[MAX_CONNECTIONS];
-// char buffinvalue;
     unsigned char *tmpbuffer;
     unsigned char *framebuffer;
     int isstreaming;
@@ -53,12 +52,6 @@ int close_v4l2(struct vdIn *vd);
 
 int v4l2GetControl(struct vdIn *vd, int control);
 int v4l2SetControl(struct vdIn *vd, int control, int value);
-int v4l2UpControl(struct vdIn *vd, int control);
-int v4l2DownControl(struct vdIn *vd, int control);
-int v4l2ToggleControl(struct vdIn *vd, int control);
 int v4l2ResetControl(struct vdIn *vd, int control);
-int v4l2ResetPanTilt(struct vdIn *vd, int pantilt);
-int v4L2UpDownPan(struct vdIn *vd, short inc);
-int v4L2UpDownTilt(struct vdIn *vd, short inc);
 int v4l2_contrl_brightness(struct vdIn *vd, int brightness);
 int v4l2_contrl_contrast(struct vdIn *vd, int contrast);

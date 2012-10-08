@@ -1,17 +1,10 @@
 #include "includes.h"
-
 #include <dirent.h>
-
 #include "wpa_ctrl.h"
-
 
 static const char *wpa_cli_version = NULL;
 
-
-
-
 static const char *wpa_cli_full_license = NULL;
-
 
 static struct wpa_ctrl *ctrl_conn;
 static struct wpa_ctrl *mon_conn;
@@ -20,7 +13,6 @@ static const char *ctrl_iface_dir = "/tmp/wpa_supplicant";
 static char *ctrl_ifname = NULL;
 char *scanresult;
 int result_len;
-
 
 static int wpa_cli_open_connection(const char *ifname, int attach)
 {
@@ -53,7 +45,6 @@ static int wpa_cli_open_connection(const char *ifname, int attach)
     return 0;
 }
 
-
 static void wpa_cli_close_connection(void)
 {
     if (ctrl_conn == NULL)
@@ -67,12 +58,10 @@ static void wpa_cli_close_connection(void)
     }
 }
 
-
 static void wpa_cli_msg_cb(char *msg, size_t len)
 {
     printf("%s\n", msg);
 }
-
 
 static int _wpa_ctrl_command(struct wpa_ctrl *ctrl, char *cmd, int print)
 {
@@ -107,12 +96,10 @@ static int _wpa_ctrl_command(struct wpa_ctrl *ctrl, char *cmd, int print)
     return 0;
 }
 
-
 static int wpa_ctrl_command(struct wpa_ctrl *ctrl, char *cmd)
 {
     return _wpa_ctrl_command(ctrl, cmd, 1);
 }
-
 
 static int wpa_cli_cmd_status(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
@@ -120,30 +107,25 @@ static int wpa_cli_cmd_status(struct wpa_ctrl *ctrl, int argc, char *argv[])
     return wpa_ctrl_command(ctrl, verbose ? "STATUS-VERBOSE" : "STATUS");
 }
 
-
 static int wpa_cli_cmd_ping(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     return wpa_ctrl_command(ctrl, "PING");
 }
-
 
 static int wpa_cli_cmd_mib(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     return wpa_ctrl_command(ctrl, "MIB");
 }
 
-
 static int wpa_cli_cmd_pmksa(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     return wpa_ctrl_command(ctrl, "PMKSA");
 }
 
-
 static int wpa_cli_cmd_help(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     return 0;
 }
-
 
 static int wpa_cli_cmd_license(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
@@ -151,13 +133,11 @@ static int wpa_cli_cmd_license(struct wpa_ctrl *ctrl, int argc, char *argv[])
     return 0;
 }
 
-
 static int wpa_cli_cmd_quit(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     wpa_cli_quit = 1;
     return 0;
 }
-
 
 static void wpa_cli_show_variables(void)
 {
@@ -177,7 +157,6 @@ static void wpa_cli_show_variables(void)
            "  dot11RSNAConfigSATimeout (WPA/WPA2 timeout for completing "
            "security\n\tassociation in seconds)\n");
 }
-
 
 static int wpa_cli_cmd_set(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
@@ -206,25 +185,21 @@ static int wpa_cli_cmd_set(struct wpa_ctrl *ctrl, int argc, char *argv[])
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_logoff(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     return wpa_ctrl_command(ctrl, "LOGOFF");
 }
-
 
 static int wpa_cli_cmd_logon(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     return wpa_ctrl_command(ctrl, "LOGON");
 }
 
-
 static int wpa_cli_cmd_reassociate(struct wpa_ctrl *ctrl, int argc,
                                    char *argv[])
 {
     return wpa_ctrl_command(ctrl, "REASSOCIATE");
 }
-
 
 static int wpa_cli_cmd_preauthenticate(struct wpa_ctrl *ctrl, int argc,
                                        char *argv[])
@@ -248,7 +223,6 @@ static int wpa_cli_cmd_preauthenticate(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_ap_scan(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     char cmd[256];
@@ -268,7 +242,6 @@ static int wpa_cli_cmd_ap_scan(struct wpa_ctrl *ctrl, int argc, char *argv[])
     }
     return wpa_ctrl_command(ctrl, cmd);
 }
-
 
 static int wpa_cli_cmd_stkstart(struct wpa_ctrl *ctrl, int argc,
                                 char *argv[])
@@ -292,7 +265,6 @@ static int wpa_cli_cmd_stkstart(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_ft_ds(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     char cmd[256];
@@ -314,7 +286,6 @@ static int wpa_cli_cmd_ft_ds(struct wpa_ctrl *ctrl, int argc, char *argv[])
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_wps_pbc(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     char cmd[256];
@@ -335,7 +306,6 @@ static int wpa_cli_cmd_wps_pbc(struct wpa_ctrl *ctrl, int argc, char *argv[])
     }
     return wpa_ctrl_command(ctrl, cmd);
 }
-
 
 static int wpa_cli_cmd_wps_pin(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
@@ -373,7 +343,6 @@ static int wpa_cli_cmd_wps_pin(struct wpa_ctrl *ctrl, int argc, char *argv[])
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_wps_oob(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     char cmd[256];
@@ -405,7 +374,6 @@ static int wpa_cli_cmd_wps_oob(struct wpa_ctrl *ctrl, int argc, char *argv[])
     }
     return wpa_ctrl_command(ctrl, cmd);
 }
-
 
 static int wpa_cli_cmd_wps_reg(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
@@ -466,7 +434,6 @@ static int wpa_cli_cmd_wps_reg(struct wpa_ctrl *ctrl, int argc, char *argv[])
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_wps_er_start(struct wpa_ctrl *ctrl, int argc,
                                     char *argv[])
 {
@@ -474,14 +441,12 @@ static int wpa_cli_cmd_wps_er_start(struct wpa_ctrl *ctrl, int argc,
 
 }
 
-
 static int wpa_cli_cmd_wps_er_stop(struct wpa_ctrl *ctrl, int argc,
                                    char *argv[])
 {
     return wpa_ctrl_command(ctrl, "WPS_ER_STOP");
 
 }
-
 
 static int wpa_cli_cmd_wps_er_pin(struct wpa_ctrl *ctrl, int argc,
                                   char *argv[])
@@ -507,7 +472,6 @@ static int wpa_cli_cmd_wps_er_pin(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_wps_er_pbc(struct wpa_ctrl *ctrl, int argc,
                                   char *argv[])
 {
@@ -530,7 +494,6 @@ static int wpa_cli_cmd_wps_er_pbc(struct wpa_ctrl *ctrl, int argc,
     }
     return wpa_ctrl_command(ctrl, cmd);
 }
-
 
 static int wpa_cli_cmd_wps_er_learn(struct wpa_ctrl *ctrl, int argc,
                                     char *argv[])
@@ -556,7 +519,6 @@ static int wpa_cli_cmd_wps_er_learn(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_ibss_rsn(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     char cmd[256];
@@ -578,7 +540,6 @@ static int wpa_cli_cmd_ibss_rsn(struct wpa_ctrl *ctrl, int argc, char *argv[])
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_level(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     char cmd[256];
@@ -598,7 +559,6 @@ static int wpa_cli_cmd_level(struct wpa_ctrl *ctrl, int argc, char *argv[])
     }
     return wpa_ctrl_command(ctrl, cmd);
 }
-
 
 static int wpa_cli_cmd_identity(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
@@ -636,7 +596,6 @@ static int wpa_cli_cmd_identity(struct wpa_ctrl *ctrl, int argc, char *argv[])
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_password(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     char cmd[256], *pos, *end;
@@ -672,7 +631,6 @@ static int wpa_cli_cmd_password(struct wpa_ctrl *ctrl, int argc, char *argv[])
 
     return wpa_ctrl_command(ctrl, cmd);
 }
-
 
 static int wpa_cli_cmd_new_password(struct wpa_ctrl *ctrl, int argc,
                                     char *argv[])
@@ -711,7 +669,6 @@ static int wpa_cli_cmd_new_password(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_pin(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     char cmd[256], *pos, *end;
@@ -746,7 +703,6 @@ static int wpa_cli_cmd_pin(struct wpa_ctrl *ctrl, int argc, char *argv[])
     }
     return wpa_ctrl_command(ctrl, cmd);
 }
-
 
 static int wpa_cli_cmd_otp(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
@@ -783,7 +739,6 @@ static int wpa_cli_cmd_otp(struct wpa_ctrl *ctrl, int argc, char *argv[])
 
     return wpa_ctrl_command(ctrl, cmd);
 }
-
 
 static int wpa_cli_cmd_passphrase(struct wpa_ctrl *ctrl, int argc,
                                   char *argv[])
@@ -822,7 +777,6 @@ static int wpa_cli_cmd_passphrase(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_bssid(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     char cmd[256], *pos, *end;
@@ -858,13 +812,11 @@ static int wpa_cli_cmd_bssid(struct wpa_ctrl *ctrl, int argc, char *argv[])
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_list_networks(struct wpa_ctrl *ctrl, int argc,
                                      char *argv[])
 {
     return wpa_ctrl_command(ctrl, "LIST_NETWORKS");
 }
-
 
 static int wpa_cli_cmd_select_network(struct wpa_ctrl *ctrl, int argc,
                                       char *argv[])
@@ -887,7 +839,6 @@ static int wpa_cli_cmd_select_network(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_enable_network(struct wpa_ctrl *ctrl, int argc,
                                       char *argv[])
 {
@@ -908,7 +859,6 @@ static int wpa_cli_cmd_enable_network(struct wpa_ctrl *ctrl, int argc,
 
     return wpa_ctrl_command(ctrl, cmd);
 }
-
 
 static int wpa_cli_cmd_disable_network(struct wpa_ctrl *ctrl, int argc,
                                        char *argv[])
@@ -931,13 +881,11 @@ static int wpa_cli_cmd_disable_network(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_add_network(struct wpa_ctrl *ctrl, int argc,
                                    char *argv[])
 {
     return wpa_ctrl_command(ctrl, "ADD_NETWORK");
 }
-
 
 static int wpa_cli_cmd_remove_network(struct wpa_ctrl *ctrl, int argc,
                                       char *argv[])
@@ -960,7 +908,6 @@ static int wpa_cli_cmd_remove_network(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static void wpa_cli_show_network_variables(void)
 {
     printf("set_network variables:\n"
@@ -980,7 +927,6 @@ static void wpa_cli_show_network_variables(void)
            "Please see wpa_supplicant.conf documentation for full list "
            "of\navailable variables.\n");
 }
-
 
 static int wpa_cli_cmd_set_network(struct wpa_ctrl *ctrl, int argc,
                                    char *argv[])
@@ -1011,7 +957,6 @@ static int wpa_cli_cmd_set_network(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_get_network(struct wpa_ctrl *ctrl, int argc,
                                    char *argv[])
 {
@@ -1041,13 +986,11 @@ static int wpa_cli_cmd_get_network(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_disconnect(struct wpa_ctrl *ctrl, int argc,
                                   char *argv[])
 {
     return wpa_ctrl_command(ctrl, "DISCONNECT");
 }
-
 
 static int wpa_cli_cmd_reconnect(struct wpa_ctrl *ctrl, int argc,
                                  char *argv[])
@@ -1055,26 +998,22 @@ static int wpa_cli_cmd_reconnect(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, "RECONNECT");
 }
 
-
 static int wpa_cli_cmd_save_config(struct wpa_ctrl *ctrl, int argc,
                                    char *argv[])
 {
     return wpa_ctrl_command(ctrl, "SAVE_CONFIG");
 }
 
-
 static int wpa_cli_cmd_scan(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     return wpa_ctrl_command(ctrl, "SCAN");
 }
-
 
 static int wpa_cli_cmd_scan_results(struct wpa_ctrl *ctrl, int argc,
                                     char *argv[])
 {
     return wpa_ctrl_command(ctrl, "SCAN_RESULTS");
 }
-
 
 static int wpa_cli_cmd_bss(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
@@ -1095,7 +1034,6 @@ static int wpa_cli_cmd_bss(struct wpa_ctrl *ctrl, int argc, char *argv[])
 
     return wpa_ctrl_command(ctrl, cmd);
 }
-
 
 static int wpa_cli_cmd_get_capability(struct wpa_ctrl *ctrl, int argc,
                                       char *argv[])
@@ -1126,13 +1064,11 @@ static int wpa_cli_cmd_get_capability(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_list_interfaces(struct wpa_ctrl *ctrl)
 {
     printf("Available interfaces:\n");
     return wpa_ctrl_command(ctrl, "INTERFACES");
 }
-
 
 static int wpa_cli_cmd_interface(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
@@ -1158,20 +1094,17 @@ static int wpa_cli_cmd_interface(struct wpa_ctrl *ctrl, int argc, char *argv[])
     return 0;
 }
 
-
 static int wpa_cli_cmd_reconfigure(struct wpa_ctrl *ctrl, int argc,
                                    char *argv[])
 {
     return wpa_ctrl_command(ctrl, "RECONFIGURE");
 }
 
-
 static int wpa_cli_cmd_terminate(struct wpa_ctrl *ctrl, int argc,
                                  char *argv[])
 {
     return wpa_ctrl_command(ctrl, "TERMINATE");
 }
-
 
 static int wpa_cli_cmd_interface_add(struct wpa_ctrl *ctrl, int argc,
                                      char *argv[])
@@ -1204,7 +1137,6 @@ static int wpa_cli_cmd_interface_add(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_interface_remove(struct wpa_ctrl *ctrl, int argc,
                                         char *argv[])
 {
@@ -1225,13 +1157,11 @@ static int wpa_cli_cmd_interface_remove(struct wpa_ctrl *ctrl, int argc,
     return wpa_ctrl_command(ctrl, cmd);
 }
 
-
 static int wpa_cli_cmd_interface_list(struct wpa_ctrl *ctrl, int argc,
                                       char *argv[])
 {
     return wpa_ctrl_command(ctrl, "INTERFACE_LIST");
 }
-
 
 static int wpa_cli_cmd_sta(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
@@ -1245,7 +1175,6 @@ static int wpa_cli_cmd_sta(struct wpa_ctrl *ctrl, int argc, char *argv[])
     snprintf(buf, sizeof(buf), "STA %s", argv[0]);
     return wpa_ctrl_command(ctrl, buf);
 }
-
 
 static int wpa_ctrl_command_sta(struct wpa_ctrl *ctrl, char *cmd,
                                 char *addr, size_t addr_len)
@@ -1286,7 +1215,6 @@ static int wpa_ctrl_command_sta(struct wpa_ctrl *ctrl, char *cmd,
     return 0;
 }
 
-
 static int wpa_cli_cmd_all_sta(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     char addr[32], cmd[64];
@@ -1302,24 +1230,20 @@ static int wpa_cli_cmd_all_sta(struct wpa_ctrl *ctrl, int argc, char *argv[])
     return -1;
 }
 
-
 static int wpa_cli_cmd_suspend(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     return wpa_ctrl_command(ctrl, "SUSPEND");
 }
-
 
 static int wpa_cli_cmd_resume(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     return wpa_ctrl_command(ctrl, "RESUME");
 }
 
-
 static int wpa_cli_cmd_drop_sa(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
     return wpa_ctrl_command(ctrl, "DROP_SA");
 }
-
 
 static int wpa_cli_cmd_roam(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
@@ -1341,7 +1265,6 @@ static int wpa_cli_cmd_roam(struct wpa_ctrl *ctrl, int argc, char *argv[])
     }
     return wpa_ctrl_command(ctrl, cmd);
 }
-
 
 enum wpa_cli_cmd_flags
 {
@@ -1738,7 +1661,6 @@ static char * wpa_cli_get_default_ifname(void)
     closedir(dir);
     return ifname;
 }
-
 
 int mywpa_cli(int argc, char *argv[])
 {

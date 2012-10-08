@@ -783,6 +783,7 @@ int alsa_set_mic_volume(int value)
     printf("----------------------set mic volume ok------------------\n");
     return 0;
 }
+
 int alsa_set_hp_volume(int value)
 {
     int ret;
@@ -818,6 +819,7 @@ int alsa_set_hp_volume(int value)
     volume_percent = -1;
     return 0;
 }
+
 int alsa_set_volume(int value)
 {
     int ret;
@@ -870,13 +872,6 @@ int alsa_set_volume(int value)
     free(argv[1]);
     free(argv[2]);
     volume_percent = -1;
-    return 0;
-}
-
-int test_set_sound_card()
-{
-    alsa_set_mic_volume(70);
-    alsa_set_hp_volume(91);
     return 0;
 }
 

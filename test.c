@@ -11,7 +11,6 @@
 #include <dirent.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-//#include <net/if.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
@@ -22,8 +21,6 @@
 #include <assert.h>
 #include <string.h>
 
-
-
 #include "nand_file.h"
 #include "utilities.h"
 #include "cli.h"
@@ -32,7 +29,6 @@
 #include "sound.h"
 #include "playback.h"
 #include "amixer.h"
-//#include "udp_transfer.h"
 #include "vpu_server.h"
 #include "video_cfg.h"
 
@@ -40,18 +36,10 @@
 #include "cfg_network.h"
 #include "mail_alarm.h"
 
-/*for debug malloc*/
-//#include "dbg_malloc.h"
-
-
-#if 1
 #define dbg(fmt, args...)  \
     do { \
         printf(__FILE__ ": %s: " fmt , __func__, ## args); \
     } while (0)
-#else
-#define dbg(fmt, args...)    do {} while (0)
-#endif
 
 
 #define BUF_SIZE    1024*128
@@ -307,6 +295,7 @@ static int write_config_value(struct configstruct *allconfig, int elements)
     fclose(fp);
     return 0;
 }
+
 static inline void vs_msg_update_system_time()
 {
     int ret;
@@ -323,6 +312,7 @@ static inline void vs_msg_update_system_time()
     }
     dbg("snd update system time ok\n");
 }
+
 int set_system_time(char * time)
 {
     char buf[32];
@@ -389,6 +379,7 @@ int set_system_time(char * time)
     printf("time==%s\n", time);
     return 0;
 }
+
 int set_raw_config_value(char * buffer)
 {
     struct configstruct *conf_p;
@@ -526,10 +517,12 @@ int get_cam_id(unsigned int *id)
 int test_printf_getConfig();
 //int querryfs(char *fs , unsigned long long*maxsize,unsigned long long* freesize);
 char * get_clean_video_cfg(int *size);
+
 void sig_handle(int signo)
 {
     exit(0);
 }
+
 void read_pswd()
 {
     struct stat st;
@@ -682,6 +675,7 @@ int update_config_file_carefully()
     free(old_file_buf);
     return 0;
 }
+
 #define HID_RDWR_UNIT        63
 int main()
 {
@@ -1596,7 +1590,8 @@ wlan_udhcpc:
     }
 
 
-    test_set_sound_card();
+    alsa_set_mic_volume(70);
+    alsa_set_hp_volume(91);
     if ((sound_init()) < 0)
     {
         printf("start sound error\n");

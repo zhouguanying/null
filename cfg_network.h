@@ -1,5 +1,6 @@
 #ifndef __CFG_NETWORK_H__
 #define __CFG_NETWORK_H__
+
 #define RESERVE_SCAN_FILE         "/data/wifi_last_scan.cfg"
 
 extern char *scanresult;
@@ -31,4 +32,5 @@ int config_wifi();
 int get_netlink_status(const char *if_name);
 char * scan_wifi(int *len);
 void * network_thread(void * arg);
+
 #endif

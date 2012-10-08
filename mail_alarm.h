@@ -12,4 +12,5 @@ extern char senderpswd[64];
 void init_mail_attatch_data_list(char *mailbox);
 int add_image_to_mail_attatch_list_no_block(char * image, int size);
 int mail_alarm_thread();
+
 #endif

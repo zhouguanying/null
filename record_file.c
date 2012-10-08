@@ -128,7 +128,6 @@ record_file_t* record_file_open(int start_sector)
     return file;
 }
 
-
 /*
     return the real byte num that read.
     if error, reture -1;
@@ -170,9 +169,6 @@ int record_file_read(record_file_t* file, unsigned char* buf, int sector_num)
     return ret;
 }
 
-/*
-    file size, in byte.
-*/
 int record_file_get_size(record_file_t* file)
 {
     return file->real_size;
@@ -206,6 +202,4 @@ int record_file_close(record_file_t* file)
 
     return 0;
 }
-
-//todo: record_file_write
 

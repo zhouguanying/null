@@ -1,5 +1,6 @@
 #ifndef __INET_TYPE_H__
 #define __INET_TYPE_H__
+
 #include<sys/time.h>
 #include<time.h>
 #include <pthread.h>
@@ -93,6 +94,7 @@ extern "C"
         struct sess_ctx *sess;
         struct mapping *next;
     };
+
     /*use to get our public addr*/
     struct public_port
     {
@@ -110,6 +112,7 @@ extern "C"
         uint32_t id;
         int32_t who;
     } __attribute__((packed)) cmd_t;
+
     /*
     * this structure used to record who have occupy the local playback port
     * who :the monitor id  who occupy the playback port

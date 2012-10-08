@@ -1,26 +1,22 @@
-#include     <stdio.h>      /*标准输入输出定义*/
-#include     <stdlib.h>     /*标准函数库定义*/
-#include     <unistd.h>     /*Unix 标准函数定义*/
-#include     <sys/ioctl.h>
-#include     <sys/types.h>
-#include     <sys/stat.h>
-#include     <fcntl.h>      /*文件控制定义*/
-#include     <termios.h>    /*PPSIX 终端控制定义*/
-#include     <errno.h>      /*错误号定义*/
-
-//---------------------------------------------------------------
+#include  <stdio.h>
+#include  <stdlib.h>
+#include  <unistd.h>
+#include  <sys/ioctl.h>
+#include  <sys/types.h>
+#include  <sys/stat.h>
+#include  <fcntl.h>
+#include  <termios.h>
+#include  <errno.h>
 
 #define    IOCTL_USBDET_READ                11
 #define    IOCTL_USBDET_LED_DRIVE        15
 
 #define    USBDET_DEV_NAME    "/dev/usbdet"
-//#define    USBDET_DEV_NAME    "usbdet"
-//---------------------------------------------------------------
 
 
 static    int     fd = -1;
 
-int    open_usbdet(void)
+int open_usbdet(void)
 {
     //fd = open(dev, O_RDWR | O_NOCTTY );
 
@@ -37,7 +33,7 @@ int    open_usbdet(void)
     }
 }
 
-int    ioctl_usbdet_read(void)
+int ioctl_usbdet_read(void)
 {
     int    ret;
 
@@ -54,7 +50,7 @@ int    ioctl_usbdet_read(void)
     return    ret;
 }
 
-int    ioctl_usbdet_led(int led)
+int ioctl_usbdet_led(int led)
 {
     int    ret;
 
@@ -71,12 +67,6 @@ int    ioctl_usbdet_led(int led)
     return    ret;
 }
 
-//----------------------------------------------------------------------------
-
 extern    int    ioctl_usbdet_led(int led);
 extern    int    ioctl_usbdet_read(void);
-
-//*************************************************************************************
-
-
 

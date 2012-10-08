@@ -153,6 +153,7 @@ static int checkreply(char *str, char *buf)
     }
     return 0;
 }
+
 static int en_base64(char *sbuf, int ssize, char dbuf[], int *dsize)
 {
     char *s;
@@ -569,6 +570,7 @@ __end:
         close(sockfd);
     return -1;
 }
+
 int mail_alarm_thread()
 {
     struct mail_attach_data *ap;

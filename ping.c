@@ -49,7 +49,6 @@ int recv_packet();
 int unpack(char *buf, int len);
 void tv_sub(struct timeval *out, struct timeval *in);
 
-/*校验和算法*/
 unsigned short cal_chksum(unsigned short *addr, int len)
 {
     int nleft = len;
@@ -75,7 +74,7 @@ unsigned short cal_chksum(unsigned short *addr, int len)
     answer = ~sum;
     return answer;
 }
-/*设置ICMP报头*/
+
 int pack(int pack_no)
 {
     int packsize;
@@ -95,7 +94,6 @@ int pack(int pack_no)
 }
 
 
-/*发送三个ICMP报文*/
 int send_packet()
 {
     int packetsize;
@@ -110,7 +108,6 @@ int send_packet()
     return 0;
 }
 
-/*接收所有ICMP报文*/
 int recv_packet()
 {
     int n;
@@ -135,7 +132,7 @@ __retry:
     nreceived++;
     return 0;
 }
-/*剥去ICMP报头*/
+
 int unpack(char *buf, int len)
 {
     int iphdrlen;
@@ -165,6 +162,7 @@ int unpack(char *buf, int len)
     else return -1;
     return 0;
 }
+
 int check_net(char *ping_addr, char * __device)
 {
     struct hostent *host;
@@ -243,7 +241,7 @@ int check_net(char *ping_addr, char * __device)
     close(sockfd);
     return -1;
 }
-/*两个timeval结构相减*/
+
 void tv_sub(struct timeval *out, struct timeval *in)
 {
     if ((out->tv_usec -= in->tv_usec) < 0)
@@ -367,6 +365,4 @@ __done:
     return 0;
     /*all cannot connected ......*/
 }
-
-
 

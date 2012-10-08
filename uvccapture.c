@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-//#include <jpeglib.h>
 #include <time.h>
 #include <linux/videodev.h>
 #include <sys/ioctl.h>

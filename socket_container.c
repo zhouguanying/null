@@ -94,6 +94,7 @@ void get_cmd_socket(cmd_socket_t*fds , int *nums)
     pthread_mutex_unlock(&container_list_lock);
     *nums = i;
 }
+
 void check_cmd_socket()
 {
     struct socket_container **sc;
@@ -295,7 +296,7 @@ FREE_CONTAINER:
     return ret;
 }
 
-int  close_socket_container(struct socket_container *sc)
+int close_socket_container(struct socket_container *sc)
 {
     struct socket_container **scc;
     int ret;

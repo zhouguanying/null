@@ -26,8 +26,6 @@ enum
     CHP_RTN_MEM_MALLOC_FAIL
 };
 
-
-
 typedef void *(*CHP_MALLOC_FUNC)(CHP_U32);
 typedef void (*CHP_FREE_FUNC)(void *);
 typedef void *(*CHP_MEMSET)(void *, CHP_32 c, CHP_U32);

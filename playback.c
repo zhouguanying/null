@@ -23,12 +23,11 @@ int playback_init()
     pthread_mutex_init(&list_lock, NULL);
     return 0;
 }
+
 playback_t* playback_find(struct sockaddr_in address)
 {
     struct list_head* p;
     playback_t* pb;
-
-    PRINTF("%s: enter\n", __func__);
 
     list_for_each(p, &playback_list)
     {
@@ -42,8 +41,6 @@ playback_t* playback_find(struct sockaddr_in address)
             return pb;
         }
     }
-
-    PRINTF("%s: leave\n", __func__);
 
     return 0;
 }
@@ -79,8 +76,6 @@ void playback_remove_dead()
     struct list_head* n;
     playback_t* pb;
 
-    PRINTF("%s: enter\n", __func__);
-
     pthread_mutex_lock(&list_lock);
 
     list_for_each_safe(p, n, &playback_list)
@@ -93,8 +88,6 @@ void playback_remove_dead()
     }
 
     pthread_mutex_unlock(&list_lock);
-
-    PRINTF("%s: leave\n", __func__);
 }
 
 int playback_new(struct sockaddr_in address, int file, int seek_percent)
@@ -144,7 +137,6 @@ int playback_new(struct sockaddr_in address, int file, int seek_percent)
     }
     return ret;
 }
-
 
 int playback_connect(struct sockaddr_in address, int socket)
 {
@@ -225,24 +217,6 @@ int playback_get_status(playback_t* pb)
     pthread_mutex_unlock(&pb->lock);
 
     return ret;
-}
-
-int playback_seekto(struct sockaddr_in address, int percent)
-{
-    playback_t* pb;
-
-    pthread_mutex_lock(&list_lock);
-    pb = playback_find(address);
-    pthread_mutex_unlock(&list_lock);
-
-    if (pb)
-    {
-        pthread_mutex_lock(&pb->lock);
-        pb->seek = percent;
-        pb->status = PLAYBACK_STATUS_SEEK;
-        pthread_mutex_unlock(&pb->lock);
-    }
-    return 0;
 }
 
 int playback_exit(struct sockaddr_in address)
@@ -331,6 +305,7 @@ static int playback_send_data(int socket , playback_t* pb, char* buf, int len)
 END:
     return ret;
 }
+
 /*
 |----------------------------------------------------------------------------------------------------------------------------------------------|
 |table1 data size 4B |table2 data size 4B|       table1 £¨max size..k£©         |           table2   £¨max size..k£©                                                     |

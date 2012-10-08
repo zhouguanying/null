@@ -21,16 +21,12 @@
 #include <sys/statfs.h>
 
 #include "includes.h"
-//#include <defines.h>
 
 #include "UART.h"
 #include "cfg_network.h"
 #include "cli.h"
-//#include "mpegts.h"
 #include "config.h"
-//#include "encoder.h"
 #include "revision.h"
-//#include "ipl.h"
 #include "nand_file.h"
 #include "vpu_server.h"
 #include "server.h"
@@ -38,16 +34,13 @@
 #include "record_file.h"
 #include "utilities.h"
 #include "sound.h"
-//#include "udp_transfer.h"
 #include "video_cfg.h"
 #include "v4l2uvc.h"
 #include "amixer.h"
 #include "udttools.h"
 #include "socket_container.h"
 #include "stun.h"
-//#include "monitor.h"
 
-/* Debug */
 #define ENCODER_DBG
 #ifdef ENCODER_DBG
 #define dbg(fmt, args...)  \
@@ -65,7 +58,6 @@ static struct cli_handler cli_cmd_handler;
 static int cli_socket = -1;
 SOCKET_TYPE cli_st;
 
-
 static inline char * gettimestamp()
 {
     static char timestamp[15];
@@ -81,6 +73,7 @@ static inline char * gettimestamp()
             curtm->tm_mday, curtm->tm_hour, curtm->tm_min, curtm->tm_sec);
     return timestamp;
 }
+
 static struct cli_sess_ctx * new_session(void *arg)
 {
     struct cli_sess_ctx *sess = NULL;
@@ -113,6 +106,7 @@ static int free_session(struct cli_sess_ctx *sess)
 }
 
 extern char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int* rsp_len);
+
 char *set_transport_type_rsp(struct sess_ctx * sess , int *size)
 {
     char *buf;
@@ -140,6 +134,7 @@ char *set_transport_type_rsp(struct sess_ctx * sess , int *size)
     *size = 6;
     return buf;
 }
+
 static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
                                  ssize_t req_len, u8 *unused, int* rsp_len, struct sockaddr_in from)
 {
@@ -321,7 +316,9 @@ done:
     dbg("error");
     return NULL;
 }
+
 extern int msqid;
+
 static inline void do_cli_start()
 {
     int ret;
@@ -446,6 +443,7 @@ int cmd_send_msg(int sock , SOCKET_TYPE st , char *buf , int len)
     }
     return -1;
 }
+
 int cmd_recv_msg(int sock , SOCKET_TYPE st , char *buf , int len , struct sockaddr *addr , int *addrlen)
 {
     switch (st)
@@ -631,6 +629,7 @@ static  int check_cli_pswd(char *arg , char **r)
     }
     return 0;
 }
+
 struct cli_sess_ctx * cli_init(void *arg)
 {
     struct cli_sess_ctx *sess;
@@ -1751,12 +1750,13 @@ static int SetRs485BautRate(char* arg)
 {
     int speed;
     speed = atoi(arg);
-//    printf("ready to set baudrate %d\n",speed);
-    SetUartSpeed(speed);
+//  printf("ready to set baudrate %d\n",speed);
+//  SetUartSpeed(speed);
     return 0;
 }
 
 static char stopcmd[8] = {0xa0 , 00 , 00 , 00 , 00 , 00 , 0xaf , 0x0f};
+
 static int Rs485Cmd(char* arg)
 {
     int length;
@@ -1939,6 +1939,7 @@ static char *SetPswd(char*arg)
     }
     return strdup(PASSWORD_FAIL);
 }
+
 static char *CheckPswd(char *arg)
 {
     FILE *fp;
@@ -1975,6 +1976,7 @@ static char *CheckPswd(char *arg)
     }
     return strdup(PASSWORD_FAIL);
 }
+
 static char *PswdState()
 {
     struct stat st;
@@ -2049,6 +2051,7 @@ static char*GetVersion(int *rsp_len)
     }
     return buf;
 }
+
 static char* GetConfig(char* arg , int *rsp_len)
 {
     char ConfigType;
@@ -2130,8 +2133,10 @@ static char* GetConfig(char* arg , int *rsp_len)
     }
     return ret;
 }
+
 int set_raw_config_value(char * buffer);
 extern char force_close_file ;
+
 static char * SetConfig(char* arg)
 {
     char ConfigType;
@@ -2250,6 +2255,7 @@ static char * SetConfig(char* arg)
 }
 
 int set_system_time(char * time);
+
 static void SetTime(char* arg)
 {
     //char*p1;
@@ -2325,6 +2331,7 @@ static void set_volume(char *arg)
         //save_config_value(CFG_VOLUME, buf);
     }
 }
+
 static char* GetTime(char* arg)
 {
     char* buffer;
@@ -2497,6 +2504,42 @@ static char* GetRecordStatue(char* arg)
     return buffer;
 }
 
+static int vs_set_record_config(int mode)
+{
+    int fd;
+    char* buffer;
+
+    printf("%s\n", __func__);
+    fd = open("/dev/nand-data", O_RDWR | O_SYNC);
+    if (fd < 0)
+    {
+        perror("open nand-data");
+        return -1;
+    }
+    buffer = malloc(512 * 1024);
+    memset(buffer, 0, 512 * 1024);
+    if (read(fd, buffer, 512 * 1024) != 512 * 1024)
+    {
+        printf("read error\n");
+        return -1;
+    }
+    buffer[4096] = (char)mode;
+    close(fd);
+    fd = open("/dev/nand-data", O_RDWR | O_SYNC);
+    if (fd < 0)
+    {
+        perror("open nand-data");
+        return -1;
+    }
+    write(fd, buffer, 512 * 1024);
+//    ioctl(fd, BLKFLSBUF, NULL );
+    close(fd);
+    system("sync");
+    system("/nand-flush /dev/nand-data");
+    system("sync");
+    return 0;
+}
+
 static void SetRecordStatue(char* arg)
 {
     char mode;
@@ -2565,6 +2608,8 @@ static int ArrangIpAddress(char* ip)
     memcpy(ip, tmp, strlen(tmp) + 1);
     return 0;
 }
+
+extern vs_share_mem* v2ipd_share_mem;
 
 static void SetIpAddress(char* arg)
 {
@@ -2715,6 +2760,7 @@ static const char *cli_cmds = "null";
  * @param: optional parameter
  * Returns response string or NULL to ignore resonse
  */
+
 static char *do_cli_cmd(void *sess, char *cmd, char *param, int size, int* rsp_len)
 {
     char *resp = NULL;

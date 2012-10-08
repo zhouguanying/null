@@ -51,20 +51,19 @@ extern "C"
     } playback_t;
 #endif
 
-//int playback_new(struct sockaddr_in address, int file);
-    int playback_init();
-    int playback_new(struct sockaddr_in address, int file, int seek_percent);
-//int playback_seekto(playback_t* pb, int percent);
-    playback_t* playback_find(struct sockaddr_in address);
-    int playback_connect(struct sockaddr_in address, int socket);
-    int playback_exit(struct sockaddr_in address);
-    int playback_seekto(struct sockaddr_in address, int percent);
-    void playback_remove_dead();
-    int playback_get_status(playback_t * pb);
-    int playback_set_status(playback_t * pb, int status);
-    int cmd_playback_set_status(struct sockaddr_in address ,  int status , void *value);
-    void* playback_thread(void * arg);
-    void playback_set_dead(playback_t* pb);
+int playback_init();
+int playback_new(struct sockaddr_in address, int file, int seek_percent);
+playback_t* playback_find(struct sockaddr_in address);
+int playback_connect(struct sockaddr_in address, int socket);
+int playback_exit(struct sockaddr_in address);
+int playback_seekto(struct sockaddr_in address, int percent);
+void playback_remove_dead();
+int playback_get_status(playback_t * pb);
+int playback_set_status(playback_t * pb, int status);
+int cmd_playback_set_status(struct sockaddr_in address ,  int status , void *value);
+void* playback_thread(void * arg);
+void playback_set_dead(playback_t* pb);
+
 #ifdef __cplusplus
 }
 #endif
