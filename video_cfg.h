@@ -73,6 +73,4 @@
 */
 #define ENCRYPTION_FILE_PATH     "/encryption"
 
-char *get_version_in_binary();
-
 #endif
