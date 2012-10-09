@@ -8,6 +8,7 @@
 #include "utilities.h"
 
 #define    VS_MESSAGE_ID 0x55aa55aa
+#define    VS_MESSAGE_DEBUG 23
 #define    VS_MESSAGE_RECORD_ID  0X55bb55bb
 #define    VS_MESSAGE_START_RECORDING    1
 #define    VS_MESSAGE_STOP_MONITOR        4
