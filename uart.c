@@ -8,7 +8,7 @@
 #include <termios.h>
 #include <errno.h>
 
-#include "UART.h"
+#include "uart.h"
 
 static int fd = -1;
 

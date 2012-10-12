@@ -22,7 +22,7 @@
 
 #include "includes.h"
 
-#include "UART.h"
+#include "uart.h"
 #include "cfg_network.h"
 #include "cli.h"
 #include "config.h"
