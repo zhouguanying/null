@@ -8,6 +8,8 @@
 #include "amrnb_encode.h"
 #include "udttools.h"
 
+// #define SOUND_BIDIRECTIONAL
+
 #define PERIOD_FRAMES             160
 #define AMR_PERIOD_BYTES          32 // 160 * 2 / 10 (1:10)
 #define AMR_PERIODS               256
@@ -150,6 +152,7 @@ char *sound_amr_buffer_fetch(int sess_id , int *size)
 #define IOCTL_GET_SPK_CTL _IOR('x',0x01,int)
 #define IOCTL_SET_SPK_CTL _IOW('x',0x02,int)
 
+#ifdef SOUND_BIDIRECTIONAL
 static int speaker_on()
 {
     int fd = open("/dev/mxs-gpio", O_RDWR);
@@ -162,6 +165,7 @@ static int speaker_on()
 
     return 0;
 }
+#endif
 
 static CBuffer *circular_init(int size, int step)
 {
@@ -263,6 +267,7 @@ static void *capture(void *arg)
     return NULL;
 }
 
+#ifdef SOUND_BIDIRECTIONAL
 static void *receive(void *arg)
 {
     char            *pcm  = malloc(period_bytes);
@@ -313,6 +318,7 @@ static void *receive(void *arg)
         n++;
         if (n == 2)
             playback_start = 1;
+
         pthread_mutex_unlock(&circular_mutex);
     }
 
@@ -331,6 +337,7 @@ end:
 
     return NULL;
 }
+#endif
 
 static inline void amr_encode(CHP_U32 handle, CHP_AUD_ENC_DATA_T *data)
 {
@@ -623,7 +630,9 @@ int sound_init()
         goto end;
     }
 
+#ifdef SOUND_BIDIRECTIONAL
     speaker_on();
+#endif
     init_amrdecoder();
     sound_amr_buffer_init();
     pthread_mutex_init(&circular_mutex, NULL);
@@ -672,13 +681,15 @@ void *sound_start_session(void *arg)
     int              sock     = sess->sc->audio_socket;
     ssize_t          size, s, n;
     char            *buf;
-    pthread_t        thread;
 
     // FIXME: no need to lock here?
     sess->ucount++;
 
+#ifdef SOUND_BIDIRECTIONAL
+    pthread_t thread;
     pthread_create(&thread, NULL, receive, sess);
     pthread_detach(thread);
+#endif
 
     sound_amr_buffer_clean(sess->id);
 
