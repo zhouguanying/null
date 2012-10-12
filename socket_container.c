@@ -354,7 +354,7 @@ void clean_socket_container(unsigned long long who , int need_lock)
     struct socket_container **sc;
     if (need_lock)
         pthread_mutex_lock(&container_list_lock);
-    if (who == 0xffffffffffffffff)
+    if (who == 0xffffffffffffffffULL)
     {
         dbg("clean all socket container\n");
         for (sc = &socket_clist; *sc;)

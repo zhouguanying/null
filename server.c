@@ -337,8 +337,7 @@ static inline int kill_connection(struct sess_ctx *sess)
     else ;
     pthread_mutex_lock(&global_ctx_lock);
     tmp = global_ctx_running_list;
-    // BUG here:
-    if (tmp = sess)
+    if (tmp == sess)
     {
         global_ctx_running_list = global_ctx_running_list->next;
         currconnections--;
