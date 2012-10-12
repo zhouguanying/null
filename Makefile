@@ -9,7 +9,7 @@ SRC += fatty.c
 OBJ  = $(patsubst %.c, build/%.o, $(SRC))
 OBJ += build/stun.o build/stun-camera.o
 
-OBJ += lib/libspeexdsp.a lib/AMR_NB_ENC.a lib/libudt.a \
+OBJ += lib/libstdc++.a lib/libspeexdsp.a lib/AMR_NB_ENC.a lib/libudt.a \
        lib/udttools.oo lib/libencoder.a lib/libdecoder.a \
        lib/libspc.a lib/libfipop.a
 
