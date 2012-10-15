@@ -725,7 +725,7 @@ void change_camera_status(struct sess_ctx *sess , int sess_in)
         return;
     if (sess_in)
     {
-        if (sess->sc->video_socket_is_lan)
+        if (sess->sc->video_socket_is_lan || strncmp(threadcfg.monitor_mode , "inteligent2",11)==0)
         {
             if (strncmp(threadcfg.record_resolution, "vga", 3) != 0)
             {
