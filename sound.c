@@ -8,8 +8,6 @@
 #include "amrnb_encode.h"
 #include "udttools.h"
 
-// #define SOUND_BIDIRECTIONAL
-
 #define PERIOD_FRAMES             160
 #define AMR_PERIOD_BYTES          32 // 160 * 2 / 10 (1:10)
 #define AMR_PERIODS               256
@@ -65,6 +63,12 @@ static int                   period_bytes;
 
 // amr buffer
 static SoundAmrBuffer        amr_buf;
+
+// bidirectional talk is limited to only one session
+static int                   sound_talking;
+static pthread_t             receive_thread;
+static pthread_t             receive_thread_running;
+static int                   receive_thread_exit;
 
 void sound_amr_buffer_init()
 {
@@ -152,7 +156,6 @@ char *sound_amr_buffer_fetch(int sess_id , int *size)
 #define IOCTL_GET_SPK_CTL _IOR('x',0x01,int)
 #define IOCTL_SET_SPK_CTL _IOW('x',0x02,int)
 
-#ifdef SOUND_BIDIRECTIONAL
 static int speaker_on()
 {
     int fd = open("/dev/mxs-gpio", O_RDWR);
@@ -165,7 +168,19 @@ static int speaker_on()
 
     return 0;
 }
-#endif
+
+static int speaker_off()
+{
+    int fd = open ("/dev/mxs-gpio", O_RDWR);
+
+    if (fd < 0)
+        return -1;
+    if (ioctl(fd, IOCTL_GET_SPK_CTL, 0) > 0)
+        ioctl(fd, IOCTL_SET_SPK_CTL, 0);
+    close(fd);
+
+    return 0;
+}
 
 static CBuffer *circular_init(int size, int step)
 {
@@ -229,6 +244,12 @@ static void circular_write(CBuffer *buffer, char *data)
     }
 }
 
+static void circular_reset(CBuffer *buffer)
+{
+    buffer->start = buffer->buffer;
+    buffer->first = buffer->buffer;
+}
+
 static void *capture(void *arg)
 {
     snd_pcm_sframes_t  r;
@@ -267,7 +288,6 @@ static void *capture(void *arg)
     return NULL;
 }
 
-#ifdef SOUND_BIDIRECTIONAL
 static void *receive(void *arg)
 {
     char            *pcm  = malloc(period_bytes);
@@ -281,9 +301,7 @@ static void *receive(void *arg)
     // FIXME: no need to lock here?
     sess->ucount++;
 
-    usleep(1000000);
-
-    while (1)
+    while (!receive_thread_exit)
     {
         if (!sess->running)
             goto end;
@@ -318,6 +336,14 @@ static void *receive(void *arg)
         n++;
         if (n == 2)
             playback_start = 1;
+        /*
+        printf("n %i playback_start %i playback_buffer len %i\n",
+                n, playback_start,
+                playback_buffer->start >= playback_buffer->first ?
+                    playback_buffer->start - playback_buffer->first :
+                    playback_buffer->end - playback_buffer->first +
+                    playback_buffer->start - playback_buffer->buffer);
+        */
 
         pthread_mutex_unlock(&circular_mutex);
     }
@@ -335,9 +361,22 @@ end:
 
     free(pcm);
 
+    // reset
+    snd_pcm_pause(playback_handle, 1);
+    playback_start         = 0;
+    receive_thread_exit    = 1;
+    receive_thread_running = 0;
+
+    circular_reset(playback_buffer);
+    circular_reset(echo_buffer);
+
+    speaker_off();
+    sound_talking  = 0;
+
+    printf("receive thread stopped\n");
+
     return NULL;
 }
-#endif
 
 static inline void amr_encode(CHP_U32 handle, CHP_AUD_ENC_DATA_T *data)
 {
@@ -361,6 +400,7 @@ static void *encode(void *arg)
 {
     int                n         = 0;
     int                aec_start = 0;
+    char               zero[period_bytes];
     snd_pcm_sframes_t  r;
 
     CHP_MEM_FUNC_T     func;
@@ -384,6 +424,8 @@ static void *encode(void *arg)
     data.out_buf_len  = AMR_PERIOD_BYTES;
     data.used_size    = 0;
     data.enc_data_len = 0;
+
+    memset(zero, 0, sizeof(zero));
 
     while (1)
     {
@@ -425,7 +467,36 @@ static void *encode(void *arg)
                 pthread_mutex_unlock(&circular_mutex);
             }
             else
+            {
+                r = snd_pcm_writei(playback_handle, zero, period_frames);
+
+                if (r == -EPIPE)
+                {
+                    fprintf(stderr, "underrun occurred\n");
+                    snd_pcm_prepare(playback_handle);
+                }
+                else if (r < 0)
+                {
+                    fprintf(stderr, "snd_pcm_writei() failed: %s\n",
+                            snd_strerror(r));
+                }
+                else if (r != period_frames)
+                {
+                    fprintf(stderr, "short write: %i -> %i\n",
+                            (int) period_frames, (int) r);
+                }
+                else
+                {
+                    if (n < AEC_DELAY)
+                        n++;
+                    if (n == AEC_DELAY)
+                        aec_start = 1;
+
+                    circular_write(echo_buffer, zero);
+                }
+
                 pthread_mutex_unlock(&circular_mutex);
+            }
 
             if (aec_start)
             {
@@ -453,7 +524,7 @@ static void *encode(void *arg)
                 else
                 {
                     pthread_mutex_unlock(&circular_mutex);
-                    usleep(50000);
+                    usleep(5000);
                 }
             }
             else
@@ -475,7 +546,7 @@ no_aec:
             else
             {
                 pthread_mutex_unlock(&circular_mutex);
-                usleep(50000);
+                usleep(5000);
             }
         }
     }
@@ -604,6 +675,8 @@ static snd_pcm_t *handle_init(snd_pcm_stream_t stream)
     {
         snd_pcm_hw_params_get_rate(params, &rate, NULL);
         printf("playback rate: %i\n", rate);
+        int can_pause = snd_pcm_hw_params_can_pause(params);
+        printf("playback can pause: %i\n", can_pause);
     }
 
 #undef err
@@ -630,9 +703,6 @@ int sound_init()
         goto end;
     }
 
-#ifdef SOUND_BIDIRECTIONAL
-    speaker_on();
-#endif
     init_amrdecoder();
     sound_amr_buffer_init();
     pthread_mutex_init(&circular_mutex, NULL);
@@ -684,13 +754,6 @@ void *sound_start_session(void *arg)
 
     // FIXME: no need to lock here?
     sess->ucount++;
-
-#ifdef SOUND_BIDIRECTIONAL
-    pthread_t thread;
-    pthread_create(&thread, NULL, receive, sess);
-    pthread_detach(thread);
-#endif
-
     sound_amr_buffer_clean(sess->id);
 
     while (1)
@@ -756,5 +819,39 @@ end:
         pthread_mutex_unlock(&sess->sesslock);
 
     return 0;
+}
+
+int sound_start_talk(struct sess_ctx *sess)
+{
+    if (sound_talking)
+        return -1;
+    if (speaker_on() == -1)
+        return -2;
+
+    snd_pcm_pause(playback_handle, 0);
+    sound_talking          = 1;
+    receive_thread_exit    = 0;
+    receive_thread_running = 1;
+    pthread_create(&receive_thread, NULL, receive, sess);
+
+    return 0;
+}
+
+void sound_stop_talk()
+{
+    snd_pcm_pause(playback_handle, 1);
+    playback_start      = 0;
+    receive_thread_exit = 1;
+
+    usleep(10000);
+    if (receive_thread_running)
+        pthread_join(receive_thread, NULL);
+    receive_thread_running = 0;
+
+    circular_reset(playback_buffer);
+    circular_reset(echo_buffer);
+
+    speaker_off();
+    sound_talking  = 0;
 }
 
