@@ -495,8 +495,10 @@ static void *aec(void *arg)
                     (spx_int16_t *)capture_buffer->first,
                     (spx_int16_t *)echo_buffer->first,
                     (spx_int16_t *)data.p_in_buf);
+                /*
                 speex_preprocess_run(echo_pp,
                     (spx_int16_t *)data.p_in_buf);
+                    */
 #else
                 memcpy(data.p_in_buf, capture_buffer->first,
                        period_bytes);
@@ -510,7 +512,7 @@ static void *aec(void *arg)
             else
             {
                 pthread_mutex_unlock(&circular_mutex);
-                usleep(10000);
+                usleep(1000);
             }
         }
         else
@@ -528,7 +530,7 @@ static void *aec(void *arg)
             else
             {
                 pthread_mutex_unlock(&circular_mutex);
-                usleep(10000);
+                usleep(1000);
             }
         }
     }
