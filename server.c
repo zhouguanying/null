@@ -1261,11 +1261,12 @@ static nand_record_file_internal_header audio_internal_header =
 
 #define COMPARE_STEP  3
 #define VGA_LV1   200
-#define VGA_LV2   300
-#define VGA_LV3   350
-#define QVGA_LV1 75
-#define QVGA_LV2 95
-#define QVGA_LV3 115
+#define VGA_LV2   600
+#define VGA_LV3   1200
+#define QVGA_LV1 100
+#define QVGA_LV2 200
+#define QVGA_LV3 400
+
 static  int sensitivity_diff_size[4] = {10000, 300, 350, 450};
 int ignore_pic_count = 6;
 pthread_mutex_t ignore_pic_lock;

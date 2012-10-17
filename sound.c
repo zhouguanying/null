@@ -66,6 +66,7 @@ static SoundAmrBuffer        amr_buf;
 
 // bidirectional talk is limited to only one session
 static int                   sound_talking;
+static int                   aec_start;
 static pthread_t             receive_thread;
 static pthread_t             receive_thread_running;
 static int                   receive_thread_exit;
@@ -169,19 +170,6 @@ static int speaker_on()
     return 0;
 }
 
-static int speaker_off()
-{
-    int fd = open ("/dev/mxs-gpio", O_RDWR);
-
-    if (fd < 0)
-        return -1;
-    if (ioctl(fd, IOCTL_GET_SPK_CTL, 0) > 0)
-        ioctl(fd, IOCTL_SET_SPK_CTL, 0);
-    close(fd);
-
-    return 0;
-}
-
 static CBuffer *circular_init(int size, int step)
 {
     CBuffer *cb = malloc(sizeof(CBuffer));
@@ -250,44 +238,6 @@ static void circular_reset(CBuffer *buffer)
     buffer->first = buffer->buffer;
 }
 
-static void *capture(void *arg)
-{
-    snd_pcm_sframes_t  r;
-    char              *buffer = malloc(period_bytes);
-
-    while (1)
-    {
-        // This is being done continuously: "Once the audio interface
-        // starts running, it continues to do until told to stop."
-        r = snd_pcm_readi(capture_handle, buffer, period_frames);
-
-        if (r == -EPIPE)
-        {
-            fprintf(stderr, "overrun occurred\n");
-            snd_pcm_prepare(capture_handle);
-        }
-        else if (r < 0)
-        {
-            fprintf(stderr, "snd_pcm_readi(): %s\n",
-                    snd_strerror(r));
-        }
-        else if (r != period_frames)
-        {
-            fprintf(stderr, "short read: %i -> %i\n",
-                    (int) period_frames, (int) r);
-        }
-        else
-        {
-            pthread_mutex_lock(&circular_mutex);
-            circular_write(capture_buffer, buffer);
-            pthread_mutex_unlock(&circular_mutex);
-        }
-    }
-
-    free(buffer);
-    return NULL;
-}
-
 static void *receive(void *arg)
 {
     char            *pcm  = malloc(period_bytes);
@@ -336,14 +286,14 @@ static void *receive(void *arg)
         n++;
         if (n == 2)
             playback_start = 1;
-        /*
+#if 0
         printf("n %i playback_start %i playback_buffer len %i\n",
                 n, playback_start,
                 playback_buffer->start >= playback_buffer->first ?
                     playback_buffer->start - playback_buffer->first :
                     playback_buffer->end - playback_buffer->first +
                     playback_buffer->start - playback_buffer->buffer);
-        */
+#endif
 
         pthread_mutex_unlock(&circular_mutex);
     }
@@ -362,15 +312,17 @@ end:
     free(pcm);
 
     // reset
-    snd_pcm_pause(playback_handle, 1);
+    aec_start              = 0;
     playback_start         = 0;
     receive_thread_exit    = 1;
     receive_thread_running = 0;
 
+    pthread_mutex_lock(&circular_mutex);
+    snd_pcm_drop(playback_handle);
     circular_reset(playback_buffer);
     circular_reset(echo_buffer);
+    pthread_mutex_unlock(&circular_mutex);
 
-    speaker_off();
     sound_talking  = 0;
 
     printf("receive thread stopped\n");
@@ -378,52 +330,56 @@ end:
     return NULL;
 }
 
-static inline void amr_encode(CHP_U32 handle, CHP_AUD_ENC_DATA_T *data)
+static void *capture(void *arg)
 {
-    amrnb_encode(handle, data);
+    snd_pcm_sframes_t  r;
+    char              *buffer = malloc(period_bytes);
 
-    data->used_size = 0;
+    while (1)
+    {
+        // This is being done continuously: "Once the audio interface
+        // starts running, it continues to do until told to stop."
+        r = snd_pcm_readi(capture_handle, buffer, period_frames);
 
-    pthread_rwlock_wrlock(&amr_buf.lock);
-    memcpy(amr_buf.periods[amr_buf.end].p, amr_buf.cache,
-           AMR_PERIOD_BYTES);
-    memset(amr_buf.periods[amr_buf.end].clean, 0,
-           sizeof(amr_buf.periods[amr_buf.end].clean));
+        if (r == -EPIPE)
+        {
+            fprintf(stderr, "overrun occurred\n");
+            snd_pcm_prepare(capture_handle);
+        }
+        else if (r < 0)
+        {
+            fprintf(stderr, "snd_pcm_readi(): %s\n",
+                    snd_strerror(r));
+        }
+        else if (r != period_frames)
+        {
+            fprintf(stderr, "short read: %i -> %i\n",
+                    (int) period_frames, (int) r);
+        }
+        else
+        {
+            pthread_mutex_lock(&circular_mutex);
+            circular_write(capture_buffer, buffer);
+#if 0
+            printf("capture_buffer len %i\n",
+                    capture_buffer->start >= capture_buffer->first ?
+                        capture_buffer->start - capture_buffer->first :
+                        capture_buffer->end - capture_buffer->first +
+                        capture_buffer->start - capture_buffer->buffer);
+#endif
+            pthread_mutex_unlock(&circular_mutex);
+        }
+    }
 
-    amr_buf.end = (amr_buf.end + 1) % AMR_PERIODS;
-    if (amr_buf.end == amr_buf.start)
-        amr_buf.start = (amr_buf.start + 1) % AMR_PERIODS;
-    pthread_rwlock_unlock(&amr_buf.lock);
+    free(buffer);
+    return NULL;
 }
 
-static void *encode(void *arg)
+static void *playback(void *arg)
 {
     int                n         = 0;
-    int                aec_start = 0;
     char               zero[period_bytes];
     snd_pcm_sframes_t  r;
-
-    CHP_MEM_FUNC_T     func;
-    CHP_AUD_ENC_INFO_T info;
-    CHP_AUD_ENC_DATA_T data;
-    CHP_U32            handle;
-
-    func.chp_malloc   = (CHP_MALLOC_FUNC)malloc;
-    func.chp_free     = (CHP_FREE_FUNC)free;
-    func.chp_memset   = (CHP_MEMSET)memset;
-    func.chp_memcpy   = (CHP_MEMCPY)memcpy;
-    info.audio_type   = CHP_DRI_CODEC_AMRNB;
-    info.bit_rate     = 12200;
-
-    amrnb_encoder_init(&func, &info, &handle);
-
-    data.p_in_buf     = malloc(period_bytes);
-    data.p_out_buf    = amr_buf.cache;
-    data.frame_cnt    = 1;
-    data.in_buf_len   = period_bytes;
-    data.out_buf_len  = AMR_PERIOD_BYTES;
-    data.used_size    = 0;
-    data.enc_data_len = 0;
 
     memset(zero, 0, sizeof(zero));
 
@@ -461,6 +417,13 @@ static void *encode(void *arg)
                         aec_start = 1;
 
                     circular_write(echo_buffer, playback_buffer->first);
+#if 0
+                    printf("echo_buffer len %i\n",
+                        echo_buffer->start >= echo_buffer->first ?
+                            echo_buffer->start - echo_buffer->first :
+                            echo_buffer->end - echo_buffer->first +
+                            echo_buffer->start - echo_buffer->buffer);
+#endif
                 }
 
                 circular_consume(playback_buffer);
@@ -468,85 +431,104 @@ static void *encode(void *arg)
             }
             else
             {
-                r = snd_pcm_writei(playback_handle, zero, period_frames);
-
-                if (r == -EPIPE)
-                {
-                    fprintf(stderr, "underrun occurred\n");
-                    snd_pcm_prepare(playback_handle);
-                }
-                else if (r < 0)
-                {
-                    fprintf(stderr, "snd_pcm_writei() failed: %s\n",
-                            snd_strerror(r));
-                }
-                else if (r != period_frames)
-                {
-                    fprintf(stderr, "short write: %i -> %i\n",
-                            (int) period_frames, (int) r);
-                }
-                else
-                {
-                    if (n < AEC_DELAY)
-                        n++;
-                    if (n == AEC_DELAY)
-                        aec_start = 1;
-
-                    circular_write(echo_buffer, zero);
-                }
-
                 pthread_mutex_unlock(&circular_mutex);
+                usleep(10000);
             }
+        }
+    }
 
-            if (aec_start)
+    return NULL;
+}
+
+static inline void amr_encode(CHP_U32 handle, CHP_AUD_ENC_DATA_T *data)
+{
+    amrnb_encode(handle, data);
+
+    data->used_size = 0;
+
+    pthread_rwlock_wrlock(&amr_buf.lock);
+    memcpy(amr_buf.periods[amr_buf.end].p, amr_buf.cache,
+           AMR_PERIOD_BYTES);
+    memset(amr_buf.periods[amr_buf.end].clean, 0,
+           sizeof(amr_buf.periods[amr_buf.end].clean));
+
+    amr_buf.end = (amr_buf.end + 1) % AMR_PERIODS;
+    if (amr_buf.end == amr_buf.start)
+        amr_buf.start = (amr_buf.start + 1) % AMR_PERIODS;
+    pthread_rwlock_unlock(&amr_buf.lock);
+}
+
+static void *aec(void *arg)
+{
+    CHP_MEM_FUNC_T     func;
+    CHP_AUD_ENC_INFO_T info;
+    CHP_AUD_ENC_DATA_T data;
+    CHP_U32            handle;
+
+    func.chp_malloc   = (CHP_MALLOC_FUNC)malloc;
+    func.chp_free     = (CHP_FREE_FUNC)free;
+    func.chp_memset   = (CHP_MEMSET)memset;
+    func.chp_memcpy   = (CHP_MEMCPY)memcpy;
+    info.audio_type   = CHP_DRI_CODEC_AMRNB;
+    info.bit_rate     = 12200;
+
+    amrnb_encoder_init(&func, &info, &handle);
+
+    data.p_in_buf     = malloc(period_bytes);
+    data.p_out_buf    = amr_buf.cache;
+    data.frame_cnt    = 1;
+    data.in_buf_len   = period_bytes;
+    data.out_buf_len  = AMR_PERIOD_BYTES;
+    data.used_size    = 0;
+    data.enc_data_len = 0;
+
+    while (1)
+    {
+        if (aec_start)
+        {
+            pthread_mutex_lock(&circular_mutex);
+            if (!circular_empty(capture_buffer) &&
+                !circular_empty(echo_buffer))
             {
-                pthread_mutex_lock(&circular_mutex);
-                if (!circular_empty(capture_buffer) &&
-                    !circular_empty(echo_buffer))
-                {
 #if 1
-                    speex_echo_cancellation(echo_state,
-                        (spx_int16_t *)capture_buffer->first,
-                        (spx_int16_t *)echo_buffer->first,
-                        (spx_int16_t *)data.p_in_buf);
-                    speex_preprocess_run(echo_pp,
-                        (spx_int16_t *)data.p_in_buf);
+                speex_echo_cancellation(echo_state,
+                    (spx_int16_t *)capture_buffer->first,
+                    (spx_int16_t *)echo_buffer->first,
+                    (spx_int16_t *)data.p_in_buf);
+                speex_preprocess_run(echo_pp,
+                    (spx_int16_t *)data.p_in_buf);
 #else
-                    memcpy(data.p_in_buf, capture_buffer->first,
-                           period_bytes);
+                memcpy(data.p_in_buf, capture_buffer->first,
+                       period_bytes);
 #endif
-                    amr_encode(handle, &data);
+                circular_consume(capture_buffer);
+                circular_consume(echo_buffer);
+                pthread_mutex_unlock(&circular_mutex);
 
-                    circular_consume(capture_buffer);
-                    circular_consume(echo_buffer);
-                    pthread_mutex_unlock(&circular_mutex);
-                }
-                else
-                {
-                    pthread_mutex_unlock(&circular_mutex);
-                    usleep(5000);
-                }
+                amr_encode(handle, &data);
             }
             else
-                goto no_aec;
+            {
+                pthread_mutex_unlock(&circular_mutex);
+                usleep(10000);
+            }
         }
         else
         {
-no_aec:
             pthread_mutex_lock(&circular_mutex);
             if (!circular_empty(capture_buffer))
             {
                 memcpy(data.p_in_buf, capture_buffer->first,
                        period_bytes);
-                amr_encode(handle, &data);
-
                 circular_consume(capture_buffer);
                 pthread_mutex_unlock(&circular_mutex);
+
+                amr_encode(handle, &data);
             }
             else
             {
                 pthread_mutex_unlock(&circular_mutex);
-                usleep(5000);
+                usleep(10000);
             }
         }
     }
@@ -675,8 +657,6 @@ static snd_pcm_t *handle_init(snd_pcm_stream_t stream)
     {
         snd_pcm_hw_params_get_rate(params, &rate, NULL);
         printf("playback rate: %i\n", rate);
-        int can_pause = snd_pcm_hw_params_can_pause(params);
-        printf("playback can pause: %i\n", can_pause);
     }
 
 #undef err
@@ -703,6 +683,7 @@ int sound_init()
         goto end;
     }
 
+    speaker_on();
     init_amrdecoder();
     sound_amr_buffer_init();
     pthread_mutex_init(&circular_mutex, NULL);
@@ -741,7 +722,9 @@ void sound_start_thread(void)
     pthread_t thread;
     pthread_create(&thread, NULL, capture, NULL);
     pthread_detach(thread);
-    pthread_create(&thread, NULL, encode, NULL);
+    pthread_create(&thread, NULL, playback, NULL);
+    pthread_detach(thread);
+    pthread_create(&thread, NULL, aec, NULL);
     pthread_detach(thread);
 }
 
@@ -825,10 +808,8 @@ int sound_start_talk(struct sess_ctx *sess)
 {
     if (sound_talking)
         return -1;
-    if (speaker_on() == -1)
-        return -2;
 
-    snd_pcm_pause(playback_handle, 0);
+    snd_pcm_prepare(playback_handle);
     sound_talking          = 1;
     receive_thread_exit    = 0;
     receive_thread_running = 1;
@@ -839,19 +820,23 @@ int sound_start_talk(struct sess_ctx *sess)
 
 void sound_stop_talk()
 {
-    snd_pcm_pause(playback_handle, 1);
-    playback_start      = 0;
-    receive_thread_exit = 1;
-
-    usleep(10000);
     if (receive_thread_running)
+    {
+        aec_start           = 0;
+        playback_start      = 0;
+        receive_thread_exit = 1;
+
+        usleep(10000);
         pthread_join(receive_thread, NULL);
-    receive_thread_running = 0;
+        receive_thread_running = 0;
 
-    circular_reset(playback_buffer);
-    circular_reset(echo_buffer);
+        pthread_mutex_lock(&circular_mutex);
+        snd_pcm_drop(playback_handle);
+        circular_reset(playback_buffer);
+        circular_reset(echo_buffer);
+        pthread_mutex_unlock(&circular_mutex);
 
-    speaker_off();
-    sound_talking  = 0;
+        sound_talking  = 0;
+    }
 }
 
