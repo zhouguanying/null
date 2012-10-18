@@ -41,7 +41,9 @@ typedef struct _CBuffer
 
 // speex aec
 static SpeexEchoState       *echo_state;
+#ifdef SOUND_ENABLE_AEC_PREPROCESS
 static SpeexPreprocessState *echo_pp;
+#endif
 
 // circular buffers
 static int                   circular_size;
@@ -497,10 +499,10 @@ static void *aec(void *arg)
                     (spx_int16_t *)capture_buffer->first,
                     (spx_int16_t *)echo_buffer->first,
                     (spx_int16_t *)data.p_in_buf);
-                /*
+#ifdef SOUND_ENABLE_AEC_PREPROCESS
                 speex_preprocess_run(echo_pp,
                     (spx_int16_t *)data.p_in_buf);
-                    */
+#endif
 #else
                 memcpy(data.p_in_buf, capture_buffer->first,
                        period_bytes);
@@ -692,15 +694,16 @@ int sound_init()
     sound_amr_buffer_init();
     pthread_mutex_init(&circular_mutex, NULL);
 
-    echo_state = speex_echo_state_init_mc    (period_frames,
-                                              period_frames * 10, 1, 1);
-    echo_pp    = speex_preprocess_state_init (period_frames,
-                                              sample_rate);
-
+    echo_state = speex_echo_state_init_mc(period_frames,
+                                          period_frames * 10, 1, 1);
     speex_echo_ctl(echo_state,
         SPEEX_ECHO_SET_SAMPLING_RATE, &sample_rate);
+
+#ifdef SOUND_ENABLE_AEC_PREPROCESS
+    echo_pp = speex_preprocess_state_init(period_frames, sample_rate);
     speex_preprocess_ctl(echo_pp,
         SPEEX_PREPROCESS_SET_ECHO_STATE, echo_state);
+#endif
 
     return 0;
 
@@ -715,7 +718,9 @@ end:
     circular_free(echo_buffer);
 
     speex_echo_state_destroy(echo_state);
+#ifdef SOUND_ENABLE_AEC_PREPROCESS
     speex_preprocess_state_destroy(echo_pp);
+#endif
     pthread_mutex_destroy(&circular_mutex);
 
     return -1;
