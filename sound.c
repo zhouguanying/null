@@ -11,7 +11,7 @@
 #define PERIOD_FRAMES             160
 #define AMR_PERIOD_BYTES          32 // 160 * 2 / 10 (1:10)
 #define AMR_PERIODS               256
-#define AEC_DELAY                 5
+#define AEC_DELAY                 10
 
 typedef struct _SoundAmrBuffer
 {
@@ -539,7 +539,7 @@ static void *aec(void *arg)
             else
             {
                 pthread_mutex_unlock(&circular_mutex);
-                usleep(20000);
+                usleep(5000);
             }
         }
     }
