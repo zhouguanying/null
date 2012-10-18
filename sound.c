@@ -247,7 +247,7 @@ static void *receive(void *arg)
     int              sock = sess->sc->audio_socket;
     char             buf[1024];
     int              i, r, rs;
-    int              n = 0;
+    int              n = 0, try;
     ssize_t          dst_size;
 
     // FIXME: no need to lock here?
@@ -258,9 +258,11 @@ static void *receive(void *arg)
         if (!sess->running)
             goto end;
 
-        rs = 0;
+        rs  = 0;
+        try = 0;
         while (rs < 1024)
         {
+start:
             if (sess->is_tcp)
                 r = recv(sock, buf + rs, 1024 - rs, 0);
             else
@@ -269,7 +271,16 @@ static void *receive(void *arg)
                              1024 - rs, NULL, NULL);
             }
             if (r <= 0)
-                goto end;
+            {
+                try++;
+                if (receive_thread_exit || try == 10)
+                    goto end;
+                else
+                {
+                    usleep(20000);
+                    goto start;
+                }
+            }
 
             rs += r;
         }
@@ -407,6 +418,7 @@ static void *playback(void *arg)
                     usleep(500000);
                     circular_reset(playback_buffer);
                     circular_reset(echo_buffer);
+                    snd_pcm_drop(playback_handle);
                     snd_pcm_prepare(playback_handle);
                 }
                 else if (r < 0)
