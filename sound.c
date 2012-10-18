@@ -399,6 +399,11 @@ static void *playback(void *arg)
                 if (r == -EPIPE)
                 {
                     fprintf(stderr, "underrun occurred\n");
+                    aec_start = 0;
+                    n         = 0;
+                    usleep(1280000); // 1.28s
+                    circular_reset(playback_buffer);
+                    circular_reset(echo_buffer);
                     snd_pcm_prepare(playback_handle);
                 }
                 else if (r < 0)
