@@ -432,9 +432,11 @@ static void *playback(void *arg)
             else
             {
                 pthread_mutex_unlock(&circular_mutex);
-                usleep(10000);
+                usleep(20000);
             }
         }
+        else
+            usleep(50000);
     }
 
     return NULL;
@@ -512,7 +514,7 @@ static void *aec(void *arg)
             else
             {
                 pthread_mutex_unlock(&circular_mutex);
-                usleep(1000);
+                usleep(5000);
             }
         }
         else
@@ -530,7 +532,7 @@ static void *aec(void *arg)
             else
             {
                 pthread_mutex_unlock(&circular_mutex);
-                usleep(1000);
+                usleep(20000);
             }
         }
     }
