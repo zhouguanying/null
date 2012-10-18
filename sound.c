@@ -285,9 +285,12 @@ static void *receive(void *arg)
             circular_write(playback_buffer, pcm);
         }
 
-        n++;
-        if (n == 2)
-            playback_start = 1;
+        if (n < 2)
+        {
+            n++;
+            if (n == 2)
+                playback_start = 1;
+        }
 #if 0
         printf("n %i playback_start %i playback_buffer len %i\n",
                 n, playback_start,
@@ -401,7 +404,7 @@ static void *playback(void *arg)
                     fprintf(stderr, "underrun occurred\n");
                     aec_start = 0;
                     n         = 0;
-                    usleep(1280000); // 1.28s
+                    usleep(500000);
                     circular_reset(playback_buffer);
                     circular_reset(echo_buffer);
                     snd_pcm_prepare(playback_handle);
@@ -419,17 +422,20 @@ static void *playback(void *arg)
                 else
                 {
                     if (n < AEC_DELAY)
+                    {
                         n++;
-                    if (n == AEC_DELAY)
-                        aec_start = 1;
+                        if (n == AEC_DELAY)
+                            aec_start = 1;
+                    }
 
                     circular_write(echo_buffer, playback_buffer->first);
 #if 0
-                    printf("echo_buffer len %i\n",
+                    printf("echo_buffer len %i, aec_start %i, n %i\n",
                         echo_buffer->start >= echo_buffer->first ?
                             echo_buffer->start - echo_buffer->first :
                             echo_buffer->end - echo_buffer->first +
-                            echo_buffer->start - echo_buffer->buffer);
+                            echo_buffer->start - echo_buffer->buffer,
+                        aec_start, n);
 #endif
                 }
 
@@ -443,7 +449,10 @@ static void *playback(void *arg)
             }
         }
         else
+        {
+            n = 0;
             usleep(50000);
+        }
     }
 
     return NULL;
@@ -840,7 +849,7 @@ void sound_stop_talk()
         playback_start      = 0;
         receive_thread_exit = 1;
 
-        usleep(10000);
+        usleep(20000);
         pthread_join(receive_thread, NULL);
         receive_thread_running = 0;
 
