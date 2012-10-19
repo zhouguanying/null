@@ -11,7 +11,7 @@
 #define PERIOD_FRAMES             160
 #define AMR_PERIOD_BYTES          32 // 160 * 2 / 10 (1:10)
 #define AMR_PERIODS               256
-#define AEC_DELAY                 2
+#define AEC_DELAY                 10
 #define PLAYBACK_DELAY            4
 
 typedef struct _SoundAmrBuffer
@@ -53,9 +53,6 @@ static CBuffer              *playback_buffer;
 static CBuffer              *capture_buffer;
 static CBuffer              *echo_buffer;
 
-// signals
-static int                   playback_start;
-
 // playback & capture
 static snd_pcm_t            *playback_handle;
 static snd_pcm_t            *capture_handle;
@@ -69,8 +66,9 @@ static SoundAmrBuffer        amr_buf;
 
 // bidirectional talk is limited to only one session
 static int                   sound_talking;
+static int                   playback_start;
+static int                   underrun_occurred;
 static int                   aec_start;
-static int                   receive_n;
 static pthread_t             receive_thread;
 static pthread_t             receive_thread_running;
 static int                   receive_thread_exit;
@@ -251,6 +249,7 @@ static void *receive(void *arg)
     int              i, r, rs;
     int              try;
     ssize_t          dst_size;
+    int              n = 0;
 
     // FIXME: no need to lock here?
     sess->ucount++;
@@ -289,13 +288,6 @@ start:
             rs += r;
         }
 
-        if (receive_n == -1) // underrun
-        {
-            printf("%s: dropping 32 periods of data\n", __func__);
-            receive_n = 0;
-            continue;
-        }
-
         pthread_mutex_lock(&circular_mutex);
         for (i = 0; i < 32; i++)
         {
@@ -306,22 +298,14 @@ start:
                        1);
             circular_write(playback_buffer, pcm);
         }
+        pthread_mutex_unlock(&circular_mutex);
 
-        if (receive_n < PLAYBACK_DELAY)
+        if (n < PLAYBACK_DELAY)
         {
-            receive_n++;
-            if (receive_n == PLAYBACK_DELAY)
+            n++;
+            if (n == PLAYBACK_DELAY)
                 playback_start = 1;
         }
-#if 0
-        printf("receive_n %i playback_start %i playback_buffer len %i\n",
-                receive_n, playback_start,
-                playback_buffer->start >= playback_buffer->first ?
-                    playback_buffer->start - playback_buffer->first :
-                    playback_buffer->end - playback_buffer->first +
-                    playback_buffer->start - playback_buffer->buffer);
-#endif
-        pthread_mutex_unlock(&circular_mutex); // must unlock here
     }
 
 end:
@@ -338,15 +322,16 @@ end:
     free(pcm);
 
     // reset
-    aec_start              = 0;
-    playback_start         = 0;
-    receive_thread_exit    = 1;
+    aec_start      = 0;
+    playback_start = 0;
+
     receive_thread_running = 0;
 
     pthread_mutex_lock(&circular_mutex);
     snd_pcm_drop(playback_handle);
     circular_reset(playback_buffer);
     circular_reset(echo_buffer);
+    speex_echo_state_reset(echo_state);
     pthread_mutex_unlock(&circular_mutex);
 
     sound_talking  = 0;
@@ -423,14 +408,15 @@ static void *playback(void *arg)
                 if (r == -EPIPE)
                 {
                     fprintf(stderr, "underrun occurred\n");
-                    aec_start      = 0;
-                    playback_start = 0;
-                    receive_n      = -1;
-                    n              = 0;
-                    circular_reset(playback_buffer);
-                    circular_reset(echo_buffer);
-                    speex_echo_state_reset(echo_state);
-                    snd_pcm_prepare(playback_handle);
+
+                    underrun_occurred = 1;
+                    aec_start         = 0;
+                    playback_start    = 0;
+
+                    // let receive() do the sound_stop_talk() thing
+                    receive_thread_exit = 1;
+                    pthread_mutex_unlock(&circular_mutex);
+                    continue;
                 }
                 else if (r < 0)
                 {
@@ -464,7 +450,8 @@ static void *playback(void *arg)
 
                 circular_consume(playback_buffer);
                 pthread_mutex_unlock(&circular_mutex);
-                usleep(10000); // crucial
+                if (aec_start)
+                    usleep(10000); // crucial
             }
             else
             {
@@ -485,6 +472,12 @@ static void *playback(void *arg)
 static inline void amr_encode(CHP_U32 handle, CHP_AUD_ENC_DATA_T *data)
 {
     amrnb_encode(handle, data);
+
+    if (underrun_occurred)
+    {
+        underrun_occurred = 0;
+        memset(amr_buf.cache, 0, AMR_PERIOD_BYTES);
+    }
 
     data->used_size = 0;
 
@@ -858,7 +851,6 @@ int sound_start_talk(struct sess_ctx *sess)
 
     snd_pcm_prepare(playback_handle);
     sound_talking          = 1;
-    receive_n              = 0;
     receive_thread_exit    = 0;
     receive_thread_running = 1;
     pthread_create(&receive_thread, NULL, receive, sess);
@@ -870,10 +862,10 @@ void sound_stop_talk()
 {
     if (receive_thread_running)
     {
-        aec_start           = 0;
-        playback_start      = 0;
-        receive_thread_exit = 1;
+        aec_start      = 0;
+        playback_start = 0;
 
+        receive_thread_exit = 1;
         usleep(20000);
         pthread_join(receive_thread, NULL);
         receive_thread_running = 0;
@@ -882,6 +874,7 @@ void sound_stop_talk()
         snd_pcm_drop(playback_handle);
         circular_reset(playback_buffer);
         circular_reset(echo_buffer);
+        speex_echo_state_reset(echo_state);
         pthread_mutex_unlock(&circular_mutex);
 
         sound_talking  = 0;
