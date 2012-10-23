@@ -292,10 +292,6 @@ NEW_SESSION:
             goto done;
         else if (strncmp(argv[0] , "getversion", 10) == 0)
             goto done;
-        else if (strncmp(argv[0] , "AudioTalkOn", 11) == 0)
-            goto done;
-        else if (strncmp(argv[0] , "AudioTalkOff", 12) == 0)
-            goto done;
         pthread_mutex_unlock(&global_ctx_lock);
         return NULL;
 done:
@@ -2226,6 +2222,17 @@ static void AudioTalkOff(void)
     sound_stop_talk();
 }
 
+static void TalkVolume(char *arg)
+{
+    int hp_v, mc_v;
+
+    if (!arg || sscanf(arg, "%i:%i", &hp_v, &mc_v) != 2)
+        return;
+
+    alsa_set_mic_volume(mc_v, 0);
+    alsa_set_hp_volume(hp_v, 0);
+}
+
 extern struct vdIn *vdin_camera;
 
 static void set_brightness(char *arg)
@@ -2270,8 +2277,8 @@ static void set_volume(char *arg)
     if (!arg || sscanf(arg, "%d", &value) != 1)
         return;
 
-    if (alsa_set_mic_volume(value) == 0 &&
-        alsa_set_hp_volume(value) == 0)
+    if (alsa_set_mic_volume(value, 1) == 0 &&
+        alsa_set_hp_volume(value, 1) == 0)
     {
         threadcfg.volume = value;
     }
@@ -2765,6 +2772,11 @@ static char *do_cli_cmd(void *sess,
     else if (strncmp(cmd , "AudioTalkOff", 12) == 0)
     {
         AudioTalkOff();
+        return NULL;
+    }
+    else if (strncmp(cmd , "TalkVolume", 10) == 0)
+    {
+        TalkVolume(param);
         return NULL;
     }
 

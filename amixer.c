@@ -17,9 +17,7 @@
 #define LEVEL_ID        (1<<2)
 
 static int quiet = 0;
-static int debugflag = 0;
 static int no_check = 0;
-static int ignore_error = 0;
 static char card[64] = "default";
 
 static int volume_percent = -1;
@@ -601,41 +599,22 @@ static int cset(int argc, char *argv[], int roflag, int keep_handle)
     snd_ctl_elem_value_alloca(&control);
 
     if (argc < 1)
-    {
-        fprintf(stderr, "Specify a full control identifier: [[iface=<iface>,][name='name',][index=<index>,][device=<device>,][subdevice=<subdevice>]]|[numid=<numid>]\n");
         return -EINVAL;
-    }
     if (parse_control_id(argv[0], id))
-    {
-        fprintf(stderr, "Wrong control identifier: %s\n", argv[0]);
         return -EINVAL;
-    }
-    if (debugflag)
-    {
-        printf("VERIFY ID: ");
-        show_control_id(id);
-        printf("\n");
-    }
-    if (handle == NULL &&
-            (err = snd_ctl_open(&handle, card, 0)) < 0)
-    {
-        error("Control %s open error: %s\n", card, snd_strerror(err));
+    if (handle == NULL && (err = snd_ctl_open(&handle, card, 0)) < 0)
         return err;
-    }
     snd_ctl_elem_info_set_id(info, id);
     if ((err = snd_ctl_elem_info(handle, info)) < 0)
     {
-        if (ignore_error)
-            return 0;
-        error("Cannot find the given element from control %s\n", card);
-        if (! keep_handle)
+        if (!keep_handle)
         {
             snd_ctl_close(handle);
             handle = NULL;
         }
         return err;
     }
-    snd_ctl_elem_info_get_id(info, id);    /* FIXME: Remove it when hctl find works ok !!! */
+    snd_ctl_elem_info_get_id(info, id);
     type = snd_ctl_elem_info_get_type(info);
     count = snd_ctl_elem_info_get_count(info);
     snd_ctl_elem_value_set_id(control, id);
@@ -710,14 +689,12 @@ static int cset(int argc, char *argv[], int roflag, int keep_handle)
         }
         if ((err = snd_ctl_elem_write(handle, control)) < 0)
         {
-            if (!ignore_error)
-                error("Control %s element write error: %s\n", card, snd_strerror(err));
             if (!keep_handle)
             {
                 snd_ctl_close(handle);
                 handle = NULL;
             }
-            return ignore_error ? 0 : err;
+            return err;
         }
     }
     if (! keep_handle)
@@ -730,26 +707,18 @@ static int cset(int argc, char *argv[], int roflag, int keep_handle)
         snd_hctl_t *hctl;
         snd_hctl_elem_t *elem;
         if ((err = snd_hctl_open(&hctl, card, 0)) < 0)
-        {
-            error("Control %s open error: %s\n", card, snd_strerror(err));
             return err;
-        }
         if ((err = snd_hctl_load(hctl)) < 0)
-        {
-            error("Control %s load error: %s\n", card, snd_strerror(err));
             return err;
-        }
         elem = snd_hctl_find_elem(hctl, id);
         if (elem)
             show_control("  ", elem, LEVEL_BASIC | LEVEL_ID);
-        else
-            printf("Could not find the specified element\n");
         snd_hctl_close(hctl);
     }
     return 0;
 }
 
-int alsa_set_mic_volume(int value)
+int alsa_set_mic_volume(int value, int percent)
 {
     int   ret;
     char *argv[3];
@@ -757,14 +726,16 @@ int alsa_set_mic_volume(int value)
     if (value < 0 || value > 100)
         return -1;
 
-    volume_percent = value;
-    argv[0]        = malloc(256);
-    argv[1]        = malloc(256);
-    argv[2]        = malloc(256);
+    if (percent)
+        volume_percent = value;
+
+    argv[0] = malloc(256);
+    argv[1] = malloc(256);
+    argv[2] = malloc(256);
 
     strcpy(argv[0], "numid=9,iface=MIXER,name="
                     "\'Mic PGA Capture Volume\'");
-    strcpy(argv[1], "0");
+    sprintf(argv[1], "%i", value);
     ret = cset(2, argv, 0, 0) ;
 
     free(argv[0]);
@@ -778,7 +749,7 @@ int alsa_set_mic_volume(int value)
         return 0;
 }
 
-int alsa_set_hp_volume(int value)
+int alsa_set_hp_volume(int value, int percent)
 {
     int   ret;
     char *argv[3];
@@ -786,13 +757,15 @@ int alsa_set_hp_volume(int value)
     if (value < 0 || value > 100)
         return -1;
 
-    volume_percent = value;
-    argv[0]        = malloc(256);
-    argv[1]        = malloc(256);
-    argv[2]        = malloc(256);
+    if (percent)
+        volume_percent = value;
+
+    argv[0] = malloc(256);
+    argv[1] = malloc(256);
+    argv[2] = malloc(256);
 
     strcpy(argv[0], "numid=3,iface=MIXER,name=\'HP Playback Volume\'");
-    strcpy(argv[1], "0");
+    sprintf(argv[1], "%i", value);
     ret = cset(2, argv, 0, 0) ;
 
     free(argv[0]);

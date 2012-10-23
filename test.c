@@ -1590,8 +1590,8 @@ wlan_udhcpc:
     }
 
 
-    alsa_set_mic_volume(70);
-    alsa_set_hp_volume(91);
+    alsa_set_mic_volume(70, 1);
+    alsa_set_hp_volume(91, 1);
     if ((sound_init()) < 0)
     {
         printf("start sound error\n");
