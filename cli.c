@@ -2242,10 +2242,7 @@ static void set_brightness(char *arg)
         return;
     }
     if (v4l2_contrl_brightness(vdin_camera, value) == 0)
-    {
         threadcfg.brightness = value;
-        //save_config_value(CFG_BRIGHTNESS , buf);
-    }
 }
 
 static void set_contrast(char *arg)
@@ -2262,29 +2259,21 @@ static void set_contrast(char *arg)
         return;
     }
     if (v4l2_contrl_contrast(vdin_camera, value) == 0)
-    {
         threadcfg.contrast = value;
-        //save_config_value(CFG_CONTRAST, buf);
-    }
 }
 
+// old, sets playback and capture volume at the same time
 static void set_volume(char *arg)
 {
-    char buf[32];
     int value;
-    if (!arg)
+
+    if (!arg || sscanf(arg, "%d", &value) != 1)
         return;
-    memset(buf, 0, 32);
-    memcpy(buf, arg, strlen(arg));
-    if (sscanf(buf, "%d", &value) != 1)
-    {
-        dbg("error volume\n");
-        return;
-    }
-    if (alsa_set_volume(value) == 0)
+
+    if (alsa_set_mic_volume(value) == 0 &&
+        alsa_set_hp_volume(value) == 0)
     {
         threadcfg.volume = value;
-        //save_config_value(CFG_VOLUME, buf);
     }
 }
 

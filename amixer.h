@@ -3,6 +3,5 @@
 
 int alsa_set_mic_volume(int value);
 int alsa_set_hp_volume(int value);
-int alsa_set_volume(int value);
 
 #endif

@@ -8,6 +8,8 @@
 #include "amrnb_encode.h"
 #include "udttools.h"
 
+// #define SOUND_ENABLE_AEC_PREPROCESS
+
 #define PERIOD_FRAMES             160
 #define AMR_PERIOD_BYTES          32 // 160 * 2 / 10 (1:10)
 #define AMR_PERIODS               256
