@@ -390,7 +390,8 @@ static void *capture(void *arg)
 
 static void *playback(void *arg)
 {
-    int                n         = 0;
+    int                n           = 0;
+    int                sleep_start = 0;
     char               zero[period_bytes];
     snd_pcm_sframes_t  r;
 
@@ -432,11 +433,16 @@ static void *playback(void *arg)
                 }
                 else
                 {
-                    if (n < AEC_DELAY)
+                    if (n < 64)
                     {
                         n++;
                         if (n == AEC_DELAY)
+                        {
                             aec_start = 1;
+                            usleep(10000); // add some determinacy
+                        }
+                        else if (n == 64)
+                            sleep_start = 1;
                     }
 
                     circular_write(echo_buffer, playback_buffer->first);
@@ -452,7 +458,7 @@ static void *playback(void *arg)
 
                 circular_consume(playback_buffer);
                 pthread_mutex_unlock(&circular_mutex);
-                if (aec_start)
+                if (sleep_start)
                     usleep(10000); // crucial
             }
             else
@@ -463,7 +469,8 @@ static void *playback(void *arg)
         }
         else
         {
-            n = 0;
+            n           = 0;
+            sleep_start = 0;
             usleep(50000);
         }
     }
