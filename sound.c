@@ -14,7 +14,7 @@
 #define PERIOD_FRAMES             160
 #define AMR_PERIOD_BYTES          32 // 160 * 2 / 10 (1:10)
 #define AMR_PERIODS               256
-#define AEC_DELAY                 10
+#define AEC_DELAY                 3
 #define PLAYBACK_DELAY            4
 
 typedef struct _SoundAmrBuffer
