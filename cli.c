@@ -19,9 +19,7 @@
 #include <sys/msg.h>
 #include <linux/fs.h>
 #include <sys/statfs.h>
-
 #include "includes.h"
-
 #include "uart.h"
 #include "cfg_network.h"
 #include "cli.h"
@@ -53,7 +51,7 @@ static struct cli_handler cli_cmd_handler;
 static int cli_socket = -1;
 SOCKET_TYPE cli_st;
 
-static inline char * gettimestamp()
+static inline char *gettimestamp()
 {
     static char timestamp[15];
     time_t t;
@@ -69,7 +67,7 @@ static inline char * gettimestamp()
     return timestamp;
 }
 
-static struct cli_sess_ctx * new_session(void *arg)
+static struct cli_sess_ctx *new_session(void *arg)
 {
     struct cli_sess_ctx *sess = NULL;
 
@@ -99,9 +97,9 @@ static int free_session(struct cli_sess_ctx *sess)
     return 0;
 }
 
-extern char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int* rsp_len);
+extern char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int *rsp_len);
 
-char *set_transport_type_rsp(struct sess_ctx * sess , int *size)
+char *set_transport_type_rsp(struct sess_ctx *sess , int *size)
 {
     char *buf;
     if (!sess)
@@ -130,13 +128,13 @@ char *set_transport_type_rsp(struct sess_ctx * sess , int *size)
 }
 
 static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
-                                 ssize_t req_len, u8 *unused, int* rsp_len, struct sockaddr_in from)
+                                 ssize_t req_len, u8 *unused,
+                                 int *rsp_len, struct sockaddr_in from)
 {
 #define N_ARGS 2
     struct cli_handler *p;
     struct sess_ctx * tmp;
     char cmd[1024];
-//   char *delims = ":";
     char *argv[N_ARGS]; /* Command + param */
     int i;
     char* ptr;
@@ -144,7 +142,6 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
 
     if (strncmp((char*)req, "UpdateSystem", 12) == 0)
     {
-        //sess->from = from;
         return do_cli_cmd_bin(NULL, (char*)req, req_len, (int)NULL, rsp_len);
     }
 
@@ -154,19 +151,13 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
         return 0;
     }
 
-    /* Lookup command handler */
     p = sess->cmd;
 
-    /* Decompose commands string */
     i = 0;
-    /* Save and strip extra chars */
     memset(cmd, 0, sizeof(cmd));
 
-    // TODO:  so strange code, can it run ok before?
     if (req[req_len - 1] != '\0');
-    {
         req_len -= 1;
-    }
 
     memcpy(cmd, req, req_len);
     argv[0] = argv[1] = 0;
@@ -191,7 +182,7 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
         }
         ptr++;
     }
-    /* Pass command and param back to processer */
+
     printf("argv[0]==%s\n", argv[0]);
     printf("argv[1]==%s\n", argv[1]);
     if (p->handler != NULL)
@@ -246,15 +237,13 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
             if (currconnections >= MAX_CONNECTIONS)
             {
                 pthread_mutex_unlock(&global_ctx_lock);
-                return  strdup("connected max ");//should return a string report max connections
+                return strdup("connected max ");
             }
 NEW_SESSION:
-            //    printf("before new_system_session\n");
             tmp = new_system_session("ipcam");
             if (!tmp)
             {
                 pthread_mutex_unlock(&global_ctx_lock);
-                printf("********************can't create session******************\n");
                 return NULL;
             }
             memcpy(&tmp->from, &sess->from, sizeof(struct sockaddr_in));
@@ -301,7 +290,6 @@ done:
         return rsp;
     }
 
-    dbg("error");
     return NULL;
 }
 
@@ -317,7 +305,6 @@ static inline void do_cli_start()
     ret = msgsnd(msqid , &msg, sizeof(vs_ctl_message) - sizeof(long), 0);
     if (ret == -1)
     {
-        dbg("send daemon message error\n");
         system("reboot &");
         exit(0);
     }
@@ -333,27 +320,30 @@ static inline void do_cli_alive()
     ret = msgsnd(msqid , &msg, sizeof(vs_ctl_message) - sizeof(long), 0);
     if (ret == -1)
     {
-        dbg("send daemon message error\n");
         system("reboot &");
         exit(0);
     }
 }
 
-int tcp_get_readable_socket(int *sockfds , int sockfdnums , struct timeval *tv)
+int tcp_get_readable_socket(int *sockfds, int sockfdnums, struct timeval *tv)
 {
     fd_set rfds;
     int i;
     int ret;
     int maxfdp1 = -1;
+
     FD_ZERO(&rfds);
+
     if (sockfdnums <= 0)
         return -1;
+
     for (i = 0; i < sockfdnums ; i++)
     {
         FD_SET(sockfds[i] , &rfds);
         if (sockfds[i ] > maxfdp1)
             maxfdp1 = sockfds[i];
     }
+
     ret = select(maxfdp1 + 1 , &rfds , NULL , NULL, tv);
     if (ret == 0)
         return UDT_SELECT_TIMEOUT;
@@ -364,17 +354,18 @@ int tcp_get_readable_socket(int *sockfds , int sockfdnums , struct timeval *tv)
         if (FD_ISSET(sockfds[i] , &rfds))
             return sockfds[i];
     }
-    dbg("tcp select got unknown error\n");
     return UDT_SELECT_UNKONW_ERROR;
 }
 
-int get_readable_socket(cmd_socket_t*sockfds , int sockfdnums , struct timeval *tv , SOCKET_TYPE *type)
+int get_readable_socket(cmd_socket_t *sockfds, int sockfdnums, struct timeval *tv, SOCKET_TYPE *type)
 {
     int udtsockfds[64];
     int tcpsockfds[64];
     int i , udtsocketnum , tcpsocketnum;
     int socket;
+
     udtsocketnum = tcpsocketnum  = 0;
+
     for (i = 0 ; i < sockfdnums ; i++)
     {
         switch (sockfds[i].type)
@@ -418,14 +409,14 @@ int cmd_send_msg(int sock , SOCKET_TYPE st , char *buf , int len)
 {
     switch (st)
     {
-    case TCP_SOCKET:
-        return stun_tcp_sendmsg(sock,  buf,  len);
-        break;
-    case UDT_SOCKET:
-        return stun_sendmsg(sock, buf, len);
-        break;
-    default:
-        break;
+        case TCP_SOCKET:
+            return stun_tcp_sendmsg(sock,  buf,  len);
+            break;
+        case UDT_SOCKET:
+            return stun_sendmsg(sock, buf, len);
+            break;
+        default:
+            break;
     }
     return -1;
 }
@@ -434,14 +425,14 @@ int cmd_recv_msg(int sock , SOCKET_TYPE st , char *buf , int len , struct sockad
 {
     switch (st)
     {
-    case TCP_SOCKET:
-        return stun_tcp_recvmsg(sock,  buf,  len , addr, addrlen);
-        break;
-    case UDT_SOCKET:
-        return stun_recvmsg(sock, buf, len , addr , addrlen);
-        break;
-    default:
-        break;
+        case TCP_SOCKET:
+            return stun_tcp_recvmsg(sock,  buf,  len , addr, addrlen);
+            break;
+        case UDT_SOCKET:
+            return stun_recvmsg(sock, buf, len , addr , addrlen);
+            break;
+        default:
+            break;
     }
     return -1;
 }
@@ -494,7 +485,7 @@ LOOP_START:
         req_len = cmd_recv_msg(sockfd , st, (char *)req, CLI_BUF_SIZE - 1 , (struct sockaddr *) &from , &fromlen);
         if (req_len < 0)
         {
-            dbg("select point out  scoket readable but cannot recv message, socket may broken\n");
+            dbg("req_len < 0\n");
             do_cli_alive();
             gettimeofday(&last_alive_time , NULL);
             //check_cmd_socket();
@@ -502,7 +493,6 @@ LOOP_START:
             sleep(1);
             goto LOOP_START;
         }
-        dbg("recv ok\n");
         gettimeofday(&now , NULL);
         if (now.tv_sec - last_alive_time.tv_sec >= 3)
         {
@@ -536,22 +526,14 @@ LOOP_START:
                 while (rsp_len > 0)
                 {
                     if (rsp_len > 1000)
-                    {
                         ret = cmd_send_msg(sockfd , st,  rsp + s , 1000);
-                    }
                     else
-                    {
                         ret = cmd_send_msg(sockfd , st,  rsp + s , rsp_len);
-                    }
                     if (ret < 0)
-                    {
-                        dbg("udt send  something wrong\n");
                         break;
-                    }
                     s += ret;
                     rsp_len -= ret;
                 }
-                //printf("sendto return ==%d dst ip==%s , port ==%d\n",ret , inet_ntoa(sess->from.sin_addr), ntohs(sess->from.sin_port));
             }
             else
             {
@@ -560,18 +542,11 @@ LOOP_START:
                 while (rsp_len > 0)
                 {
                     if (rsp_len > 1000)
-                    {
                         ret = cmd_send_msg(sockfd , st,  rsp + s , 1000);
-                    }
                     else
-                    {
                         ret = cmd_send_msg(sockfd, st, rsp + s , rsp_len);
-                    }
                     if (ret < 0)
-                    {
-                        dbg("udt send  something wrong\n");
                         break;
-                    }
                     s += ret;
                     rsp_len -= ret;
                 }
@@ -595,7 +570,10 @@ static  int check_cli_pswd(char *arg , char **r)
         *r = strdup(PASSWORD_NOT_SET);
         return -1;
     }
-    while (*arg && *arg != ':')arg++;
+
+    while (*arg && *arg != ':')
+        arg++;
+
     if (*arg != ':')
     {
         *r = strdup(PASSWORD_FAIL);
@@ -603,7 +581,9 @@ static  int check_cli_pswd(char *arg , char **r)
     }
     *arg = 0;
     arg++;
-    if (strlen(arg) != strlen(threadcfg.pswd) || strncmp(arg, threadcfg.pswd, strlen(arg)) != 0)
+
+    if (strlen(arg) != strlen(threadcfg.pswd) ||
+        strncmp(arg, threadcfg.pswd, strlen(arg)) != 0)
     {
         *r = strdup(PASSWORD_FAIL);
         return -1;
@@ -615,10 +595,12 @@ struct cli_sess_ctx * cli_init(void *arg)
 {
     struct cli_sess_ctx *sess;
 
-    /* Create session */
-    if (g_cli_ctx != NULL || (sess = new_session(arg)) == NULL) return NULL;
+    if (g_cli_ctx != NULL ||
+        (sess = new_session(arg)) == NULL)
+    {
+        return NULL;
+    }
 
-    /* Start up main loop */
     if (pthread_create(&sess->tid, NULL, (void *) do_cli, sess) < 0)
     {
         free_session(sess);
@@ -628,22 +610,11 @@ struct cli_sess_ctx * cli_init(void *arg)
         return sess;
 }
 
-/**
- * cli_deinit - deinit cli session
- * @sess: cli session context
- * Returns 0 on success or -1 on error
- */
 int cli_deinit(struct cli_sess_ctx *sess)
 {
     return free_session(sess);
 }
 
-/**
- * cli_bind_cmds - install command/handler structure
- * @sess: cli session context
- * @handlers: cli handlers
- * Returns 0 on success or -1 on error
- */
 int cli_bind_cmds(struct cli_sess_ctx *sess, struct cli_handler *cmds)
 {
     if (sess == NULL || cmds == NULL)
@@ -655,104 +626,58 @@ int cli_bind_cmds(struct cli_sess_ctx *sess, struct cli_handler *cmds)
     }
 }
 
-/**
- * set_dest_addr - sets destination ip address
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 int set_dest_addr(struct sess_ctx *sess, char *arg)
 {
     if (sess == NULL || sess->to == NULL || arg == NULL)
-    {
-        dbg("error");
         return -1;
-    }
     else
     {
         if (sess->is_udp || sess->is_rtp)
         {
             inet_aton(arg, &sess->to->sin_addr);
-            dbg("ip=%s (ok)", arg);
         }
-        else
-            dbg("command only used for udp or rtp sessions");
         return 0;
     }
 }
 
-/**
- * set_dest_port - sets destination port number
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 int set_dest_port(struct sess_ctx *sess, char *arg)
 {
     u16 port;
 
     if (sess == NULL || sess->to == NULL || arg == NULL)
-    {
-        dbg("error");
         return -1;
-    }
     else
     {
         if (sess->is_udp || sess->is_rtp)
         {
             port = (u16) strtoul(arg, NULL, 10);
             sess->to->sin_port = htons(port);
-            dbg("port=%d (ok)", port);
         }
-        else
-            dbg("command only used for udp or rtp sessions");
         return 0;
     }
 }
 
-/**
- * start_recording_video - start capturing video
- * @sess: session context
- * Returns 0 on success or -1 on error
- */
 int start_recording_video(struct sess_ctx *sess)
 {
-    printf("should do something, system halt at 0\n");
-    while (1);
+    while (1)
+        ;
 }
 
-/**
- * stop_recording_video - stop capturing video
- * @sess: session context
- * Returns 0 on success or -1 on error
- */
 int stop_recording_video(struct sess_ctx *sess)
 {
-    dbg("called");
     sess->paused = 1;
     return 0;
 }
 
 
-/**
- * start_vid - start video recording session
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 int start_vid(struct sess_ctx *sess, char *arg)
 {
     if (sess != NULL && !sess->playing)
     {
-        /* tcp session starts when client connects */
-        if (sess->is_tcp && !sess->connected) return 0;
-        //nand_open();
+        if (sess->is_tcp && !sess->connected)
+            return 0;
         if (start_recording_video(sess) < 0)
-        {
-            dbg("error");
-            //nand_close();
             return -1;
-        }
         else
         {
             sess->playing = 1;
@@ -761,68 +686,30 @@ int start_vid(struct sess_ctx *sess, char *arg)
     }
     else if (sess->paused)
     {
-        dbg("session is resuming");
         sess->paused = 0;
-//      vpu_ResyncVideo(NULL);
         return 0;
     }
     else
-    {
-        dbg("error");
         return -1;
-    }
 }
 
-/**
- * pause_vid - pauses video recording session
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 int pause_vid(struct sess_ctx *sess, char *arg)
 {
     if (sess != NULL && sess->playing)
-    {
-        dbg("ok");
-        //nand_flush();
         return stop_recording_video(sess);
-    }
     else
-    {
-        dbg("error");
         return -1;
-    }
 }
 
-/**
- * stop_vid - stops video recording session
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 int stop_vid(struct sess_ctx *sess, char *arg)
 {
     if (sess != NULL)
-    {
-        dbg("ok");
-        //nand_close();
         return raise(SIGPIPE);
-    }
     else
-    {
-        dbg("error");
         return -1;
-    }
 }
 
-/**
- * set_transport_type - sets the session transport type (tcp, udp, rtp)
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
-
-static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
+static char *set_transport_type(struct sess_ctx *sess , char *arg , int *rsp_len)
 {
     struct socket_container *sc;
     playback_t *pb;
@@ -830,7 +717,6 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
     sc = get_socket_container(cli_socket , 1);
     if (!sc)
     {
-        dbg("error not found socket container\n");
         g_cli_ctx->arg = NULL;
         free_system_session(sess);
         return NULL;
@@ -838,7 +724,6 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
     sc->connected = 1;
     if (sess == NULL)
     {
-        dbg("error\n");
         close_socket_container(sc);
         return NULL;
     }
@@ -851,7 +736,6 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
     }
     if (sc->video_socket < 0 || sc->audio_socket < 0)
     {
-        dbg("error the video socket or audio socket is not build\n");
         g_cli_ctx->arg = NULL;
         free_system_session(sess);
         close_socket_container(sc);
@@ -859,7 +743,6 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
     }
     if (sc->audio_st != sc->video_st)
     {
-        dbg("error the audio and video socket is not the same type?\n");
         g_cli_ctx->arg = NULL;
         free_system_session(sess);
         close_socket_container(sc);
@@ -868,7 +751,6 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
     r = malloc(6);
     if (!r)
     {
-        dbg("error malloc set_transport_type rsp buf\n");
         g_cli_ctx->arg = NULL;
         free_system_session(sess);
         close_socket_container(sc);
@@ -885,7 +767,6 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
         sess->is_rtp = 1;
         break;
     default:
-        dbg("not tcp socket nor udt error\n");
         exit(0);
     }
     sess->sc = sc;
@@ -940,21 +821,12 @@ static char *set_transport_type(struct sess_ctx*sess , char *arg , int *rsp_len)
 
 }
 
-/**
- * get_transport_type - gets the session transport type (tcp, udp, rtp)
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_transport_type(struct sess_ctx *sess, char *arg)
 {
     char *resp;
 
     if (sess == NULL)
-    {
-        dbg(" sess is null error\n");
         return NULL;
-    }
 
     if (sess->is_tcp)
     {
@@ -982,23 +854,13 @@ static char *get_transport_type(struct sess_ctx *sess, char *arg)
             return NULL;
     }
     else
-    {
-        dbg("error\n");
         return NULL;
-    }
 
     return resp;
 }
 
-/**
- * set_gopsize - sets Group of Picture size
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int set_gopsize(struct sess_ctx *sess, char *arg)
 {
-#if 1
     struct video_config_params *p;
 
     if (sess != NULL && sess->video.params != NULL && arg != NULL)
@@ -1010,22 +872,11 @@ static int set_gopsize(struct sess_ctx *sess, char *arg)
         return 0;
     }
     else
-    {
-        dbg("error");
         return -1;
-    }
-#endif
 }
 
-/**
- * get_gopsize - gets Group of Picture size
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_gopsize(struct sess_ctx *sess, char *arg)
 {
-#if 1
     struct video_config_params *p;
     char *resp;
 
@@ -1040,19 +891,9 @@ static char *get_gopsize(struct sess_ctx *sess, char *arg)
         return resp;
     }
     else
-    {
-        dbg("error");
         return NULL;
-    }
-#endif
 }
 
-/**
- * set_bitrate - sets Sampling Bitrate
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int set_bitrate(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1066,18 +907,9 @@ static int set_bitrate(struct sess_ctx *sess, char *arg)
         return 0;
     }
     else
-    {
-        dbg("error");
         return -1;
-    }
 }
 
-/**
- * get_bitrate - gets bitrate used by compressor
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_bitrate(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1094,18 +926,9 @@ static char *get_bitrate(struct sess_ctx *sess, char *arg)
         return resp;
     }
     else
-    {
-        dbg("error");
         return NULL;
-    }
 }
 
-/**
- * set_framerate - sets Video framerate
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int set_framerate(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1119,18 +942,9 @@ static int set_framerate(struct sess_ctx *sess, char *arg)
         return 0;
     }
     else
-    {
-        dbg("error");
         return -1;
-    }
 }
 
-/**
- * get_framerate - gets Video framerate
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_framerate(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1147,18 +961,9 @@ static char *get_framerate(struct sess_ctx *sess, char *arg)
         return resp;
     }
     else
-    {
-        dbg("error");
         return NULL;
-    }
 }
 
-/**
- * set_rotation_angle - sets Video rotation angle
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int set_rotation_angle(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1172,18 +977,9 @@ static int set_rotation_angle(struct sess_ctx *sess, char *arg)
         return 0;
     }
     else
-    {
-        dbg("error");
         return -1;
-    }
 }
 
-/**
- * get_rotation_angle - gets Video rotation angle
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_rotation_angle(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1200,18 +996,9 @@ static char *get_rotation_angle(struct sess_ctx *sess, char *arg)
         return resp;
     }
     else
-    {
-        dbg("error");
         return NULL;
-    }
 }
 
-/**
- * set_output_ratio - sets Video output ratio
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int set_output_ratio(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1225,18 +1012,9 @@ static int set_output_ratio(struct sess_ctx *sess, char *arg)
         return 0;
     }
     else
-    {
-        dbg("error");
         return -1;
-    }
 }
 
-/**
- * get_output_ratio - gets Video output ratio
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_output_ratio(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1253,18 +1031,9 @@ static char *get_output_ratio(struct sess_ctx *sess, char *arg)
         return resp;
     }
     else
-    {
-        dbg("error");
         return NULL;
-    }
 }
 
-/**
- * set_mirror - sets Video output mirror
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int set_mirror_angle(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1278,18 +1047,9 @@ static int set_mirror_angle(struct sess_ctx *sess, char *arg)
         return 0;
     }
     else
-    {
-        dbg("error");
         return -1;
-    }
 }
 
-/**
- * get_mirror_angle - gets Video mirror angle
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_mirror_angle(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1306,18 +1066,9 @@ static char *get_mirror_angle(struct sess_ctx *sess, char *arg)
         return resp;
     }
     else
-    {
-        dbg("error");
         return NULL;
-    }
 }
 
-/**
- * set_compression - sets Video encoder type
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int set_compression(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1332,18 +1083,9 @@ static int set_compression(struct sess_ctx *sess, char *arg)
         return 0;
     }
     else
-    {
-        dbg("error");
         return -1;
-    }
 }
 
-/**
- * get_compression - gets Video compression type
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_compression(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1358,18 +1100,9 @@ static char *get_compression(struct sess_ctx *sess, char *arg)
         return resp;
     }
     else
-    {
-        dbg("error");
         return NULL;
-    }
 }
 
-/**
- * set_resolution - sets Video encoder type
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int set_resolution(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1384,18 +1117,9 @@ static int set_resolution(struct sess_ctx *sess, char *arg)
         return 0;
     }
     else
-    {
-        dbg("error");
         return -1;
-    }
 }
 
-/**
- * get_resolution - gets Video encoder type
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_resolution(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1410,18 +1134,9 @@ static char *get_resolution(struct sess_ctx *sess, char *arg)
         return resp;
     }
     else
-    {
-        dbg("error");
         return NULL;
-    }
 }
 
-/**
- * set_camera_name - Sets camera name
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static int set_camera_name(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1436,18 +1151,9 @@ static int set_camera_name(struct sess_ctx *sess, char *arg)
         return 0;
     }
     else
-    {
-        dbg("error");
         return -1;
-    }
 }
 
-/**
- * get_camera_name - Gets current camera name
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_camera_name(struct sess_ctx *sess, char *arg)
 {
     struct video_config_params *p;
@@ -1462,18 +1168,9 @@ static char *get_camera_name(struct sess_ctx *sess, char *arg)
         return resp;
     }
     else
-    {
-        dbg("error");
         return NULL;
-    }
 }
 
-/**
- * update_video_conf - updates video configuration file
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int update_video_conf(struct sess_ctx *sess, char *arg)
 {
     if (sess != NULL && sess->video.params != NULL &&
@@ -1490,60 +1187,25 @@ static int update_video_conf(struct sess_ctx *sess, char *arg)
     return 0;
 }
 
-/**
- * reset_video_conf - resets video configuration file to defaults
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int reset_video_conf(struct sess_ctx *sess, char *arg)
 {
-    /* Not supported */
-    dbg("error");
     return -1;
 }
 
-/**
- * start_aud - starts audio recording session
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int start_aud(struct sess_ctx *sess, char *arg)
 {
-    /* Not supported */
-    dbg("error");
     return -1;
 }
 
-/**
- * stop_aud - stops audio recording session
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int stop_aud(struct sess_ctx *sess, char *arg)
 {
-    /* Not supported */
-    dbg("error");
     return -1;
 }
 
-/**
- * restart_server - performs soft restart on server
- * @sess: session context
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
 static int restart_server(struct sess_ctx *sess, char *arg)
 {
-    //struct sess_ctx * tmp;
-    //int p;
     if (sess == NULL)
         return 0;
-    //if(sess->is_rtp){
-
-    //}
 
     printf("enter restar_server now begin\n");
     playback_exit(sess->from);
@@ -1551,16 +1213,9 @@ static int restart_server(struct sess_ctx *sess, char *arg)
     sess->running = 0;
     pthread_mutex_unlock(&sess->sesslock);
     printf("\nnow wait the monitor stop!\n ");
-    //we donnot need to wait thread stop here the lock will do it for us
     return 0;
 }
 
-/**
- * get_firmware_revision - Gets current firmware revision number
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_firmware_revision(struct sess_ctx *sess, char *arg)
 {
     char *resp;
@@ -1573,44 +1228,20 @@ static char *get_firmware_revision(struct sess_ctx *sess, char *arg)
         return resp;
     }
     else
-    {
-        dbg("error\n");
         return NULL;
-    }
 }
 
-/**
- * get_firmware_info - Gets current firmware build information
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_firmware_info(struct sess_ctx *sess, char *arg)
 {
     char *resp;
-    printf("ok enter firmware_info now\n");
-    if (1/*sess != NULL*/)
-    {
-        resp = malloc(64);
-        if (!resp)
-            return NULL;
-        memset(resp , 0 , sizeof(resp));
-        sprintf(resp, "%x", threadcfg.cam_id);
-        return resp;
-    }
-    else
-    {
-        dbg("error\n");
+    resp = malloc(64);
+    if (!resp)
         return NULL;
-    }
+    memset(resp , 0 , sizeof(resp));
+    sprintf(resp, "%x", threadcfg.cam_id);
+    return resp;
 }
 
-/**
- * get_video_state - Gets current server state
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_video_state(struct sess_ctx *sess, char *arg)
 {
     char *resp;
@@ -1637,18 +1268,9 @@ static char *get_video_state(struct sess_ctx *sess, char *arg)
         return resp;
     }
     else
-    {
-        dbg("error");
         return NULL;
-    }
 }
 
-/**
- * get_motion_state - Gets motion state
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_motion_state(struct sess_ctx *sess, char *arg)
 {
     char *resp;
@@ -1667,51 +1289,26 @@ static char *get_motion_state(struct sess_ctx *sess, char *arg)
         return resp;
     }
     else
-    {
-        dbg("error");
         return NULL;
-    }
 }
 
-/**
- * get_motion_detection - Gets motion enable/disable state
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static char *get_motion_detection(struct sess_ctx *sess, char *arg)
 {
     return NULL;
 }
 
-/**
- * enable_motion_detection - Enable motion detection
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static int enable_motion_detection(struct sess_ctx *sess, char *arg)
 {
     return 0;
 }
 
-/**
- * disable_motion_detection - Disable motion detection
- * @sess: session context
- * @arg: optional argument
- * Returns parameter string on success or NULL on error
- */
 static int disable_motion_detection(struct sess_ctx *sess, char *arg)
 {
     return 0;
 }
 
-static int SetRs485BautRate(char* arg)
+static int SetRs485BautRate(char *arg)
 {
-    int speed;
-    speed = atoi(arg);
-//  printf("ready to set baudrate %d\n",speed);
-//  SetUartSpeed(speed);
     return 0;
 }
 
@@ -1772,17 +1369,15 @@ char *search_wifi(char *arg)
         return buf;
     }
     else
-    {
         dbg("invalid argument\n");
-    }
     return NULL;
 }
 
 int snd_soft_restart();
 
-char * get_clean_video_cfg(int *size)
+char *get_clean_video_cfg(int *size)
 {
-    FILE * fp;
+    FILE *fp;
     char *cfg_buf;
 
     fp = fopen(RECORD_PAR_FILE, "r");
@@ -1901,13 +1496,9 @@ static char *CheckPswd(char *arg)
     char buf[512];
     int pswd_size;
     if (!arg)
-    {
         return strdup(PASSWORD_FAIL);
-    }
     if (strncmp(arg, PASSWORD_PART_ARG, strlen(PASSWORD_PART_ARG)) != 0)
-    {
         return strdup(PASSWORD_FAIL);
-    }
     if (stat(PASSWORD_FILE , &st) == 0)
     {
         fp = fopen(PASSWORD_FILE, "r");
@@ -2007,17 +1598,13 @@ static char *GetVersion(int *rsp_len)
 static char *GetConfig(char *arg , int *rsp_len)
 {
     char ConfigType;
-    //FILE* fd;
     int length = 0;
     char* ret = 0;
     char *p;
     char *s;
-    //unsigned long long sd_maxsize;
-    //unsigned long long sd_freesize;
     int size;
     int cfg_len;
     char slength[5];
-    //struct stat st;
     if (!arg)
         return NULL;
     if (check_cli_pswd(arg, &p) != 0)
@@ -2052,13 +1639,8 @@ static char *GetConfig(char *arg , int *rsp_len)
         sprintf(p, "system_time=%s\n", gettimestamp());
         (*rsp_len) += strlen(p);
         p += strlen(p);
-        //querryfs("/sdcard", &sd_maxsize, &sd_freesize);
         sprintf(p, "tfcard_maxsize=%d\n", get_sdcard_size());
         (*rsp_len) += strlen(p);
-        //p+=strlen(p);
-        //sprintf(p,"tfcard_freesize=%u\n",(unsigned int)(sd_freesize >>20));
-        //(*rsp_len)+=strlen(p);
-        //p+=strlen(p);
         size = *rsp_len;
 
         sprintf(slength, "%4d", size - 4);
@@ -2090,12 +1672,7 @@ static char *SetConfig(char *arg)
 
     if (!arg)
         return  NULL;
-    /*
-    if(check_cli_pswd( arg, &p)!=0)
-        return p;
-        */
     ConfigType = (int) * arg;
-    dbg("save the config file\n");
     if (ConfigType == '0')
     {
         buf = (char *)malloc(256);
@@ -2123,8 +1700,6 @@ static char *SetConfig(char *arg)
         return NULL;
     }
 
-    //v2ipd_share_mem->v2ipd_to_client0_msg = VS_MESSAGE_STOP_MONITOR;
-    //usleep(500);
     if (ConfigType == '1')
     {
         buf = (char *)malloc(4096);
@@ -2185,18 +1760,13 @@ static char *SetConfig(char *arg)
 
     }
     else
-    {
-        dbg("invalid argument\n");
         return NULL;
-    }
 }
 
 int set_system_time(char *time);
 
 static void SetTime(char *arg)
 {
-    dbg("SetTime\n");
-    //Char time[15]; //YYYYMMDDHHMMSS ----> "MMDDHHMMYYYY.SS"
     if (!arg)
         return;
     set_system_time(arg);
@@ -2205,7 +1775,6 @@ static void SetTime(char *arg)
 
 static char *AudioTalkOn(struct sess_ctx *sess)
 {
-    dbg("%s\n", __func__);
     int r = sound_start_talk(sess);
 
     if (r == 0)
@@ -2218,7 +1787,6 @@ static char *AudioTalkOn(struct sess_ctx *sess)
 
 static void AudioTalkOff(void)
 {
-    dbg("%s\n", __func__);
     sound_stop_talk();
 }
 
@@ -2269,7 +1837,6 @@ static void set_contrast(char *arg)
         threadcfg.contrast = value;
 }
 
-// old, sets playback and capture volume at the same time
 static void set_volume(char *arg)
 {
     int value;
@@ -2290,13 +1857,11 @@ static char* GetTime(char* arg)
     time_t timep;
     struct tm * gtm;
 
-//    dbg("GetTime\n");
     buffer = malloc(20);
     memset(buffer, 0, 20);
     time(&timep);
     gtm = localtime(&timep);
     sprintf(buffer, "%04d%02d%02d%02d%02d%02d", gtm->tm_year + 1900, gtm->tm_mon + 1, gtm->tm_mday, gtm->tm_hour, gtm->tm_min, gtm->tm_sec);
-//    dbg("time=%s\n",buffer);
     return buffer;
 }
 
@@ -2341,21 +1906,13 @@ static char* GetNandRecordFile(char* arg)
             i++;
         }
         else if (time == (char*)0xffffffff)
-        {
+            ;
 
-        }
-        else
-        {
-            dbg("the disk is empty\n");
-        }
         do
         {
             next_secotor = nand_get_next_file_start_sector(start_sector);
             if (next_secotor == -1)
-            {
-                dbg("disk end\n");
                 break;
-            }
             time = nand_get_file_time(next_secotor);
             if (!time || time == (char*)0xffffffff)
             {
@@ -2376,7 +1933,7 @@ static char* GetNandRecordFile(char* arg)
     buffer = ret + 4;
     sprintf(buffer, "%08d", id);
     max_count = total_file_number;
-    for (i = 0; i < max_count; i++)      //4 每次传20个包
+    for (i = 0; i < max_count; i++)
     {
         sprintf(&buffer[8 + i * 48], "%s\n", &FileNameBuffer[id * 48 * 20 + i * 48]);
     }
@@ -2434,7 +1991,6 @@ static char* GetRecordStatue(char* arg)
     size = size / (1024 * 1024 / 512); // GET SIZE IN  M
     buffer = malloc(200);
     memset(buffer, 0, 200);
-//    state = vs_get_record_config();
     if (state != 2 && state != 3)
     {
         state = 1;
@@ -2481,7 +2037,6 @@ static int vs_set_record_config(int mode)
         return -1;
     }
     write(fd, buffer, 512 * 1024);
-//    ioctl(fd, BLKFLSBUF, NULL );
     close(fd);
     system("sync");
     system("/nand-flush /dev/nand-data");
@@ -2505,7 +2060,6 @@ static void SetRecordStatue(char* arg)
     {
         mode = 1;
     }
-//    v2ipd_share_mem->v2ipd_to_client0_msg = VS_MESSAGE_STOP_MONITOR;
     usleep(500);
     vs_set_record_config(mode);
 
@@ -2635,7 +2189,6 @@ static void SetIpAddress(char* arg)
     write(fd, buffer, 512 * 1024);
     close(fd);
     system("sync");
-//    ioctl(fd, BLKFLSBUF, NULL );
     system("/nand-flush /dev/nand-data");
     system("sync");
     return;
@@ -2661,16 +2214,14 @@ static char* DeleteAllFiles(struct sess_ctx *sess, char* arg)
     char * ret;
     ret = malloc(20);
     ret = "DeleteAllFilesOK";
-    //v2ipd_disable_write_nand();
     nand_clean();
-    //v2ipd_reboot_system();
     return ret;
 }
 
 
 static char* DeleteFile(struct sess_ctx *sess, char* arg)
 {
-    char * ret;
+    char *ret;
     int file_id, file_end_id;
 
     ret = malloc(50);
@@ -2678,16 +2229,11 @@ static char* DeleteFile(struct sess_ctx *sess, char* arg)
     file_end_id = (int)hex_string_to_uint(&arg[8], 8);
     if (strlen(arg) != 16)
     {
-        dbg("error delete file, arg invalid\n");
         sprintf(ret, "DeleteFile%08xERROR", file_id);
         return ret;
     }
     sprintf(ret, "DeleteFile%08xOK", file_id);
-    //v2ipd_disable_write_nand();
-    //sleep(2);
     nand_invalid_file(file_id, file_end_id);
-    //system("/nand-flush /dev/nand-user");
-    //v2ipd_restart_all();
     return ret;
 }
 
@@ -2848,8 +2394,6 @@ static char *do_cli_cmd(void *sess,
         restart_server(sess, NULL);
     else if (strncmp(cmd, "get_firmware_rev", 16) == 0)
         resp = get_firmware_revision(sess, NULL);
-    // else if (strncmp(cmd, "get_firmware_info", 17) == 0)
-    // resp = get_firmware_info(sess, NULL);
     else if (strncmp(cmd, "get_video_state", 15) == 0)
         resp = get_video_state(sess, NULL);
     else if (strncmp(cmd, "get_camera_name", 15) == 0)
@@ -2877,13 +2421,15 @@ static char *do_cli_cmd(void *sess,
     else if (strncmp(cmd, "pb_set_status", 13) == 0)
         resp = cli_playback_set_status(sess, param);
     else
-        dbg("cmd = %s**not supported\n", cmd);
+        dbg("unrecognized command: %s\n", cmd);
 
     return resp;
 }
 
 static int CurrentUpdatedCount; //the id that has been sucessfully updated
+
 #define TEMP_FILE_SIZE 10000
+
 static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
 {
     int ret = 0;
@@ -2902,9 +2448,7 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
     UpdateCount = p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24)  ;
     p += 4;
     if ((UpdateCount % 100) == 0 || UpdateCount == 0xffffffff)
-    {
         dbg("UpdateCount=%d\n", UpdateCount);
-    }
 
     if (UpdateCount == 0)
     {
@@ -2915,11 +2459,7 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
         v2ipd_request_timeover_protect();
     }
     if (UpdateCount == CurrentUpdatedCount)
-    {
-        dbg("host retry, UpdateCount=%d\n", UpdateCount);
         ret = 0;
-//        v2ipd_request_timeover_protect();
-    }
     else if (UpdateCount == CurrentUpdatedCount + 1)
     {
         v2ipd_request_timeover_protect();
@@ -2934,7 +2474,6 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
             if (xor != p[data_size])
             {
                 ret = 1;
-                dbg("crc error, xor=%x, should =%x\n", xor, p[data_size]);
                 break;
             }
             fp = fopen(tempfile, "a");
@@ -2965,7 +2504,6 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
     else if (UpdateCount == 0xffffffff)      // last package
     {
         v2ipd_stop_timeover_protect();
-        dbg("CurrentUpdatedCount=%x\n", CurrentUpdatedCount);
         data_size = cmd_len - 13 - 4 - 1;
         do
         {
@@ -3053,7 +2591,6 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
             if (size_uboot)
             {
                 fw = open("/dev/nand-boot", O_RDWR | O_SYNC);
-                //fw = open("/mnt/nfs/nand-boot", O_RDWR|O_SYNC | O_CREAT );
                 if (fw == -1)
                 {
                     ret = 0x106;
@@ -3075,13 +2612,11 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
                 system("/tmp/nand-flush /dev/nand-boot");
                 system("sync");
             }
-//            fseek(fp, size_uboot, SEEK_CUR);
             fread(&size_kernel, 1, 4, fp);
             dbg("kernel size=%d\n", size_kernel);
             if (size_kernel)
             {
                 fw = open("/dev/nand-kernel", O_RDWR | O_SYNC);
-                //fw = open("/mnt/nfs/nand-kernel", O_RDWR|O_SYNC |O_CREAT);
                 if (fw == -1)
                 {
                     ret = 0x107;
@@ -3103,13 +2638,11 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
                 system("/tmp/nand-flush /dev/nand-kernel");
                 system("sync");
             }
-//            fseek(fp, size_kernel, SEEK_CUR);
             fread(&size_rootfs, 1, 4, fp);
             dbg("rootfs size=%d\n", size_rootfs);
             if (size_rootfs)
             {
                 fw = open("/dev/nand-rootfs", O_RDWR | O_SYNC);
-                //fw = open("/mnt/nfs/nand-rootfs", O_RDWR|O_SYNC |O_CREAT);
                 if (fw == -1)
                 {
                     ret = 0x108;
@@ -3146,9 +2679,8 @@ static char* UpdateSystem(char *cmd, int cmd_len, int* rsp_len)
         }
         v2ipd_reboot_system();
     }
-    else if (UpdateCount == 0xfffffffe)      // cancel current update process
+    else if (UpdateCount == 0xfffffffe)
     {
-        dbg("cancel update\n");
         system("rm /tmp/update");
         system("sync");
         ret = 0;
@@ -3185,7 +2717,7 @@ err_restart:
     return ret_buf;
 }
 
-char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int* rsp_len)
+char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int *rsp_len)
 {
     *rsp_len = 0;
 
@@ -3197,27 +2729,22 @@ char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int* rsp_len)
     return NULL;
 }
 
-struct cli_sess_ctx * start_cli(void* arg)
+struct cli_sess_ctx *start_cli(void *arg)
 {
     struct cli_sess_ctx * cli_ctx;
-    cli_cmd_handler.cmds = (char *) cli_cmds;
-    cli_cmd_handler.handler = do_cli_cmd;
+
+    cli_cmd_handler.cmds        = (char *)cli_cmds;
+    cli_cmd_handler.handler     = do_cli_cmd;
     cli_cmd_handler.handler_bin = do_cli_cmd_bin;
 
     if ((cli_ctx = cli_init(arg)) != NULL)
     {
         if (cli_bind_cmds(cli_ctx, &cli_cmd_handler) < 0)
-        {
-            printf("error installing CLI handlers");
-            return 0;
-        }
+            return NULL;
     }
     else
-    {
-        printf("error initializing CLI");
-        return 0;
-    }
+        return NULL;
+
     return cli_ctx;
 }
-
 
