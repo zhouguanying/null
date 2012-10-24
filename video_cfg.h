@@ -8,7 +8,7 @@
 #define PASSWORD_SET                    "PSWD_SET"
 #define PASSWORD_PART_ARG                "PSWD="
 
-#define CURR_VIDEO_CFG_VERSION        "1.0.3"
+#define CURR_VIDEO_CFG_VERSION        "1.0.4"
 
 #define APP_VERSION                     "version=6.0.5\n"
 #define UDP_SERVER_ADDR                  "udp.iped.com.cn"
