@@ -1384,6 +1384,10 @@ read_config:
         extract_value(conf_p, lines, CFG_WLAN_IP, 1, w_ip);
         extract_value(conf_p, lines, CFG_WLAN_MASK, 1, w_mask);
 
+        int p_mapping;
+        extract_value(conf_p, lines, CFG_PORT_MAPPING, 0, &p_mapping);
+        if (p_mapping > 0 && threadcfg.inet_udhcpc == 0)
+            camera_set_port(p_mapping);
 
         check_eth0 = 0;
         check_wlan0 = 0;

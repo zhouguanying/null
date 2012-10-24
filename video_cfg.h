@@ -59,6 +59,7 @@
 #define CFG_WLAN_DNS2                     "w_dns2"
 #define CFG_WLAN_SSID                     "w_ssid"
 #define CFG_WLAN_KEY                     "w_key"
+#define CFG_PORT_MAPPING                 "p_mapping"
 
 
 #define SYSTEM_TIME                         "sys_time"
