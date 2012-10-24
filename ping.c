@@ -270,6 +270,7 @@ int snd_soft_restart()
     }
     printf("set soft reset\n");
     //stop_udt_lib();
+    system("reboot");
     exit(0);
 }
 
