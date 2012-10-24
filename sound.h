@@ -6,6 +6,8 @@ extern "C"
 {
 #endif
 
+extern int sound_talking;
+
 void  sound_amr_buffer_init();
 void  sound_amr_buffer_reset();
 void  sound_amr_buffer_clean(int sess_id);

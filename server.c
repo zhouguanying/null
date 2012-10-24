@@ -21,7 +21,6 @@
 #include <linux/fs.h>
 #include <netdb.h>
 #include <sys/ioctl.h>
-
 #include "includes.h"
 #include "mail_alarm.h"
 #include "cli.h"
@@ -58,79 +57,22 @@ extern char *v2ipd_logfile;
 #define dbg(fmt, args...)    do {} while (0)
 #endif
 
-#undef AUDIO_STATS
-#undef VIDEO_STATS
 #define EXIT_SUCCESS    0
 #define EXIT_FAILURE    1
 
-/**
- * sess_ctx - session context data structure
- * @name: ASCII based session name
- * @ip: server ip address
- * @port: server port number
- * @s1: server socket number
- * @s2: connected client socket
- * @s1_type: socket type (STREAM or DATAGRAM)
- * @myaddr: socket address used for tcp connections
- * @to: remote ip address used to send DATAGRAMs
- * @from: remote ip address used to receive DATAGRAMs
- * @video: video configuration params
- * @audio: audio configuration params
- * @cfgfile: configuration file
- * @nbytes: total number of bytes transferred
- * @tv: time values
- * @curr_frame_idx: current frame index value
- * @params: configuration parameters
- * @sess: driver session context
- * @daemon: session is running in background mode
- * @connected: session connection status
- * @rtp_sess: rtp session context
- * @use_rtp: indicates that session is rtp based
- * @recording: indicates recording session is active
- * @paused: pauses session
- * @cli_sess: CLI session context
- * @pipe_fd: named pipe file descriptor
- * @pipe_name: named pipe path name
- * @is_tcp: session data sent over tcp
- * @is_rtp: session data sent over rtp - requires rtsp
- * @is_udp: session data sent over udp - requires mpeg2 ts
- * @is_pipe: session data sent over named pipe
- * @running session is running
- * @soft_reset: perform soft restart
- */
-/* Housekeeping globals used termintate program */
-struct sess_ctx *global_ctx; // EJA
-
-
-/*why we need this lock because i found when i change the video or write file to disck
-* together one thread(start_video_monitor) start or exit , the video and the write function will be error
-*
-*/
 static pthread_mutex_t     v_thread_sleep_t_lock;
 static int v_thread_sleep_time ;
 static unsigned char do_update_flag = 0;
 
 pthread_mutex_t global_ctx_lock;
-struct sess_ctx *global_ctx_running_list = NULL; //each connection have a sesction
-int                       currconnections = 0;
+struct sess_ctx *global_ctx_running_list = NULL;
+int session_number = 0;
 
-struct threadconfig threadcfg;  //we use this variable to control the the speed of record thread
+struct threadconfig threadcfg;
 int msqid = -1;
-
-/*
-*each sess have a id , we use this id to manage the buffer of audio and video
-*i think we will use it for more in future
-*/
 
 pthread_mutex_t g_sess_id_mask_lock;
 char g_sess_id_mask[MAX_NUM_IDS];
-/*
-int                  globalsocket=-1;
-we have wanted to  use this socket to listen,
-now we create a listen socket each set_transport_type
-then close it after we accpet.
-not need the global listen socket now!*/
-
 int daemon_msg_queue;
 vs_share_mem* v2ipd_share_mem;
 
@@ -156,18 +98,15 @@ void set_msg_do_update()
     ret = msgsnd(msqid , &msg, sizeof(vs_ctl_message) - sizeof(long), 0);
     if (ret == -1)
     {
-        dbg("send daemon message error\n");
         system("reboot &");
         exit(0);
     }
-    printf("##############send update msg ok exit now###############\n");
     exit(0);
 }
 
 void prepare_do_update()
 {
     set_msg_do_update();
-    //set_do_update();
 }
 
 unsigned char checksum(unsigned char cksum, unsigned char *data, int size)
@@ -195,12 +134,11 @@ void init_g_sess_id_mask()
 {
     pthread_mutex_init(&g_sess_id_mask_lock, NULL);
     memset(g_sess_id_mask, 0, sizeof(g_sess_id_mask));
-    g_sess_id_mask[MAX_NUM_IDS - 1] = 1; /*this is be used by record thread*/
+    g_sess_id_mask[MAX_NUM_IDS - 1] = 1;
 }
 
 int get_sess_id()
 {
-    //static int count = 0;
     int i;
     int ret;
     ret = -1;
@@ -211,8 +149,6 @@ int get_sess_id()
         {
             g_sess_id_mask[i] = 1;
             ret  = i;
-            //count ++;
-            //printf("######################get id index = %d count==%d#####################\n",i , count);
             break;
         }
     }
@@ -232,7 +168,6 @@ void v2ipd_restart_all()
     vs_ctl_message msg;
     msg.msg_type = VS_MESSAGE_ID;
     msg.msg[0] = VS_MESSAGE_RESTART_ALL;
-    printf("%s\n", __func__);
     if (msgsnd(daemon_msg_queue, &msg, sizeof(msg) - sizeof(long), IPC_NOWAIT) < 0)
     {
         perror("msgsnd");
@@ -254,7 +189,7 @@ void v2ipd_reboot_system()
     return;
 }
 
-void v2ipd_disable_write_nand()    // if disable_wirte_nand, means update is writing nand and will reboot the system right now
+void v2ipd_disable_write_nand()
 {
     vs_ctl_message msg;
     msg.msg_type = VS_MESSAGE_ID;
@@ -293,7 +228,7 @@ void v2ipd_stop_timeover_protect()
 
 static inline int kill_tcp_connection(struct sess_ctx *sess)
 {
-    shutdown(sess->s2, 1); /* Notify client that we are done writing */
+    shutdown(sess->s2, 1);
     close(sess->s2);
     close(sess->s1);
     free(sess->myaddr);
@@ -306,15 +241,14 @@ static inline int kill_tcp_connection(struct sess_ctx *sess)
 
 static inline int kill_video(struct sess_ctx *sess)
 {
-    printf("should do something, halt at 1\n");
-    while (1);
+    while (1)
+        ;
     free_system_session(sess);
     return 0;
 }
 
 static inline int kill_connection(struct sess_ctx *sess)
 {
-    //kill_video(sess);
     struct sess_ctx * tmp;
     sess->connected = 0;
     sess->playing = 0;
@@ -322,9 +256,7 @@ static inline int kill_connection(struct sess_ctx *sess)
     sess->motion_detected = 0;
 
     if (sess->is_tcp)
-    {
-        //kill_tcp_connection(sess);
-    }
+        ;
     else if (sess->is_file)
     {
         if (sess->file_fd >= 0)
@@ -340,7 +272,7 @@ static inline int kill_connection(struct sess_ctx *sess)
     if (tmp == sess)
     {
         global_ctx_running_list = global_ctx_running_list->next;
-        currconnections--;
+        session_number--;
     }
     else
     {
@@ -349,213 +281,76 @@ static inline int kill_connection(struct sess_ctx *sess)
             if (tmp->next == sess)
             {
                 tmp->next = sess->next;
-                currconnections--;
+                session_number--;
                 break;
             }
             tmp = tmp->next;
         }
     }
     pthread_mutex_unlock(&global_ctx_lock);
-    // dbg("called");
     return kill_video(sess);
 }
 
-/**
- * init_video - create and init video driver
- * @config: video driver configuration file
- * Returns driver context 0 on success or NULL on error
- */
-static inline void *init_video(char *config)
-{
-    return 0;
-}
-
-/**
- * deinit_video - deinit video driver
- * @sess: session context
- * Returns 0 on success or -1 on error
- */
-static inline int deinit_video(struct sess_ctx *sess)
-{
-    return 0;
-}
-
-/**
- * add_video_handler - install video handler
- * @sess: session context
- * @handler: data handler
- * @arg: optional argument
- * Returns 0 on success or -1 on error
- */
-static inline int add_video_handler(struct sess_ctx *sess, void *handler,
-                                    void *arg)
-{
-    return 0;
-}
-
-int vpu_RemoveCallback(void *sess, void *cb);
-
-/**
- * remove_video_handler - remove video handler
- * @sess: session context
- * @handler: data handler
- * Returns 0 on success or -1 on error
- */
-static inline int remove_video_handler(struct sess_ctx *sess,
-                                       void *handler)
-{
-    return vpu_RemoveCallback(NULL, handler);
-}
-
-
-/**
- * init_audio - create and init audio driver
- * @config: audio driver configuration file
- * Returns driver context 0 on success or NULL on error
- */
-static inline void *init_audio(char *config)
-{
-    dbg("driver not installed");
-    return NULL;
-}
-
-/**
- * deinit_audio - deinit audio driver
- * @sess: session context
- * Returns 0 on success or -1 on error
- */
-static int deinit_audio(struct sess_ctx *sess)
-{
-    dbg("driver not installed");
-    return -1;
-}
-
-/**
- * free_session - cleans up session parameters.
- * @sess: session context
- * Returns 0 on success or -1 on error
- */
 int free_system_session(struct sess_ctx *sess)
 {
-    if (sess == NULL) return -1;
-    //dbg("##############sess->id=%d################\n",sess->id);
-    printf("free_system_session now\n");
+    if (sess == NULL)
+        return -1;
     if (sess->name != NULL)
         free(sess->name);
     if (sess->video.fp != NULL)
-    {
-        printf("fclose(sess->video.fp)\n");
         fclose(sess->video.fp);
-    }
     if (sess->audio.fp != NULL)
-    {
         fclose(sess->audio.fp);
-        printf("fclose(sess->audio.fp)\n");
-    }
     if (sess->video.params != NULL)
-    {
-        printf("free_video_conf\n");
         free_video_conf(sess->video.params);
-    }
     if (sess->audio.params != NULL)
-    {
-        printf("free_audio_conf\n");
         free_audio_conf(sess->audio.params);
-    }
     if (sess->audio.cfgfile != NULL)
-    {
-        printf("free(sess->audio.cfgfile)\n");
         free(sess->audio.cfgfile);
-    }
     if (sess->video.cfgfile != NULL)
-    {
-        printf("free(sess->video.cfgfile)\n");
         free(sess->video.cfgfile);
-    }
-    if (sess->video.sess != NULL)
-        deinit_video(sess);
-    if (sess->audio.sess != NULL)
-        deinit_audio(sess);
     if (sess->s1 >= 0)
-    {
-        printf("close sess->s1 ==%d\n", sess->s1);
         close(sess->s1);
-    }
     if (sess->s2 >= 0)
-    {
-        printf("close sess->s2==%d\n", sess->s2);
         close(sess->s2);
-    }
     if (sess->to != NULL)
         free(sess->to);
     if (sess->myaddr != NULL)
         free(sess->myaddr);
     if (sess->pipe_fd >= 0)
-    {
-        printf("close sess->pipe_fd ==%d\n", sess->pipe_fd);
         close(sess->pipe_fd);
-    }
     if (sess->pipe_name != NULL)
     {
-        printf("free sess->pipe_name\n");
         unlink(sess->pipe_name);
         free(sess->pipe_name);
     }
     if (sess->file_fd >= 0)
-    {
-        printf("close sess->file_fd ==%d\n", sess->file_fd);
         close(sess->file_fd);
-    }
-
-#ifdef VIDEO_STATS
-    if (sess->video.tv != NULL)
-        free(sess->video.tv);
-#endif /* VIDEO_STATS */
-#ifdef AUDIO_STATS
-    if (sess->audio.tv != NULL)
-        free(sess->audio.tv);
-#endif /* AUDIO_STATS */
 
 #ifdef USE_CLI
     if (sess->cli_sess != NULL)
-    {
-        printf("close cli_deinit\n");
         cli_deinit(sess->cli_sess);
-    }
-#endif /* USE_CLI */
+#endif
     if (sess->id >= 0)
         put_sess_id(sess->id);
     pthread_mutex_destroy(&sess->sesslock);
     free(sess);
 
-    //dbg("sid(%08X) removed successfully\n", (u32) sess);
     return 0;
 }
 
-/**
- * new_session - create and initialize session.
- * @name: ACSII based session name
- * Returns session context on success or NULL on error
- */
 struct sess_ctx *new_system_session(char *name)
 {
     struct sess_ctx *sess = NULL;
 
     if (name == NULL)
-    {
-        perror("Error creating new session");
         return NULL;
-    }
-    /* create session context */
+
     sess = malloc(sizeof(*sess));
-    if (sess == NULL)
-        return NULL;
     memset(sess, 0, sizeof(struct sess_ctx));
     sess->id = get_sess_id();
-    //printf("###############get sess->id = %d####################\n",sess->id);
     if (sess->id < 0)
     {
-        printf("****************can't get session id*******************\n");
         free(sess);
         return NULL;
     }
@@ -564,22 +359,12 @@ struct sess_ctx *new_system_session(char *name)
     sess->pipe_fd = -1;
     sess->file_fd = -1;
 
-
-    /* Add name of session */
-    sess->name = malloc(strlen(name) + 1); /* +1 for string termination */
+    sess->name = malloc(strlen(name) + 1);
     if (sess->name == NULL)
         goto error1;
     memset(sess->name, 0, strlen(name) + 1);
     memcpy(sess->name, name, strlen(name));
 
-    /* Add timestamp stuff */
-#ifdef VIDEO_STATS
-    sess->video.tv = create_timeval(); /* usec timing */
-#endif /* VIDEO_STATS */
-
-#ifdef AUDIO_STATS
-    sess->audio.tv = create_timeval();
-#endif /* AUDIO_STATS */
     pthread_mutex_init(&sess->sesslock, NULL);
 
     return sess;
@@ -591,41 +376,17 @@ error1:
     return NULL;
 }
 
-static inline int kill_server(struct sess_ctx *sess)
-{
-    dbg("called");
-    sess->running = 0;
-    sess->soft_reset = 0; /* This is a hard reset */
-    return 0;
-}
-
-/**
- * sig_handler - sets flag to exit program
- * @signum: signal number
- */
 static void sig_handler(int signum)
 {
-    struct sess_ctx *s = global_ctx;
-
-    dbg("get a signal: %d\n", signum);
-
     if (signum == SIGINT || signum == SIGIO)
-    {
         exit(-1);
-//        kill_server(s);
-    }
     else if (signum == SIGPIPE)
-    {
         dbg("SIGPIPE\n");
-        kill_connection(s);
-    }
-    else ;
 }
 
-struct vdIn * vdin_camera = NULL;
-//we need tow functions to get data beacause we wo only allow one thread get data from kernal buffers that is function get_data
+struct vdIn *vdin_camera = NULL;
 
-char * get_video_data(int *size)
+char *get_video_data(int *size)
 {
     int i;
     int canuse = -1;
@@ -639,25 +400,13 @@ try_again:
         if (vdin_camera->hrb_tid[i] == 0)
             canuse = i;
         else if (vdin_camera->hrb_tid[i] == self_tid)
-        {
-            //printf("tmpbuffer have read last time!\n");
-            //printf("hrb_tid[%d]=%lu,self_tid=%lu\n",i,vdin_camera->hrb_tid[i],self_tid);
             goto have_readed;
-        }
     }
     buff = malloc(vdin_camera->buf.bytesused + DHT_SIZE + sizeof(picture_info_t));
-    if (!buff)
-    {
-        printf("malloc buf error\n");
-        pthread_mutex_unlock(&vdin_camera->tmpbufflock);
-        *size = 0;
-        return 0;
-    }
     memcpy(buff, vdin_camera->tmpbuffer, vdin_camera->buf.bytesused + DHT_SIZE + sizeof(picture_info_t));
     vdin_camera->hrb_tid[canuse] = self_tid;
     *size = vdin_camera->buf.bytesused + DHT_SIZE + sizeof(picture_info_t);
     pthread_mutex_unlock(&vdin_camera->tmpbufflock);
-    //printf("read tmpbuffer sucess size=%d\n",*size);
     return buff;
 have_readed:
     pthread_mutex_unlock(&vdin_camera->tmpbufflock);
@@ -675,11 +424,9 @@ static char* get_data(int* size, int *width, int *height)
 
     pthread_mutex_lock(&vdin_camera->tmpbufflock);
 retry:
-    //dbg("#############before uvcGrab#############\n");
     if (uvcGrab(vdin_camera) < 0)
     {
-        printf("Error grabbing\n");
-        trygrab --;
+        trygrab--;
         if (trygrab <= 0)
         {
             close_v4l2(vdin_camera);
@@ -692,8 +439,6 @@ retry:
         usleep(100000);
         goto retry;
     }
-    //dbg("#############after uvcGrab#############\n");
-    //pthread_mutex_unlock(&vdin_camera->tmpbufflock);
     buf = malloc(vdin_camera->buf.bytesused + DHT_SIZE);
     if (!buf)
     {
@@ -702,7 +447,6 @@ retry:
         pthread_mutex_unlock(&vdin_camera->tmpbufflock);
         return 0;
     }
-    //pthread_mutex_lock(&vdin_camera->tmpbufflock);
     memcpy(buf, vdin_camera->tmpbuffer + sizeof(picture_info_t), vdin_camera->buf.bytesused + DHT_SIZE);
     *size = vdin_camera->buf.bytesused + DHT_SIZE;
     *width = vdin_camera->width;
@@ -711,12 +455,6 @@ retry:
     return buf;
 }
 
-/*智能监控模式
-*如果第一个是通过内网进来的则切成VGA
-*如果第一个是通过外网进来的则切成QVGA
-*如果不是第一个进来的，则不能切换
-*如果退出的是最后一个连接的会话则恢复原来分辨率
-*/
 void restart_v4l2(int width , int height);
 
 void change_camera_status(struct sess_ctx *sess , int sess_in)
@@ -760,13 +498,13 @@ void change_camera_status(struct sess_ctx *sess , int sess_in)
     }
 }
 
-void  add_sess(struct sess_ctx *sess)
+void add_sess(struct sess_ctx *sess)
 {
     pthread_mutex_lock(&global_ctx_lock);
     sess->next = global_ctx_running_list;
     global_ctx_running_list = sess;
-    currconnections ++;
-    if (currconnections == 1)
+    session_number ++;
+    if (session_number == 1)
         change_camera_status(sess, 1);
     pthread_mutex_unlock(&global_ctx_lock);
 }
@@ -781,10 +519,10 @@ void  del_sess(struct sess_ctx *sess)
         if ((*p) == sess)
         {
             *p = (*p)->next;
-            currconnections--;
+            session_number--;
             if (g_cli_ctx->arg == sess)
                 g_cli_ctx->arg = NULL;
-            if (currconnections == 0)
+            if (session_number == 0)
                 change_camera_status(sess, 0);
             break;
         }
@@ -797,7 +535,7 @@ void take_sess_up(struct sess_ctx *sess)
 {
     pthread_mutex_lock(&sess->sesslock);
     sess->running = 1;
-    sess->soft_reset = 0; /* Clear soft reset condition */
+    sess->soft_reset = 0;
     pthread_mutex_unlock(&sess->sesslock);
 }
 
@@ -824,9 +562,7 @@ int udt_recv(int udtsocket , int sock_t , char *buf , int len , struct sockaddr 
 int do_net_update(void *arg)
 {
     struct sess_ctx *sess = (struct sess_ctx *)arg;
-    //int ret;
     int socket = -1;
-    //char* buffer;
     int size;
     FILE * kfp = NULL;
     FILE * sfp = NULL;
@@ -848,12 +584,8 @@ int do_net_update(void *arg)
     add_sess(sess);
     take_sess_up(sess);
     if (is_do_update())
-    {
-        dbg("tcp do update some one is doing update\n");
         goto exit;
-    }
     socket = sess->sc->video_socket;
-    printf("###################do update###################\n");
     size = 0;
     while (size < 1024)
     {
@@ -867,28 +599,18 @@ int do_net_update(void *arg)
     }
     r = size;
     if (r != 1024)
-    {
-        printf(" do update recv data too small\n");
         goto exit;
-    }
-    /*version562 10bytes if it have this string , it mark the update file is a encryption file*/
     if (strncmp(buf , "version", 7) == 0)
     {
         p = buf + 10;
         if (stat(ENCRYPTION_FILE_PATH , &st) != 0)
-        {
-            printf("###############error no encryption kernal get a encryption update file#################\n");
             goto exit;
-        }
     }
     else
     {
         p = buf;
         if (stat(ENCRYPTION_FILE_PATH , &st) == 0)
-        {
-            printf("#################error encryption kernal get a no encyption update file###############\n");
             goto exit;
-        }
     }
     cmd = *p;
     p++;
@@ -909,20 +631,13 @@ int do_net_update(void *arg)
     switch (cmd)
     {
     case 0:
-        printf("####################update system################\n");
         sfp = fopen(SYSTEM_UPDATE_FILE , "w");
         if (!sfp)
-        {
-            printf("*******************open system update file error**********\n");
             goto exit;
-        }
         system_f_size  = (1024 - (p - buf));
         scrc = checksum(scrc, (unsigned char *)p, system_f_size);
         if (fwrite(p, 1, system_f_size, sfp) != system_f_size)
-        {
-            printf("**********error write system.update************\n");
             goto exit;
-        }
         while (system_f_size < __system_f_size)
         {
             if (sess->is_tcp)
@@ -935,24 +650,14 @@ int do_net_update(void *arg)
                 goto exit;
             }
             system_f_size += r;
-            //printf("recv data=%d curr size =%d expected size = %d\n",r ,system_f_size , __system_f_size);
             scrc = checksum(scrc, (unsigned char *)buf, r);
             if ((unsigned int)r != fwrite(buf, 1, r, sfp))
-            {
-                printf("**********error write system.update************\n");
                 goto exit;
-            }
         }
         if (system_f_size != __system_f_size)
-        {
-            printf("do system update error we expect file size %d but we recv %d\n", __system_f_size , system_f_size);
             goto exit;
-        }
         if (scrc != __scrc)
-        {
-            printf("****************check sum error we expected %2x but the results is %2x**********\n", __scrc , scrc);
             goto exit;
-        }
         fclose(sfp);
         sfp = NULL;
         prepare_do_update();
@@ -963,20 +668,13 @@ int do_net_update(void *arg)
         exit(0);
         break;
     case 1:
-        printf("#####################update kernal################\n");
         kfp = fopen(KERNAL_UPDATE_FILE , "w");
         if (!kfp)
-        {
-            printf("*******************open kernal update file error**********\n");
             goto exit;
-        }
         kernal_f_size  = (1024 - (p - buf));
         kcrc = checksum(kcrc, (unsigned char *)p, kernal_f_size);
         if (fwrite(p, 1, kernal_f_size, kfp) != kernal_f_size)
-        {
-            printf("**********error write kernal.update************\n");
             goto exit;
-        }
         while (kernal_f_size < __kernal_f_size)
         {
             if (sess->is_tcp)
@@ -989,24 +687,14 @@ int do_net_update(void *arg)
                 goto exit;
             }
             kernal_f_size += r;
-            //printf("recv data=%d curr size =%d expected size = %d\n",r ,kernal_f_size , __kernal_f_size);
             kcrc = checksum(kcrc, (unsigned char *)buf , r);
             if ((unsigned int)r != fwrite(buf, 1, r, kfp))
-            {
-                printf("**********error write kernal.update************\n");
                 goto exit;
-            }
         }
         if (kernal_f_size != __kernal_f_size)
-        {
-            printf("do kernal update error we expect file size %d but we recv %d\n", __kernal_f_size , kernal_f_size);
             goto exit;
-        }
         if (kcrc != __kcrc)
-        {
-            printf("***************kernel sum error we expected %2x but the result is %2x************\n", __kcrc , kcrc);
             goto exit;
-        }
         fclose(kfp);
         kfp = NULL;
         prepare_do_update();
@@ -1017,26 +705,16 @@ int do_net_update(void *arg)
         exit(0);
         break;
     case 2:
-        printf("###############update system and kernal################\n");
         sfp = fopen(SYSTEM_UPDATE_FILE , "w");
         if (!sfp)
-        {
-            printf("*******************open system update file error**********\n");
             goto exit;
-        }
         kfp = fopen(KERNAL_UPDATE_FILE , "w");
         if (!kfp)
-        {
-            printf("*******************open kernal update file error**********\n");
             goto exit;
-        }
         system_f_size  = (1024 - (p - buf));
         scrc = checksum(scrc, (unsigned char *)p, system_f_size);
         if (fwrite(p, 1, system_f_size, sfp) != system_f_size)
-        {
-            printf("**********error write system.update************\n");
             goto exit;
-        }
         p = NULL;
         while (system_f_size < __system_f_size)
         {
@@ -1054,39 +732,27 @@ int do_net_update(void *arg)
                 scrc = checksum(scrc, (unsigned char *)buf, __system_f_size - system_f_size);
                 if (fwrite(buf, 1, __system_f_size - system_f_size , sfp) != (__system_f_size - system_f_size))
                 {
-                    printf("**********error write system.update************\n");
                     goto exit;
                 }
                 p = buf;
                 p += (__system_f_size - system_f_size);
                 system_f_size = __system_f_size;
-                //printf("r = %d , system file size = %u we recv system update file ok\n",r , __system_f_size);
                 break;
             }
             system_f_size += r;
-            //printf("recv data=%d curr size =%u expected system file size = %u\n",r ,system_f_size , __system_f_size);
             scrc = checksum(scrc, (unsigned char *)buf, r);
             if ((unsigned int)r != fwrite(buf, 1, r, sfp))
-            {
-                printf("**********error write system.update************\n");
                 goto exit;
-            }
         }
         if (system_f_size != __system_f_size)
-        {
-            printf("do system update error we expected file size %d but we recv %d\n", __system_f_size , system_f_size);
             goto exit;
-        }
         kernal_f_size = 0;
         if (p)
         {
             kernal_f_size = r - (p - buf);
             kcrc = checksum(kcrc, (unsigned char *)p, kernal_f_size);
             if (fwrite(p, 1, kernal_f_size, kfp) != kernal_f_size)
-            {
-                printf("************error write kernal.updtea*************\n");
                 goto exit;
-            }
         }
         while (kernal_f_size < __kernal_f_size)
         {
@@ -1100,34 +766,22 @@ int do_net_update(void *arg)
                 goto exit;
             }
             kernal_f_size += r;
-            //printf("recv data=%d curr size =%d expected kernel file size = %d\n",r ,kernal_f_size , __kernal_f_size);
             kcrc = checksum(kcrc, (unsigned char *)buf , r);
             if ((unsigned int)r != fwrite(buf, 1, r, kfp))
-            {
-                printf("**********error write kernal.update************\n");
                 goto exit;
-            }
         }
         if (kernal_f_size != __kernal_f_size)
-        {
-            printf("do kernal update error we expect file size %d but we recv %d\n", __kernal_f_size , kernal_f_size);
             goto exit;
-        }
         if (scrc != __scrc || kcrc != __kcrc)
-        {
-            printf("check sum error we expected system sum %2x  but the reslut is %2x we expected kernel sum %2x but the result is %2x\n", __scrc , scrc, __kcrc , kcrc);
             goto exit;
-        }
         fclose(sfp);
         fclose(kfp);
 
         prepare_do_update();
-        printf("####################ok try update kernal###################\n");
         memset(buf , 0 , 1024);
         sprintf(buf , "flashcp  %s  /dev/mtd0", KERNAL_UPDATE_FILE);
         system(buf);
         sleep(1);
-        printf("####################update kernal ok try update system##############\n");
         memset(buf , 0 , 1024);
         sprintf(buf , "flashcp  %s  /dev/mtd1", SYSTEM_UPDATE_FILE);
         system(buf);
@@ -1135,7 +789,6 @@ int do_net_update(void *arg)
         exit(0);
         break;
     default:
-        printf("*****************get unkown cmd*****************************\n");
         goto exit;
     }
 exit:
@@ -1160,11 +813,9 @@ int start_video_monitor(struct sess_ctx* sess)
     int size;
     pthread_t tid;
     int attempts;
-    //int setframes=0;
 
     if (is_do_update())
         goto exit;
-    dbg("Starting video monitor server\n");
     add_sess(sess);
     take_sess_up(sess);
     sess->ucount = 1;
@@ -1186,7 +837,6 @@ int start_video_monitor(struct sess_ctx* sess)
         {
             if (!sess->running)
             {
-                dbg("the sess have been closed exit now\n");
                 free(buffer);
                 goto exit;
             }
@@ -1233,18 +883,14 @@ exit:
     del_sess(sess);
     take_sess_down(sess);
 
-    dbg("\nExitting server\n");
     return 0;
 }
 
-
-/*record function set*/
 
 #define RECORD_STATE_STOP          0
 #define RECORD_STATE_SLOW         1
 #define RECORD_STATE_FAST        2
 #define RECORD_STATE_NORMAL    3
-//extern struct __syn_sound_buf syn_buf;
 static nand_record_file_header *record_header;
 
 static nand_record_file_internal_header video_internal_header =
@@ -1289,14 +935,12 @@ static void init_sensitivity_diff_size(int width , int height)
 {
     if (width == 320 && height == 240)
     {
-        dbg("########change to sensitivity of qvga###########\n");
         sensitivity_diff_size[1] = QVGA_LV1;
         sensitivity_diff_size[2] = QVGA_LV2;
         sensitivity_diff_size[3] = QVGA_LV3;
     }
     else if (width == 640 && height == 480)
     {
-        dbg("##########change to sensitivity of vga###########\n");
         sensitivity_diff_size[1] = VGA_LV1;
         sensitivity_diff_size[2] = VGA_LV2;
         sensitivity_diff_size[3] = VGA_LV3;
@@ -1322,9 +966,6 @@ static inline char * gettimestamp()
     return timestamp;
 }
 
-#define RECORD_SOUND
-
-#ifdef RECORD_SOUND
 static inline void write_syn_sound(int *need_video_internal_head)
 {
     static unsigned int i = 0;
@@ -1348,15 +989,9 @@ static inline void write_syn_sound(int *need_video_internal_head)
             if (ret == 0)
                 *need_video_internal_head = 1;
         }
-        //audio_internal_header.flag[0]=0;
         free(buf);
     }
-    else
-    {
-        dbg("sound data not prepare\n");
-    }
 }
-#endif
 
 int snd_soft_restart();
 struct vdIn * init_camera(void);
@@ -1373,9 +1008,7 @@ int start_video_record(struct sess_ctx* sess)
     int size2 = 0;
     char *timestamp;
     struct timeval starttime, endtime;
-#ifdef RECORD_SOUND
     struct timeval prev_write_sound_time;
-#endif
     struct timeval alive_old_time;
     struct timeval mail_last_time;
     struct timeval index_table_15sec_last_time;
@@ -1393,26 +1026,19 @@ int start_video_record(struct sess_ctx* sess)
     int prev_height;
     int width ;
     int height;
-    //int change_resolution =0;
-    //int curr_resolution = 1;/*0:qvga; 1:vga; 2:720p*/
-    //int big_to_small = 1;
     int email_alarm;
     int record_slow_speed = 0;
     int record_fast_speed = 0;
-    //char record_slow_resolution[32];
-    //char record_fast_resolution[32];
     int record_normal_speed;
     int record_normal_duration = 3;
     int record_last_state = 0;
     int timestamp_change = 0;
     int pictures_to_write = 0;
     int record_fast_duration = 0;
-    //char record_resolution[32];
     int sensitivity_index = threadcfg.record_sensitivity;;
     int record_mode = 0;
     int need_write_internal_head = 0;
     int internal_head_for_sound = 0;
-    //int write_internal_head=0;
     char *attr_table = NULL;
     char *time_15sec_table = NULL;
     char * attr_pos = NULL ;
@@ -1425,12 +1051,6 @@ int start_video_record(struct sess_ctx* sess)
     int pic_to_alarm = 0;
     int j;
     struct stat st;
-    //char *audio_internal_header_p;
-    //char *video_internal_header_p;
-
-    //unsigned int * value;
-
-    dbg("Starting video record\n");
 
     if (!vdin_camera)
     {
@@ -1440,7 +1060,7 @@ int start_video_record(struct sess_ctx* sess)
             return -1;
         }
     }
-    /* Set up signals */
+
     for (i = 1; i <= _NSIG; i++)
     {
         if (i == SIGIO || i == SIGINT)
@@ -1465,16 +1085,12 @@ int start_video_record(struct sess_ctx* sess)
     height = vdin_camera->height;
     prev_height = height = vdin_camera->height;
     prev_width = width = vdin_camera->width;
-    printf("width ==%d , height == %d\n", width , height);
     init_sensitivity_diff_size(width,  height);
-
-    //pthread_create(&mail_alarm_tid , NULL , test_v4l2_restart,NULL);
 
     if (threadcfg.email_alarm)
     {
         if (!threadcfg.mailbox[0] || !sender[0] || !senderpswd[0] || !mailserver[0])
         {
-            dbg("################mail alarm open but mailbox not found check your data##############\n");
             threadcfg.email_alarm = 0;
         }
         else
@@ -1482,15 +1098,11 @@ int start_video_record(struct sess_ctx* sess)
             init_mail_attatch_data_list(threadcfg.mailbox);
             if (pthread_create(&mail_alarm_tid, NULL, (void *) mail_alarm_thread, NULL) < 0)
             {
-                printf("mail alarm thread create fail\n");
                 mail_alarm_tid = 0;
             }
-            else
-                printf("mail alarm thread create sucess\n");
         }
     }
 
-    //pthread_mutex_lock(&threadcfg.threadcfglock);
     usec_between_image = 0;
     if (strncmp(threadcfg.record_mode, "no_record", strlen("no_record")) == 0)
     {
@@ -1499,28 +1111,22 @@ int start_video_record(struct sess_ctx* sess)
     }
     else if (strncmp(threadcfg.record_mode, "inteligent", strlen("inteligent")) == 0)
     {
-        printf("record_mode ==inteligent , now we not support change to normal mode\n");
         goto NORMAL_MODE;
         record_mode = 2;
         record_fast_duration = threadcfg.record_fast_duration;
         record_slow_speed = threadcfg.record_slow_speed;
         record_fast_speed = threadcfg.record_fast_speed;
         usec_between_image = (unsigned long long)1000000 / record_fast_speed;
-        //memcpy(record_slow_resolution,threadcfg.record_slow_resolution,32);
-        //memcpy(record_fast_resolution,threadcfg.record_fast_resolution,32);
     }
     else
     {
 NORMAL_MODE:
-        printf("record_mode==normal\n");
         record_mode = 3;
         record_normal_duration = threadcfg.record_normal_duration;
         usec_between_image = (unsigned long long)1000000 / threadcfg.record_normal_speed;
-        //memcpy(record_resolution,threadcfg.resolution,32);
     }
     if (stat(NO_RECORD_FILE , &st) == 0)
     {
-        dbg("##############no record file found################\n");
         threadcfg.sdcard_exist = 0;
         record_mode = 0;
     }
@@ -1528,8 +1134,6 @@ NORMAL_MODE:
     record_normal_speed = threadcfg.record_normal_speed;
     email_alarm = threadcfg.email_alarm;
     sensitivity_index = threadcfg.record_sensitivity;
-    printf("record_sensitivity == %d\n", sensitivity_diff_size[sensitivity_index]);
-    //pthread_mutex_unlock(&threadcfg.threadcfglock);
     record_last_state = RECORD_STATE_FAST;
 
 
@@ -1539,10 +1143,7 @@ NORMAL_MODE:
     gettimeofday(&alive_old_time, NULL);
     ret = msgsnd(msqid , &msg, sizeof(vs_ctl_message) - sizeof(long), 0);
     if (ret == -1)
-    {
-        dbg("send daemon message error\n");
         exit(0);
-    }
 
     msg.msg_type = VS_MESSAGE_ID;
     msg.msg[0] = VS_MESSAGE_RECORD_ALIVE;
@@ -1573,19 +1174,14 @@ NORMAL_MODE:
         table_item.location = 0;
         memcpy(record_15sec_pos, &table_item , sizeof(index_table_item_t));
         (*record_15sec_table_size) += sizeof(index_table_item_t);
-        //dbg("write 15sec location  pos = %u , write in %p , 15sec table size = %u\n",table_item.location , record_15sec_pos,*record_15sec_table_size);
         record_15sec_pos += sizeof(index_table_item_t);
     }
 
     gettimeofday(&starttime, NULL);
     mail_last_time.tv_sec = starttime.tv_sec;
     mail_last_time.tv_usec = starttime.tv_usec;
-#ifdef RECORD_SOUND
-    //timestamp = gettimestamp();
-    //memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
     audio_internal_header.flag[0] = SET_ALL_FLAG_CHANGE;
     memcpy(&prev_write_sound_time, &starttime, sizeof(struct timeval));
-#endif
     video_internal_header.flag[0] = SET_ALL_FLAG_CHANGE;
     memcpy(&index_table_15sec_last_time , &starttime , sizeof(struct timeval));
     while (1)
@@ -1669,7 +1265,6 @@ NORMAL_MODE:
                 }
             }
         }
-        //end email alarm
 
         if (threadcfg.sdcard_exist)
         {
@@ -1682,14 +1277,10 @@ NORMAL_MODE:
                     memcpy(record_15sec_pos, &table_item , sizeof(index_table_item_t));
                     (*record_15sec_table_size) += sizeof(index_table_item_t);
                     memcpy(&index_table_15sec_last_time , &endtime, sizeof(struct timeval));
-                    //dbg("write 15sec location  pos = %u , write in %p , 15sec table size = %u\n",table_item.location , record_15sec_pos,*record_15sec_table_size);
                     record_15sec_pos += sizeof(index_table_item_t);
                 }
                 else
-                {
-                    dbg("#################the index table if full force close file now #################\n");
                     goto FORCE_CLOSE_FILE;
-                }
             }
         }
 
@@ -1706,11 +1297,8 @@ NORMAL_MODE:
         case 0:/*not record*/
             pictures_to_write = 0;
             break;
-        case 1:/*normal*/
+        case 1:
         {
-            //printf("in normal before enter record_last_state==%d\n",record_last_state);
-            //printf("in normal before enter  picture_to_write==%d\n",pictures_to_write);
-            //printf("abs(size-size0)==%d\n",abs(size-size0));
             if (pictures_to_write <= 0)
             {
                 if (abs(size - size0) > sensitivity_diff_size[sensitivity_index])
@@ -1720,12 +1308,10 @@ NORMAL_MODE:
                     gettimeofday(&starttime, NULL);
                     if (record_last_state == RECORD_STATE_STOP)
                     {
-#ifdef RECORD_SOUND
                         sound_amr_buffer_clean(MAX_NUM_IDS - 1);
                         timestamp = gettimestamp();
                         memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
                         memcpy(&prev_write_sound_time, &starttime, sizeof(struct timeval));
-#endif
                         record_last_state = RECORD_STATE_FAST;
                         timestamp_change = 1;
                     }
@@ -1735,9 +1321,7 @@ NORMAL_MODE:
                     pictures_to_write = 0;
                     if (record_last_state == RECORD_STATE_FAST)
                     {
-#ifdef RECORD_SOUND
                         write_syn_sound(&internal_head_for_sound);
-#endif
                         record_last_state = RECORD_STATE_STOP;
                     }
                 }
@@ -1756,14 +1340,13 @@ NORMAL_MODE:
                     {
                         size0 = size;
                         free(buffer);
-                        //printf("inteligent time not come? usec_between_image ==%llu\n",usec_between_image);
                         continue;
                     }
                 }
             }
             break;
         }
-        case 2:/*inteligent*/
+        case 2:
         {
             if (pictures_to_write <= 0)
             {
@@ -1775,7 +1358,7 @@ NORMAL_MODE:
                         record_last_state = RECORD_STATE_FAST;
                         frameratechange = 1;
                         usec_between_image = (unsigned long long)1000000 / record_fast_speed;
-                        memset(&starttime, 0, sizeof(struct timeval)); /*write it right now!*/
+                        memset(&starttime, 0, sizeof(struct timeval));
                     }
                 }
                 else
@@ -1786,7 +1369,6 @@ NORMAL_MODE:
                         frameratechange = 1;
                         usec_between_image = (unsigned long long) 1000000 / record_slow_speed;
                     }
-                    //memcpy(record_resolution,record_slow_resolution,32);
                     pictures_to_write = 1;
                 }
                 gettimeofday(&endtime, NULL);
@@ -1814,14 +1396,13 @@ NORMAL_MODE:
                     {
                         size0 = size;
                         free(buffer);
-                        //printf("inteligent time not come? usec_between_image ==%llu\n",usec_between_image);
                         continue;
                     }
                 }
             }
             break;
         }
-        case 3: /*this is the real normal*/
+        case 3:
         {
             usec_between_image = (unsigned long long) 1000000 / record_normal_speed;
             record_last_state = RECORD_STATE_NORMAL;
@@ -1836,7 +1417,7 @@ NORMAL_MODE:
                 pictures_to_write = 0;
             break;
         }
-        default:/*something wrong*/
+        default:
             exit(0);
         }
 
@@ -1867,7 +1448,6 @@ NORMAL_MODE:
             need_write_internal_head = 1;
         if (need_write_internal_head)
         {
-            //dbg("###############write internal head#############\n");
             if (threadcfg.sdcard_exist)
             {
                 timestamp = gettimestamp();
@@ -1886,30 +1466,25 @@ NORMAL_MODE:
                     {
                         memcpy(attr_pos, &table_item , sizeof(index_table_item_t));
                         (*attr_table_size) += sizeof(index_table_item_t);
-                        //dbg("write attr location  pos = %u,write in %p , attr table size = %u struct size = %d\n",table_item.location , attr_pos, *attr_table_size , sizeof video_internal_header);
                         attr_pos += sizeof(index_table_item_t);
                     }
                 }
                 else
                 {
-                    dbg("#################the index table if full force close file now #################\n");
                     need_write_internal_head = 0;
                     internal_head_for_sound = 0;
                     goto FORCE_CLOSE_FILE;
                 }
             }
-            //video_internal_header.flag[0]=0;
             need_write_internal_head = 0;
             internal_head_for_sound = 0;
         }
-        //printf("write video picture size = %d\n" , size);
 retry:
         if (threadcfg.sdcard_exist)
         {
             ret = nand_write(buffer, size);
             if (force_close_file || msgrcv(msqid, &rmsg, sizeof(rmsg) - sizeof(long), VS_MESSAGE_RECORD_ID , IPC_NOWAIT) > 0)
             {
-                dbg("####################force close file#################\n");
                 memcpy(attr_pos , time_15sec_table , *record_15sec_table_size);
                 nand_write_index_table(attr_table);
                 nand_prepare_close_record_header(record_header);
@@ -1921,10 +1496,7 @@ retry:
                 i++;
                 usleep(1);
                 if (i % 1000 == 0)
-                {
                     dbg("write pictures: %d\n", i);
-                }
-                //            dbg("write to nand=%d\n",size);
             }
             else if (ret == VS_MESSAGE_NEED_START_HEADER)
             {
@@ -1960,24 +1532,16 @@ FORCE_CLOSE_FILE:
                 (*record_15sec_table_size) += sizeof(index_table_item_t);
                 dbg("write 15sec location  pos = %u , write in %p , 15sec table size = %u\n", table_item.location , record_15sec_pos, *record_15sec_table_size);
                 record_15sec_pos += sizeof(index_table_item_t);
-#ifdef RECORD_SOUND
                 sound_amr_buffer_clean(MAX_NUM_IDS - 1);
                 timestamp = gettimestamp();
                 memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
                 gettimeofday(&prev_write_sound_time , NULL);
-#endif
                 goto retry;
             }
             else
-            {
-                printf("#################write nand error  it may need to close file#################\n");
                 goto FORCE_CLOSE_FILE;
-                //system("reboot &");
-                //exit(0);
-            }
         }
         free(buffer);
-#ifdef RECORD_SOUND
         gettimeofday(&endtime , NULL);
         timeuse = (endtime.tv_sec - prev_write_sound_time.tv_sec) * 1000000UL +
                   endtime.tv_usec - prev_write_sound_time.tv_usec;
@@ -1988,11 +1552,8 @@ FORCE_CLOSE_FILE:
             timestamp = gettimestamp();
             memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
         }
-#endif
-        //check if it is time come to write sound data
     }
 
-    dbg("Exitting record server");
 __out:
     while (is_do_update())
     {

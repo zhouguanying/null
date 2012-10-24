@@ -3,9 +3,10 @@
 #include "speex/speex_echo.h"
 #include "speex/speex_preprocess.h"
 #include "amr.h"
+#include "amrnb_encode.h"
 #include "cli.h"
 #include "sound.h"
-#include "amrnb_encode.h"
+#include "server.h"
 #include "udttools.h"
 
 // #define SOUND_ENABLE_AEC_PREPROCESS
@@ -42,6 +43,9 @@ typedef struct _CBuffer
     int   step;
 } CBuffer;
 
+// extern
+int                          sound_talking;
+
 // speex aec
 static SpeexEchoState       *echo_state;
 #ifdef SOUND_ENABLE_AEC_PREPROCESS
@@ -67,7 +71,6 @@ static int                   period_bytes;
 static SoundAmrBuffer        amr_buf;
 
 // bidirectional talk is limited to only one session
-static int                   sound_talking;
 static int                   playback_start;
 static int                   underrun_occurred;
 static int                   aec_start;
@@ -433,7 +436,7 @@ static void *playback(void *arg)
                 }
                 else
                 {
-                    if (n < 64)
+                    if (n < 128)
                     {
                         n++;
                         if (n == AEC_DELAY)
@@ -441,7 +444,7 @@ static void *playback(void *arg)
                             aec_start = 1;
                             usleep(10000); // add some determinacy
                         }
-                        else if (n == 64)
+                        else if (n == 128)
                             sleep_start = 1;
                     }
 
@@ -857,6 +860,8 @@ int sound_start_talk(struct sess_ctx *sess)
 {
     if (sound_talking)
         return -1;
+    if (session_number > 1)
+        return -2;
 
     snd_pcm_prepare(playback_handle);
     sound_talking          = 1;

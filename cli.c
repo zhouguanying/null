@@ -104,17 +104,14 @@ char *set_transport_type_rsp(struct sess_ctx *sess , int *size)
     char *buf;
     if (!sess)
         return NULL;
-    buf = (char *)malloc(6);
-    if (!buf)
-        return NULL;
+
+    buf = malloc(6);
     if (sess->is_tcp)
-    {
         sprintf(buf , "tcp");
-    }
     else if (sess->is_rtp)
-    {
         sprintf(buf , "rtp");
-    }
+    else if (sound_talking)
+        sprintf(buf, "tlk");
     else
     {
         free(buf);
@@ -131,11 +128,10 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
                                  ssize_t req_len, u8 *unused,
                                  int *rsp_len, struct sockaddr_in from)
 {
-#define N_ARGS 2
     struct cli_handler *p;
     struct sess_ctx * tmp;
     char cmd[1024];
-    char *argv[N_ARGS]; /* Command + param */
+    char *argv[2];
     int i;
     char* ptr;
     char * rsp;
@@ -197,7 +193,7 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
                 if (tmp->running)
                 {
                     pthread_mutex_unlock(&global_ctx_lock);
-                    dbg("set_transport_type session already running\n");
+                    dbg("session is already running\n");
                     return set_transport_type_rsp(tmp, rsp_len);
                 }
                 else
@@ -234,7 +230,7 @@ static char * handle_cli_request(struct cli_sess_ctx *sess, u8 *req,
         }
         if (strncmp(argv[0], "set_transport_type", 18) == 0)
         {
-            if (currconnections >= MAX_CONNECTIONS)
+            if (session_number >= MAX_CONNECTIONS)
             {
                 pthread_mutex_unlock(&global_ctx_lock);
                 return strdup("connected max ");
@@ -250,6 +246,7 @@ NEW_SESSION:
             sess->arg = tmp;
             goto done;
         }
+
         /*check if it is blong to the first class command*/
         if (strncmp(argv[0], "get_firmware_info", 17) == 0)
             goto done;
@@ -769,6 +766,11 @@ static char *set_transport_type(struct sess_ctx *sess , char *arg , int *rsp_len
     default:
         exit(0);
     }
+
+    // special: connection not allowed when talking
+    if (sound_talking)
+        sprintf(r, "tlk");
+
     sess->sc = sc;
     if (strncmp(arg , "update", 6) == 0)
     {
@@ -1779,10 +1781,8 @@ static char *AudioTalkOn(struct sess_ctx *sess)
 
     if (r == 0)
         return strdup("talk_ok");
-    else if (r == -1)
-        return strdup("talk_busy");
     else
-        return strdup("talk_fail");
+        return strdup("talk_busy");
 }
 
 static void AudioTalkOff(void)
