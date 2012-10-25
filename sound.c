@@ -2,6 +2,7 @@
 #include <sys/ioctl.h>
 #include "speex/speex_echo.h"
 #include "speex/speex_preprocess.h"
+#include "amixer.h"
 #include "amr.h"
 #include "amrnb_encode.h"
 #include "cli.h"
@@ -327,6 +328,8 @@ end:
     free(pcm);
 
     // reset
+    alsa_set_hp_volume(0, 0);
+
     aec_start      = 0;
     playback_start = 0;
 
@@ -733,6 +736,7 @@ int sound_init()
     }
 
     speaker_on();
+    alsa_set_hp_volume(0, 0);
     init_amrdecoder();
     sound_amr_buffer_init();
     pthread_mutex_init(&circular_mutex, NULL);
@@ -876,6 +880,8 @@ void sound_stop_talk()
 {
     if (receive_thread_running)
     {
+        alsa_set_hp_volume(0, 0);
+
         aec_start      = 0;
         playback_start = 0;
 
