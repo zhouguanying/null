@@ -114,7 +114,7 @@ void sound_amr_buffer_clean(int sess_id)
     pthread_rwlock_unlock(&amr_buf.lock);
 }
 
-char *sound_amr_buffer_fetch(int sess_id , int *size)
+char *sound_amr_buffer_fetch(int sess_id, int *size)
 {
     int   i;
     char *buf;

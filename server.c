@@ -972,7 +972,6 @@ static inline void write_syn_sound(int *need_video_internal_head)
     char *buf;
     int ret;
     int size;
-    return ;
     if (!threadcfg.sdcard_exist)
         return ;
     *need_video_internal_head = 0;
