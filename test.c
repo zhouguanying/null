@@ -1593,9 +1593,6 @@ wlan_udhcpc:
         printf("open disk error\n");
     }
 
-
-    alsa_set_mic_volume(70, 1);
-    alsa_set_hp_volume(91, 1);
     if ((sound_init()) < 0)
     {
         printf("start sound error\n");
