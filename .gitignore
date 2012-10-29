@@ -2,3 +2,5 @@
 *.swp
 test
 old
+cscope.*
+build-cscope-db.sh
