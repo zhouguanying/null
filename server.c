@@ -36,6 +36,8 @@
 #include "sound.h"
 #include "picture_info.h"
 #include "video_cfg.h"
+#include "log_dbg.h"
+#include "mediaEncode.h"
 
 #define PID_FILE    "/var/run/v2ipd.pid"
 #define LOG_FILE    "/tmp/v2ipd.log"
@@ -75,6 +77,20 @@ pthread_mutex_t g_sess_id_mask_lock;
 char g_sess_id_mask[MAX_NUM_IDS];
 int daemon_msg_queue;
 vs_share_mem* v2ipd_share_mem;
+
+static void send_alive(void)
+{
+    if (msqid < 0)
+        return;
+
+    int ret = -1;
+    vs_ctl_message msg;
+    msg.msg_type = VS_MESSAGE_ID;
+    msg.msg[0] = VS_MESSAGE_RECORD_ALIVE;
+    msg.msg[1] = 0;
+    //gettimeofday(&alive_old_time, NULL);
+    ret = msgsnd(msqid , &msg, sizeof(vs_ctl_message) - sizeof(long), 0);
+}
 
 int is_do_update()
 {
@@ -388,13 +404,15 @@ struct vdIn *vdin_camera = NULL;
 
 char *get_video_data(int *size)
 {
-    int i;
-    int canuse = -1;
-    char *buff;
+//    const char *videodevice = "/dev/video0";
+    int canuse = 0;
+ //   char *buff;
     pthread_t self_tid;
     self_tid = pthread_self();
-try_again:
-    pthread_mutex_lock(&vdin_camera->tmpbufflock);
+//try_again:
+    //pthread_mutex_lock(&vdin_camera->tmpbufflock);
+	#if 0
+    int i;
     for (i = 0; i < MAX_CONNECTIONS; i++)
     {
         if (vdin_camera->hrb_tid[i] == 0)
@@ -402,22 +420,46 @@ try_again:
         else if (vdin_camera->hrb_tid[i] == self_tid)
             goto have_readed;
     }
+	#endif
+    int const video_size = 64 * 1024;
+    unsigned char *video_buf = malloc (video_size);
+    *size = 0;
+#if 0
     buff = malloc(vdin_camera->buf.bytesused + DHT_SIZE + sizeof(picture_info_t));
-    memcpy(buff, vdin_camera->tmpbuffer, vdin_camera->buf.bytesused + DHT_SIZE + sizeof(picture_info_t));
-    vdin_camera->hrb_tid[canuse] = self_tid;
+    memcpy(buff, vdin_camera->framebuffer, vdin_camera->buf.bytesused + DHT_SIZE + sizeof(picture_info_t));
     *size = vdin_camera->buf.bytesused + DHT_SIZE + sizeof(picture_info_t);
-    pthread_mutex_unlock(&vdin_camera->tmpbufflock);
-    return buff;
+#else
+    do
+    {
+        if (get_encode_video_buffer(video_buf, video_size))
+            *size = video_size;
+        else
+            usleep(1000 * 1);
+    } while (*size == 0);
+
+    //log_debug("get video size %d\n", *size);
+
+    //*size = vdin_camera->buf.bytesused;
+#endif
+    vdin_camera->hrb_tid[canuse] = self_tid;
+    //pthread_mutex_unlock(&vdin_camera->tmpbufflock);
+    return (char *)video_buf;
+#if 0
 have_readed:
-    pthread_mutex_unlock(&vdin_camera->tmpbufflock);
+    //pthread_mutex_unlock(&vdin_camera->tmpbufflock);
     usleep(20000);
     goto try_again;
+#endif
 }
 
 static char* get_data(int* size, int *width, int *height)
 {
     const char *videodevice = "/dev/video0";
+#if !defined IPED_98
     int format = V4L2_PIX_FMT_MJPEG;
+#else
+	int format = V4L2_PIX_FMT_MJPEG;
+#endif
     int grabmethod = 1;
     char* buf;
     int trygrab = 5;
@@ -427,19 +469,25 @@ retry:
     if (uvcGrab(vdin_camera) < 0)
     {
         trygrab--;
+        log_debug("uvcGrad failed trygrab %d\n", trygrab);
         if (trygrab <= 0)
         {
             close_v4l2(vdin_camera);
             if (init_videoIn(vdin_camera, (char *) videodevice, vdin_camera->width, vdin_camera->height, format, grabmethod) < 0)
             {
-                printf("init camera device error\n");
+                log_warning("init camera device error\n");
                 exit(0);
             }
         }
         usleep(100000);
         goto retry;
     }
+    send_alive();
+#if !defined IPED_98
     buf = malloc(vdin_camera->buf.bytesused + DHT_SIZE);
+#else
+    buf = malloc(vdin_camera->buf.bytesused);
+#endif
     if (!buf)
     {
         printf("malloc buf error\n");
@@ -447,8 +495,13 @@ retry:
         pthread_mutex_unlock(&vdin_camera->tmpbufflock);
         return 0;
     }
+#if 0
     memcpy(buf, vdin_camera->tmpbuffer + sizeof(picture_info_t), vdin_camera->buf.bytesused + DHT_SIZE);
     *size = vdin_camera->buf.bytesused + DHT_SIZE;
+#else
+    memcpy(buf, vdin_camera->framebuffer, vdin_camera->buf.bytesused);
+    *size = vdin_camera->buf.bytesused;
+#endif
     *width = vdin_camera->width;
     *height = vdin_camera->height;
     pthread_mutex_unlock(&vdin_camera->tmpbufflock);
@@ -459,6 +512,7 @@ void restart_v4l2(int width , int height);
 
 void change_camera_status(struct sess_ctx *sess , int sess_in)
 {
+    return ;
     if (strncmp(threadcfg.monitor_mode , "inteligent", 10) != 0)
         return;
     if (sess_in)
@@ -500,13 +554,13 @@ void change_camera_status(struct sess_ctx *sess , int sess_in)
 
 void add_sess(struct sess_ctx *sess)
 {
-    pthread_mutex_lock(&global_ctx_lock);
+//    pthread_mutex_lock(&global_ctx_lock);
     sess->next = global_ctx_running_list;
     global_ctx_running_list = sess;
     session_number ++;
     if (session_number == 1)
         change_camera_status(sess, 1);
-    pthread_mutex_unlock(&global_ctx_lock);
+//   pthread_mutex_unlock(&global_ctx_lock);
 }
 
 void  del_sess(struct sess_ctx *sess)
@@ -807,20 +861,26 @@ int udt_send(int udtsocket , int sock_t, char *buf , int len);
 
 int start_video_monitor(struct sess_ctx* sess)
 {
+    log_debug("start \n");
     int ret;
     int socket = -1;
-    char* buffer;
+    char* buffer = NULL;
     int size;
     pthread_t tid;
     int attempts;
 
+    log_debug("888888888888888888 \n");
     if (is_do_update())
+    {
+        log_warning("do update\n");
         goto exit;
+    }
     add_sess(sess);
     take_sess_up(sess);
     sess->ucount = 1;
     socket = sess->sc->video_socket;
 
+    log_debug("start sound duplex %d\n", threadcfg.sound_duplex);
     if (threadcfg.sound_duplex)
     {
         if (pthread_create(&tid, NULL, sound_start_session, sess) < 0)
@@ -828,10 +888,14 @@ int start_video_monitor(struct sess_ctx* sess)
             goto exit;
         }
     }
+	start_monitor_capture();
     attempts = 0;
     for (;;)
     {
+        size = 0;
+        //log_debug("get video data %p size %d before\n", buffer, size);
         buffer = get_video_data(&size);
+        //log_debug("get video data %p size %d end\n", buffer, size);
         int i = 0;
         while (size > 0)
         {
@@ -882,6 +946,7 @@ exit:
     /* Take down session */
     del_sess(sess);
     take_sess_down(sess);
+	stop_monitor_capture();
 
     return 0;
 }
@@ -1130,6 +1195,9 @@ NORMAL_MODE:
         record_mode = 0;
     }
 
+        threadcfg.sdcard_exist = 0;
+        record_mode = 0;
+
     record_normal_speed = threadcfg.record_normal_speed;
     email_alarm = threadcfg.email_alarm;
     sensitivity_index = threadcfg.record_sensitivity;
@@ -1209,6 +1277,29 @@ NORMAL_MODE:
             }
             memcpy(&alive_old_time, &endtime, sizeof(struct timeval));
         }
+#if 0
+        int trygrab = 10;
+#endif
+
+        if (uvcGrab(vdin_camera) < 0)
+        {
+#if 0
+            trygrab--;
+            log_debug("uvcGrad failed trygrab %d\n", trygrab);
+            if (trygrab <= 0)
+            {
+                close_v4l2(vdin_camera);
+                if (init_videoIn(vdin_camera, (char *) videodevice, vdin_camera->width, vdin_camera->height, V4L2_PIX_FMT_YUYV, 1) < 0)
+                {
+                    log_warning("init camera device error\n");
+                    exit(0);
+                }
+            }
+#endif
+            usleep(1000 * 20);
+        }
+        continue;
+
         buffer = get_data(&size, &width, &height);
         //mail alarm
         if (email_alarm && mail_alarm_tid)

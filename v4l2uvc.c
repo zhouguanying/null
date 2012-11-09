@@ -9,13 +9,35 @@
 #include <sys/ioctl.h>
 #include "v4l2uvc.h"
 #include "picture_info.h"
+#include "log_dbg.h"
+#include "mediaEncode.h"
+#include "audio_record.h"
 
+#if defined IPED_98
+#include <akuio/akuio.h>
+#endif
+static int debug = 0;
 #define dbg(fmt, args...)  \
     do { \
         printf(__FILE__ ": %s: " fmt, __func__, ## args); \
     } while (0)
 
-static int debug = 0;
+#define CLEAR(x) memset(&(x), 0, sizeof(x))
+#define DEV_NAME      "/dev/video0"
+static void  *lock;
+static int init_device(struct vdIn *vd);
+static void uninit_device(struct vdIn *vd);
+
+static int xioctl(int fh, int request, void *arg)
+{
+  int r;
+
+  do {
+    r = ioctl(fh, request, arg);
+  } while (-1 == r && EINTR == errno);
+  
+  return r;
+}
 
 static unsigned char dht_data[DHT_SIZE] =
 {
@@ -85,11 +107,15 @@ init_videoIn(struct vdIn *vd, char *device, int width, int height,
     vd->grabmethod = grabmethod;
     if (init_v4l2(vd) < 0)
     {
-        fprintf(stderr, " Init v4L2 failed !! exit fatal \n");
+        log_warning(" Init v4L2 failed !! exit fatal \n");
         goto error;;
     }
     /* alloc a temp buffer to reconstruct the pict */
+#ifdef IPED_98
+    vd->framesizeIn = vd->fmt.fmt.pix.sizeimage;
+#else
     vd->framesizeIn = (vd->width * vd->height);
+#endif
     switch (vd->formatIn)
     {
     case V4L2_PIX_FMT_MJPEG:
@@ -100,6 +126,7 @@ init_videoIn(struct vdIn *vd, char *device, int width, int height,
             (unsigned char *) calloc(1, (size_t) vd->width * (vd->height + 8) * 2);
         break;
     case V4L2_PIX_FMT_YUYV:
+        fprintf(stderr, "use V4L2_PIX_FMT_YUYV format framesize %d\n", vd->framesizeIn);
         vd->framebuffer = (unsigned char *) calloc(1, (size_t) vd->framesizeIn);
         break;
     default:
@@ -122,30 +149,36 @@ error:
 static int
 init_v4l2(struct vdIn *vd)
 {
-    int i;
-    int ret = 0;
-
+    printf("#### %s use v4l2 format %s : %d, dev <%s>\n",
+            __func__, "V4L2_PIX_FMT_YUYV", vd->formatIn, vd->videodevice);
     if ((vd->fd = open(vd->videodevice, O_RDWR)) == -1)
     {
         perror("ERROR opening V4L interface \n");
         exit(1);
     }
-    printf("****************open video fd==%d********************\n", vd->fd);
-    fcntl(vd->fd , F_SETFD , 1) ; //close on exec
+    printf("**********open video fd==%d**************\n", vd->fd);
+ //   fcntl(vd->fd , F_SETFD , 1) ; //close on exec
+
+#ifdef IPED_98 
+    return init_device(vd);
+#else
+    int i;
+    int ret = 0;
+
+
     memset(&vd->cap, 0, sizeof(struct v4l2_capability));
-    ret = ioctl(vd->fd, VIDIOC_QUERYCAP, &vd->cap);
+    ret = xioctl(vd->fd, VIDIOC_QUERYCAP, &vd->cap);
     if (ret < 0)
     {
-        fprintf(stderr, "Error opening device %s: unable to query device.\n",
-                vd->videodevice);
+        fprintf(stderr, "Error unable to query device %s. %s\n",
+                vd->videodevice, strerror(errno));
         goto fatal;
     }
     printf("querycap sucess\n");
     if ((vd->cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) == 0)
     {
-        fprintf(stderr,
-                "Error opening device %s: video capture not supported.\n",
-                vd->videodevice);
+        fprintf(stderr, "Error video capture not supported.%s %s\n",
+                vd->videodevice, strerror(errno));
         goto fatal;;
     }
     if (vd->grabmethod)
@@ -171,18 +204,25 @@ init_v4l2(struct vdIn *vd)
     vd->fmt.fmt.pix.width = vd->width;
     vd->fmt.fmt.pix.height = vd->height;
     vd->fmt.fmt.pix.pixelformat = vd->formatIn;
+#if defined IPED_98
+    vd->fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
+#else
     vd->fmt.fmt.pix.field = V4L2_FIELD_ANY;
-    ret = ioctl(vd->fd, VIDIOC_S_FMT, &vd->fmt);
+#endif
+    printf ("fmt pix w %d h %d\n", vd->width, vd->height);
+    ret = xioctl(vd->fd, VIDIOC_S_FMT, &vd->fmt);
     if (ret < 0)
     {
-        fprintf(stderr, "Unable to set format: %d.\n", errno);
+        fprintf(stderr, "Unable to set format: %d %s\n" ,
+                errno, strerror(errno));
         goto fatal;
     }
     printf("set formate sucess\n");
     if ((vd->fmt.fmt.pix.width != vd->width) ||
             (vd->fmt.fmt.pix.height != vd->height))
     {
-        fprintf(stderr, " format asked unavailable get width %d height %d \n",
+        fprintf(stderr,
+               "format asked unavailable get width %d height %d \n",
                 vd->fmt.fmt.pix.width, vd->fmt.fmt.pix.height);
         vd->width = vd->fmt.fmt.pix.width;
         vd->height = vd->fmt.fmt.pix.height;
@@ -195,7 +235,7 @@ init_v4l2(struct vdIn *vd)
     vd->rb.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     vd->rb.memory = V4L2_MEMORY_MMAP;
 
-    ret = ioctl(vd->fd, VIDIOC_REQBUFS, &vd->rb);
+    ret = xioctl(vd->fd, VIDIOC_REQBUFS, &vd->rb);
     if (ret < 0)
     {
         fprintf(stderr, "Unable to allocate buffers: %d.\n", errno);
@@ -209,7 +249,7 @@ init_v4l2(struct vdIn *vd)
         vd->buf.index = i;
         vd->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         vd->buf.memory = V4L2_MEMORY_MMAP;
-        ret = ioctl(vd->fd, VIDIOC_QUERYBUF, &vd->buf);
+        ret = xioctl(vd->fd, VIDIOC_QUERYBUF, &vd->buf);
         if (ret < 0)
         {
             fprintf(stderr, "Unable to query buffer (%d).\n", errno);
@@ -218,12 +258,15 @@ init_v4l2(struct vdIn *vd)
         if (debug)
             fprintf(stderr, "length: %u offset: %u\n", vd->buf.length,
                     vd->buf.m.offset);
+        printf ("### v4l2 query buf %u length %d offset %u\n",
+                              i, vd->buf.length, vd->buf.m.offset);
         vd->mem[i] = mmap(0 /* start anywhere */ ,
                           vd->buf.length, PROT_READ, MAP_SHARED, vd->fd,
                           vd->buf.m.offset);
         if (vd->mem[i] == MAP_FAILED)
         {
-            fprintf(stderr, "Unable to map buffer (%d)\n", errno);
+            fprintf(stderr, "Unable to map %d buffer (%d) %s\n",
+                    i, errno, strerror(errno));
             goto fatal;
         }
         if (debug)
@@ -236,7 +279,7 @@ init_v4l2(struct vdIn *vd)
         vd->buf.index = i;
         vd->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         vd->buf.memory = V4L2_MEMORY_MMAP;
-        ret = ioctl(vd->fd, VIDIOC_QBUF, &vd->buf);
+        ret = xioctl(vd->fd, VIDIOC_QBUF, &vd->buf);
         if (ret < 0)
         {
             fprintf(stderr, "Unable to queue buffer (%d).\n", errno);
@@ -246,16 +289,18 @@ init_v4l2(struct vdIn *vd)
     return 0;
 fatal:
     return -1;
+#endif
 
 }
 
 static int
 video_enable(struct vdIn *vd)
 {
+    printf("##### %s \n", __func__);
     int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     int ret;
 
-    ret = ioctl(vd->fd, VIDIOC_STREAMON, &type);
+    ret = xioctl(vd->fd, VIDIOC_STREAMON, &type);
     if (ret < 0)
     {
         fprintf(stderr, "Unable to %s capture: %d.\n", "start", errno);
@@ -271,7 +316,7 @@ video_disable(struct vdIn *vd)
     int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     int ret;
 
-    ret = ioctl(vd->fd, VIDIOC_STREAMOFF, &type);
+    ret = xioctl(vd->fd, VIDIOC_STREAMOFF, &type);
     if (ret < 0)
     {
         fprintf(stderr, "Unable to %s capture: %d.\n", "stop", errno);
@@ -302,9 +347,32 @@ static picture_info_t p_info =
     {0, 0, 0, 1, 0xc},
 };
 
+static unsigned long begin_t;
+static int _capture_on = 0;
+void start_monitor_capture(void)
+{
+    begin_t = get_system_time_ms();
+    clear_encode_video_buffer();
+    _capture_on = 1;
+}
+
+void stop_monitor_capture(void)
+{
+    _capture_on = 0;
+}
+
 int uvcGrab(struct vdIn *vd)
 {
 #define HEADERFRAME1 0xaf
+    if (!_capture_on)
+        return -1;
+
+	static unsigned long time_stamp = 0;
+    unsigned long now = get_system_time_ms();
+    time_stamp += now - begin_t;
+    begin_t = now;
+	if (time_stamp < 10)
+		time_stamp = 10;
     int ret;
     char *time;
     if (!vd->isstreaming)
@@ -312,15 +380,15 @@ int uvcGrab(struct vdIn *vd)
             goto err;
     memset(&vd->buf, 0, sizeof(struct v4l2_buffer));
     vd->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    vd->buf.memory = V4L2_MEMORY_MMAP;
-    //dbg("###############before ioctl VIDEOC_DQBUF#############\n");
+    vd->buf.memory = V4L2_MEMORY_USERPTR;
+    //printf("###############before ioctl VIDEOC_DQBUF#############\n");
     ret = ioctl(vd->fd, VIDIOC_DQBUF, &vd->buf);
     if (ret < 0)
     {
-        fprintf(stderr, "Unable to dequeue buffer (%d).\n", errno);
+        log_warning("Unable to dequeue buffer (%d). %s\n", errno, strerror(errno));
         goto err;
     }
-    //dbg("###############after ioctl VIDEOC_DQBUF#############\n");
+    //printf("###############after xioctl VIDEOC_DQBUF#############\n");
     switch (vd->formatIn)
     {
     case V4L2_PIX_FMT_MJPEG:
@@ -336,25 +404,31 @@ int uvcGrab(struct vdIn *vd)
             fprintf(stderr, "bytes in used %d \n", vd->buf.bytesused);
         break;
     case V4L2_PIX_FMT_YUYV:
+//        printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
+        processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, /*40 * count_t */ time_stamp);
+		//printf("####### get capture :size %u framesize %u pointer %p\n",
+							//vd->buf.bytesused, vd->framesizeIn, vd->mem[vd->buf.index]);
+#if 0
         if (vd->buf.bytesused > vd->framesizeIn)
             memcpy(vd->framebuffer, vd->mem[vd->buf.index],
                    (size_t) vd->framesizeIn);
         else
             memcpy(vd->framebuffer, vd->mem[vd->buf.index],
                    (size_t) vd->buf.bytesused);
+#endif
         break;
     default:
         goto err;
         break;
     }
-    //dbg("################before ioctl VIDEOC_QBUF###########\n");
-    ret = ioctl(vd->fd, VIDIOC_QBUF, &vd->buf);
+    //printf("################before ioctl VIDEOC_QBUF 2###########\n");
+    ret = xioctl(vd->fd, VIDIOC_QBUF, &vd->buf);
     if (ret < 0)
     {
         fprintf(stderr, "Unable to requeue buffer (%d).\n", errno);
         goto err;
     }
-    //dbg("################after ioctl VIDEOC_QBUF###########\n");
+    //printf("################after ioctl VIDEOC_QBUF 2###########\n");
     memset(vd->hrb_tid, 0, sizeof(vd->hrb_tid));
     return 0;
 err:
@@ -365,20 +439,24 @@ err:
 int
 close_v4l2(struct vdIn *vd)
 {
-    int i;
-
     if (vd->isstreaming)
         video_disable(vd);
 
     /* If the memory maps are not released the device will remain opened even
        after a call to close(); */
+#if 0
+    int i;
+
     for (i = 0; i < NB_BUFFER; i++)
     {
         if (munmap(vd->mem[i], vd->buf.length) != 0)
         {
-            dbg("############error v4l2 munmap: %d#############\n" , errno);
+            log_warning("############error v4l2 munmap: %d#############\n" , errno);
         }
     }
+#else
+    uninit_device(vd);
+#endif
 
     if (vd->tmpbuffer)
         free(vd->tmpbuffer);
@@ -393,7 +471,7 @@ close_v4l2(struct vdIn *vd)
     vd->pictName = NULL;
     if (close(vd->fd) != 0)
     {
-        dbg("###############error close v4l2:%d############## \n" , errno);
+        log_warning("###############error close v4l2:%d############## \n" , errno);
     }
     return 0;
 }
@@ -405,7 +483,7 @@ isv4l2Control(struct vdIn *vd, int control, struct v4l2_queryctrl *queryctrl)
     int err = 0;
 
     queryctrl->id = control;
-    if ((err = ioctl(vd->fd, VIDIOC_QUERYCTRL, queryctrl)) < 0)
+    if ((err = xioctl(vd->fd, VIDIOC_QUERYCTRL, queryctrl)) < 0)
     {
         fprintf(stderr, "ioctl querycontrol error %d \n", errno);
     }
@@ -431,6 +509,7 @@ isv4l2Control(struct vdIn *vd, int control, struct v4l2_queryctrl *queryctrl)
 int
 v4l2GetControl(struct vdIn *vd, int control)
 {
+    log_warning("control %d\n", control);
     struct v4l2_queryctrl queryctrl;
     struct v4l2_control control_s;
     int err;
@@ -438,7 +517,7 @@ v4l2GetControl(struct vdIn *vd, int control)
     if (isv4l2Control(vd, control, &queryctrl) < 0)
         return -1;
     control_s.id = control;
-    if ((err = ioctl(vd->fd, VIDIOC_G_CTRL, &control_s)) < 0)
+    if ((err = xioctl(vd->fd, VIDIOC_G_CTRL, &control_s)) < 0)
     {
         fprintf(stderr, "ioctl get control error\n");
         return -1;
@@ -453,6 +532,7 @@ v4l2SetControl(struct vdIn *vd, int control, int value)
     struct v4l2_queryctrl queryctrl;
     int min, max, step, val_def;
     int err;
+    log_warning("control %d\n", control);
 
     if (isv4l2Control(vd, control, &queryctrl) < 0)
         return -1;
@@ -468,7 +548,7 @@ v4l2SetControl(struct vdIn *vd, int control, int value)
     {
         control_s.id = control;
         control_s.value = value;
-        if ((err = ioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
+        if ((err = xioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
         {
             fprintf(stderr, "ioctl set control error\n");
             return -1;
@@ -490,7 +570,7 @@ v4l2ResetControl(struct vdIn *vd, int control)
     val_def = queryctrl.default_value;
     control_s.id = control;
     control_s.value = val_def;
-    if ((err = ioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
+    if ((err = xioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
     {
         fprintf(stderr, "ioctl reset control error\n");
         return -1;
@@ -521,7 +601,7 @@ int v4l2_contrl_brightness(struct vdIn *vd, int brightness)
         value = max;
     control_s.id = V4L2_CID_BRIGHTNESS;
     control_s.value = value;
-    if ((err = ioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
+    if ((err = xioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
     {
         fprintf(stderr, "ioctl set control error\n");
         return -1;
@@ -552,7 +632,7 @@ int v4l2_contrl_contrast(struct vdIn *vd, int contrast)
         value = max;
     control_s.id = V4L2_CID_CONTRAST;
     control_s.value = value;
-    if ((err = ioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
+    if ((err = xioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
     {
         fprintf(stderr, "ioctl set control error\n");
         return -1;
@@ -564,6 +644,7 @@ int v4l2_contrl_contrast(struct vdIn *vd, int contrast)
 extern struct vdIn *vdin_camera;
 void restart_v4l2(int width , int height)
 {
+    log_debug("cemera restart \n");
     const char *videodevice = "/dev/video0";
     int format = V4L2_PIX_FMT_MJPEG;
     int grabmethod = 1;
@@ -584,5 +665,142 @@ void restart_v4l2(int width , int height)
         usleep(100000);
     }
     pthread_mutex_unlock(&vdin_camera->tmpbufflock);
+}
+
+static int init_userp(struct vdIn *vd, unsigned int buffer_size)
+{
+	struct v4l2_requestbuffers req;
+    int camera = vd->fd;
+    int n_buffers;
+
+	CLEAR(req);
+	req.count  = NB_BUFFER;
+	req.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	req.memory = V4L2_MEMORY_USERPTR;
+	
+	if (-1 == xioctl(camera, VIDIOC_REQBUFS, &req))
+    {
+		log_warning("xioctl(camera, VIDIOC_REQBUFS, &req) failed \n");
+        return -1;
+    }
+
+	lock = akuio_lock_block_compatible(0);
+	for (n_buffers = 0; n_buffers < NB_BUFFER; ++n_buffers) {
+	    vd->mem[n_buffers] = akuio_alloc_pmem(buffer_size);
+
+		if (!vd->mem[n_buffers]) {
+      		log_warning("##### Out of memory\n");
+            return -1;
+    	}
+  	}
+
+    int i;
+    for (i = 0; i < NB_BUFFER; ++i) {
+        struct v4l2_buffer buf;
+
+        CLEAR(buf);
+        buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        buf.memory = V4L2_MEMORY_USERPTR;
+        buf.index = i;
+        buf.m.userptr = (unsigned long)vd->mem[i];
+        buf.length = buffer_size;
+
+        if (-1 == xioctl(camera, VIDIOC_QBUF, &buf))
+        {
+            log_warning("xioctl(camera, VIDIOC_QBUF, &buf) failed\n");
+            return -1;
+        }
+    }
+    MediaEncodeMain(1024 * 1024 * 2,
+                    vd->width,
+                    vd->height);
+    return 0;
+}
+
+static int init_device(struct vdIn *vd)
+{
+	struct v4l2_capability cap;
+	struct v4l2_cropcap cropcap;
+	struct v4l2_crop crop;
+	struct v4l2_format fmt;
+	unsigned int min;
+    int camera = vd->fd;
+
+	printf("xioctl(camera, VIDIOC_QUERYCAP, &cap)!\n"); 
+	if (-1 == xioctl(camera, VIDIOC_QUERYCAP, &cap)) {
+      	log_warning("%s is no V4L2 device\n", DEV_NAME);
+        return -1;
+  	}
+	printf("xioctl(camera, VIDIOC_QUERYCAP, &cap) succeedded!\n");
+	
+	if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
+		log_warning("%s is no video capture device\n", DEV_NAME);
+        return -1;
+	}
+	printf("\tQUERYCAP: Device is V4L2_CAP_VIDEO_CAPTURE\n");
+
+	if (!(cap.capabilities & V4L2_CAP_STREAMING)) {
+		log_warning("%s does not support streaming i/o\n", DEV_NAME);
+        return -1;
+	}
+	dbg("\tQUERYCAP: Device support V4L2_CAP_STREAMING\n");		
+  /* Select video input, video standard and tune here. */
+	CLEAR(cropcap);
+	cropcap.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	dbg("xioctl(camera, VIDIOC_CROPCAP, &cropcap)!\n");
+	if (0 == ioctl(camera, VIDIOC_CROPCAP, &cropcap)) {
+		dbg("xioctl(camera, VIDIOC_CROPCAP, &cropcap) succeedded!\n");
+		dbg("\tCROPCAP: bounds = %d\t%d\t%d\t%d\n", cropcap.bounds.left, 
+						cropcap.bounds.top, cropcap.bounds.width, cropcap.bounds.height);	
+		dbg("\tCROPCAP: defrect = %d\t%d\t%d\t%d\n", cropcap.defrect.left, 
+						cropcap.defrect.top, cropcap.defrect.width, cropcap.defrect.height);				
+    	crop.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		printf("#############################################################\n"
+			   "################  widht %d height %d ###############\n", vd->width, vd->height);
+    	crop.c.width = vd->width; /* reset to default */
+    	crop.c.height= vd->height;
+		dbg("xioctl(camera, VIDIOC_S_CROP, &crop)!\n");
+		if (-1 == ioctl(camera, VIDIOC_S_CROP, &crop)) 
+			log_warning("xioctl(camera, VIDIOC_S_CROP, &crop) failed\n");
+  	}
+
+  	CLEAR(fmt);
+    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    fmt.fmt.pix.width       = vd->width;
+    fmt.fmt.pix.height      = vd->height;
+    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
+    fmt.fmt.pix.field       = V4L2_FIELD_INTERLACED;
+    dbg("xioctl(camera, VIDIOC_S_FMT, &fmt)!\n");
+
+    if (-1 == xioctl(camera, VIDIOC_S_FMT, &fmt))
+    {
+        log_warning("xioctl(camera, VIDIOC_S_FMT, &fmt) failed\n");
+        return -1;
+    }
+    printf("xioctl(camera, VIDIOC_S_FMT, &fmt) succeedded\n");
+
+	vd->width = fmt.fmt.pix.width;
+	vd->height = fmt.fmt.pix.height;
+    fmt.fmt.pix.bytesperline = fmt.fmt.pix.width * 2;
+  	min = fmt.fmt.pix.bytesperline * fmt.fmt.pix.height;
+    printf("fmt.fmt.pix.bytesperline = %d\n", fmt.fmt.pix.bytesperline);
+	
+    fmt.fmt.pix.sizeimage = fmt.fmt.pix.bytesperline * fmt.fmt.pix.height;
+	fmt.fmt.pix.sizeimage += 8192;
+	fmt.fmt.pix.sizeimage = fmt.fmt.pix.sizeimage & (~(0xFFF));
+	printf("fmt.fmt.pix.sizeimage = %u\n", fmt.fmt.pix.sizeimage);
+    vd->fmt = fmt;
+	return init_userp(vd, fmt.fmt.pix.sizeimage);
+}
+
+static void uninit_device(struct vdIn *vd)
+{
+	unsigned int i;
+	for (i = 0; i < NB_BUFFER; ++i)
+    {
+		akuio_free_pmem(vd->mem[i]);
+        vd->mem[i] = NULL;
+    }
+	akuio_unlock(lock);
 }
 

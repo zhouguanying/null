@@ -1719,7 +1719,7 @@ static char *SetConfig(char *arg)
             return NULL;
         }
         memcpy(sdata_len , buf, 4);
-        sdata_len[5] = 0;
+        sdata_len[4] = 0;
         for (i  = 0 ; i < 5 ; i++)
         {
             if (sdata_len[i] >= '0' && sdata_len[i] <= '9')

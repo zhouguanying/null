@@ -1,9 +1,10 @@
 #include <linux/videodev2.h>
 #include "cli.h"
 
-#define NB_BUFFER 4
+#define NB_BUFFER 8
 #define DHT_SIZE 420
 
+#if defined IPED_233
 #define V4L2_CID_BACKLIGHT_COMPENSATION    (V4L2_CID_PRIVATE_BASE+0)
 #define V4L2_CID_POWER_LINE_FREQUENCY    (V4L2_CID_PRIVATE_BASE+1)
 #define V4L2_CID_SHARPNESS        (V4L2_CID_PRIVATE_BASE+2)
@@ -14,6 +15,7 @@
 
 #define V4L2_CID_PANTILT_RELATIVE    (V4L2_CID_PRIVATE_BASE+7)
 #define V4L2_CID_PANTILT_RESET        (V4L2_CID_PRIVATE_BASE+8)
+#endif
 
 struct vdIn
 {
@@ -55,3 +57,5 @@ int v4l2SetControl(struct vdIn *vd, int control, int value);
 int v4l2ResetControl(struct vdIn *vd, int control);
 int v4l2_contrl_brightness(struct vdIn *vd, int brightness);
 int v4l2_contrl_contrast(struct vdIn *vd, int contrast);
+void start_monitor_capture(void);
+void stop_monitor_capture(void);

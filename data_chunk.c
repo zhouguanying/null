@@ -118,3 +118,76 @@ long inline data_chunk_freespace(data_chunk_t *p)
         return 0;
 }
 
+frame_queue_t * 
+frame_queue_new(int size)
+{
+    assert(size > 0);
+    frame_queue_t *queue = malloc(sizeof(frame_queue_t));
+    queue->array = malloc(size * sizeof(frame_buffer_t));
+    queue->size = size;
+    queue->count = 0;
+    queue->i_index = 0;
+    queue->o_index = 0;
+    return queue;
+}
+
+void frame_queue_free(frame_queue_t *queue)
+{
+    if (queue)
+    {
+        if (queue->array)
+            free(queue->array);
+        free(queue);
+    }
+}
+
+int frame_queue_push(frame_queue_t *queue, unsigned char *frame, int size)
+{
+    if (size > FRAME_SIZE)
+        return 0;
+    assert(queue->count < queue->size);
+    if (queue->count >= queue->size)
+        return 0;
+
+    memcpy(queue->array[queue->i_index].data, frame, size);
+    queue->array[queue->i_index].size = size;
+    queue->i_index += 1;
+    queue->i_index %= queue->size;
+    queue->count   += 1;
+
+    return 1;
+}
+
+int frame_queue_get(frame_queue_t *queue, unsigned char *recv_buf, int *size)
+{
+    assert(queue->count <= queue->size);
+    if (queue->count <= 0)
+        return 0;
+
+    *size = queue->array[queue->o_index].size;
+    memcpy(recv_buf, queue->array[queue->o_index].data, queue->array[queue->o_index].size);
+    queue->o_index  += 1;
+    queue->o_index  %= queue->size;
+    queue->count    -= 1;
+
+    return 1;
+}
+
+int frame_queue_length(frame_queue_t *queue)
+{
+    assert(queue);
+    return queue->count;
+}
+
+int frame_queue_freespace(frame_queue_t *queue)
+{
+    assert(queue);
+    return queue->size - queue->count;
+}
+
+void frame_queue_clear(frame_queue_t *queue)
+{
+    queue->count   = 0;
+    queue->i_index = 0;
+    queue->o_index = 0;
+}

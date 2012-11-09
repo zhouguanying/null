@@ -35,6 +35,7 @@
 #include "stun.h"
 #include "cfg_network.h"
 #include "mail_alarm.h"
+#include "log_dbg.h"
 
 #define dbg(fmt, args...)  \
     do { \
@@ -132,7 +133,7 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
         ret = msgsnd(msqid , &msg, sizeof(vs_ctl_message) - sizeof(long), 0);
         if (ret == -1)
         {
-            dbg("send daemon message error\n");
+            log_warning("send daemon message error\n");
             system("reboot &");
             exit(0);
         }
@@ -188,6 +189,7 @@ int usb_state_monitor()
     {
         if (is_do_update())
             return 0;
+        /*
         if (ioctl_usbdet_read())
         {
             if (is_do_update())
@@ -195,7 +197,8 @@ int usb_state_monitor()
             system("reboot &");
             exit(0);
         }
-        sleep(1);
+        */
+        sleep(10);
     }
 }
 
@@ -694,6 +697,12 @@ int main()
     char *ip = NULL;
     char *mask = NULL;
 
+    if (pthread_create(&tid, NULL, (void *) usb_state_monitor, NULL) < 0)
+    {
+        printf("############ %s pthread_create usb_state_monitor failed %d\n",__func__, errno);
+        return -1;
+    }
+#if 0
     if (open_usbdet() != 0)
     {
         printf("open usb detect error\n");
@@ -1056,6 +1065,7 @@ hid_fail:
     sleep(1);
     system("switch host");
     sleep(3);
+#endif
 
     memset(&threadcfg, 0, sizeof(threadcfg));
     pthread_mutex_init(&global_ctx_lock, NULL);
@@ -1169,6 +1179,9 @@ read_config:
             goto read_config;
         }
         printf("cfg_v==%s\n", buf);
+#if 1
+        threadcfg.cam_id = 0xaaaa6666;
+#else
         if (get_cam_id(&threadcfg.cam_id) < 0)
         {
             printf("************************************************\n");
@@ -1176,6 +1189,7 @@ read_config:
             printf("************************************************\n");
             return 0;
         }
+#endif
         //set_value(conf_p, lines, "cam_id", 0, &threadcfg.cam_id);
 
         printf("cam_id = %x\n", threadcfg.cam_id);
@@ -1592,6 +1606,7 @@ wlan_udhcpc:
         threadcfg.sdcard_exist = 0;
         printf("open disk error\n");
     }
+	threadcfg.sdcard_exist = 0;
 
     if ((sound_init()) < 0)
     {

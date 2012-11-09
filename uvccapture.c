@@ -17,7 +17,7 @@ int run = 1;
 struct vdIn * init_camera(void)
 {
     char *videodevice = "/dev/video0";
-    int format = V4L2_PIX_FMT_MJPEG;
+    int format = V4L2_PIX_FMT_YUYV;
     int grabmethod = 1;
     int width = 640;
     int height = 480;
@@ -25,10 +25,14 @@ struct vdIn * init_camera(void)
     struct vdIn *videoIn;
 
     videoIn = (struct vdIn *) calloc(1, sizeof(struct vdIn));
+#if defined IPED_98
+    format = V4L2_PIX_FMT_YUYV;
+#endif
 
     pthread_mutex_init(&videoIn->tmpbufflock, NULL);
     pthread_mutex_init(&videoIn->vd_data_lock, NULL);
     memset(videoIn->hrb_tid, 0, sizeof(videoIn->hrb_tid));
+#if 0
     //threadcfg.qvga_flag = 0;
     if (strncmp(threadcfg.record_resolution, "vga", 3) == 0)
     {
@@ -49,6 +53,10 @@ struct vdIn * init_camera(void)
         height = 720;
         printf("720p\n");
     }
+#endif
+
+    width = 1280;
+    height = 720;
     brightness = threadcfg.brightness;
     contrast    = threadcfg.contrast;
     saturation = threadcfg.saturation;
@@ -59,6 +67,7 @@ struct vdIn * init_camera(void)
         printf("init camera device error\n");
         return (struct vdIn *) 0;
     }
+#if 0
     //query_all_ctrl(videoIn->fd);
     v4l2ResetControl(videoIn, V4L2_CID_BRIGHTNESS);
     v4l2ResetControl(videoIn, V4L2_CID_CONTRAST);
@@ -89,6 +98,8 @@ struct vdIn * init_camera(void)
     {
         v4l2SetControl(videoIn, V4L2_CID_GAIN, gain);
     }
+#endif
+
     return videoIn;
 }
 
