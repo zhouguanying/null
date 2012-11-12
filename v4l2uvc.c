@@ -367,12 +367,20 @@ int uvcGrab(struct vdIn *vd)
     if (!_capture_on)
         return -1;
 
+    static int count_t = 1;
+    static unsigned long time_begin;
+    if (count_t == 1)
+    {
+        time_begin = get_system_time_ms();
+    }
+#if 0
 	static unsigned long time_stamp = 0;
     unsigned long now = get_system_time_ms();
     time_stamp += now - begin_t;
     begin_t = now;
 	if (time_stamp < 10)
 		time_stamp = 10;
+#endif
     int ret;
     char *time;
     if (!vd->isstreaming)
@@ -405,7 +413,9 @@ int uvcGrab(struct vdIn *vd)
         break;
     case V4L2_PIX_FMT_YUYV:
 //        printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
-        processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, /*40 * count_t */ time_stamp);
+        processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 150 * count_t  /*time_stamp*/);
+        //printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time_begin);
+        count_t++;
 		//printf("####### get capture :size %u framesize %u pointer %p\n",
 							//vd->buf.bytesused, vd->framesizeIn, vd->mem[vd->buf.index]);
 #if 0
@@ -711,7 +721,7 @@ static int init_userp(struct vdIn *vd, unsigned int buffer_size)
             return -1;
         }
     }
-    MediaEncodeMain(1024 * 1024 * 2,
+    MediaEncodeMain(1024 * 1024 * 16,
                     vd->width,
                     vd->height);
     return 0;

@@ -113,7 +113,6 @@ T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
   
   if(!strncmp("00dc",buf,4))
   {
-      //printf("video data size %d\n", size);
     //ret=fwrite(buf+8,1, size,videofile);
     encode_buffer_lock();
     unsigned char *p = (unsigned char *)buf;
@@ -123,8 +122,9 @@ T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
     p[5] = 0;
     p[6] = 1;
     p[7] = 0x0c;
-    data_chunk_pushback(_encode_buf, buf + 3, size - 3);
-    //printf("pushback %ld size buffer size %ld \n", size, _encode_buf->data_size);
+    data_chunk_pushback(_encode_buf, buf + 3, size - 3 + 8);
+    printf("pushback %ld size buffer size %ld\n", size, _encode_buf->data_size);
+    //printf("video data size %d, encode buffer size %ld\n", size, data_chunk_size(_encode_buf));
     encode_buffer_unlock();
   }
   else if(!strncmp("00wb",buf,4))
@@ -228,7 +228,7 @@ int openMedia(T_U32 nvbps, int width, int height)
 // set video open info
 	rec_open_input.m_VideoRecInfo.m_nWidth				= width;
 	rec_open_input.m_VideoRecInfo.m_nHeight				= height;
-	rec_open_input.m_VideoRecInfo.m_nFPS				= 8;
+	rec_open_input.m_VideoRecInfo.m_nFPS				= 10;
 	rec_open_input.m_VideoRecInfo.m_nKeyframeInterval	= 15;//(mVideoFrameRate<<1) -1;
 	rec_open_input.m_VideoRecInfo.m_nvbps				= nvbps;//mVideoBitRate;
 	rec_open_input.m_VideoRecInfo.m_eVideoType			= MEDIALIB_V_ENC_H263;  //MEDIALIB_V_ENC_MPEG;
@@ -300,7 +300,7 @@ int openMedia(T_U32 nvbps, int width, int height)
 
 	debug("MediaLib_Rec_Start ok \n");
 	
-    _encode_buf = data_chunk_new(1024 * 1024 * 2);
+    _encode_buf = data_chunk_new(1024 * 1024 * 5);
     pthread_mutex_init(&_encode_buf_lock, NULL);
 	return 0;
 	//above only call one time when system start
@@ -358,7 +358,7 @@ int processVideoData(T_U8* dataPtr, int datasize, int32_t timeStamp)
 			return -1;
 		}
 	}
-	//log_debug("process video timestamp %u\n", timeStamp);
+	//printf("### process video timestamp %u, datasize %d address %p\n", timeStamp, datasize, dataPtr);
 	return 0;
 }
 

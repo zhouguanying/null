@@ -890,6 +890,7 @@ int start_video_monitor(struct sess_ctx* sess)
     }
 	start_monitor_capture();
     attempts = 0;
+    int const send_stride = 16 * 1024;
     for (;;)
     {
         size = 0;
@@ -904,12 +905,12 @@ int start_video_monitor(struct sess_ctx* sess)
                 free(buffer);
                 goto exit;
             }
-            if (size >= 1000)
+            if (size >= send_stride)
             {
                 if (sess->is_tcp)
-                    ret = send(socket, buffer + i, 1000, 0);
+                    ret = send(socket, buffer + i, send_stride, 0);
                 else
-                    ret = udt_send(socket , SOCK_STREAM , buffer + i , 1000);
+                    ret = udt_send(socket , SOCK_STREAM , buffer + i , send_stride);
 
             }
             else
