@@ -28,7 +28,6 @@ TARGET = test
 $(TARGET): $(OBJ)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 	arm-none-linux-gnueabi-strip $(TARGET) 
-	cp $(TARGET) /home/zgy/test/ -f
 
 all: $(TARGET)
 
