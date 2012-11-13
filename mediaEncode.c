@@ -22,7 +22,7 @@ T_MEDIALIB_STRUCT mRecLibHandle;
 T_MEDIALIB_REC_OPEN_INPUT rec_open_input;
 T_MEDIALIB_REC_OPEN_OUTPUT rec_open_output;
 
-static data_chunk_t *_encode_buf;
+static data_chunk_t *_encode_buf = NULL;
 static pthread_mutex_t _encode_buf_lock;
 void encode_buffer_lock()
 {
@@ -123,7 +123,8 @@ T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
     p[6] = 1;
     p[7] = 0x0c;
     data_chunk_pushback(_encode_buf, buf + 3, size - 3 + 8);
-    printf("pushback %ld size buffer size %ld\n", size, _encode_buf->data_size);
+    //printf("pushback %ld size buffer size %ld\n", size, _encode_buf->data_size);
+	//printf(" encode type: %x, %x, %x, %x, %x, %x, %x\n",p[8],p[9],p[10],p[11],p[12],p[13],p[14] );
     //printf("video data size %d, encode buffer size %ld\n", size, data_chunk_size(_encode_buf));
     encode_buffer_unlock();
   }
@@ -299,9 +300,11 @@ int openMedia(T_U32 nvbps, int width, int height)
 	}
 
 	debug("MediaLib_Rec_Start ok \n");
-	
-    _encode_buf = data_chunk_new(1024 * 1024 * 5);
-    pthread_mutex_init(&_encode_buf_lock, NULL);
+
+	if( _encode_buf == NULL ){
+		_encode_buf = data_chunk_new(1024 * 1024 * 5);
+		pthread_mutex_init(&_encode_buf_lock, NULL);
+	}
 	return 0;
 	//above only call one time when system start
 }
@@ -336,11 +339,44 @@ int MediaDestroy()
 	MediaLib_Destroy();	
 
 	closeFile();
-    data_chunk_free(_encode_buf);
-    _encode_buf = NULL;
-    pthread_mutex_destroy(&_encode_buf_lock);
+//    data_chunk_free(_encode_buf);
+ //   _encode_buf = NULL;
+ //   pthread_mutex_destroy(&_encode_buf_lock);
 
 	return 1;
+}
+
+int MediaRestart(unsigned int nvbps, int w, int h)
+{
+	int ret;
+	ret = MediaDestroy(mRecLibHandle);
+	if( ret == -1 ){
+		printf("MediaDestroy failed\n");
+		return -1;
+	}
+	ret = MediaEncodeMain(nvbps,w,h);
+	if( ret == -1 ){
+		printf("MediaEncodeMain failed\n");
+		return -1;
+	}
+	return 0;
+}
+
+//don't change the record parameters, so restart faster
+int MediaRestartFast()
+{
+	T_BOOL ret;
+	ret = MediaLib_Rec_Stop(mRecLibHandle);
+	if( ret == AK_FALSE ){
+		printf("MediaLib_Rec_Stop failed\n");
+		return -1;
+	}
+	ret = MediaLib_Rec_Restart(mRecLibHandle, 0, MEDIALIB_REC_EV_NORMAL);
+	if( ret == AK_FALSE ){
+		printf("MediaLib_Rec_Restart failed\n");
+		return -1;
+	}
+	return 0;
 }
 
 int processVideoData(T_U8* dataPtr, int datasize, int32_t timeStamp)

@@ -38,5 +38,7 @@ unsigned long get_system_time_ms(void);
 int MediaEncodeMain(T_U32 nvbps, int w, int h);
 int get_encode_video_buffer(unsigned char *buffer, int size);
 void clear_encode_video_buffer(void);
+int MediaRestart(unsigned int nvbps, int w, int h);
+int MediaRestartFast(void);
 
 #endif

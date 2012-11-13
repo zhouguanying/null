@@ -413,9 +413,23 @@ int uvcGrab(struct vdIn *vd)
         break;
     case V4L2_PIX_FMT_YUYV:
 //        printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
-        processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 150 * count_t  /*time_stamp*/);
-        //printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time_begin);
-        count_t++;
+#ifdef TEST_MEDIA_RESTART
+		if( count_t % 4 == 0 ){
+	#if 0
+			MediaRestart(16*1024*1024, 1280,720);
+	#else
+			MediaRestartFast();
+	#endif
+			count_t = 1;
+		}
+#endif
+		if( -1 != processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 150 * count_t  /*time_stamp*/)){
+			//printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time_begin);
+			count_t++;
+		}
+		else{
+			printf("encode error\n");
+		}
 		//printf("####### get capture :size %u framesize %u pointer %p\n",
 							//vd->buf.bytesused, vd->framesizeIn, vd->mem[vd->buf.index]);
 #if 0
