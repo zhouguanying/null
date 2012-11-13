@@ -24,6 +24,11 @@ static int debug = 0;
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 #define DEV_NAME      "/dev/video0"
+
+#define VIDEO_BUFFER_BLOCK_SIZE 100*1024
+#define CAMERA_FRAME_RATE		25
+
+
 static void  *lock;
 static int init_device(struct vdIn *vd);
 static void uninit_device(struct vdIn *vd);
@@ -423,12 +428,17 @@ int uvcGrab(struct vdIn *vd)
 			count_t = 1;
 		}
 #endif
-		if( -1 != processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 150 * count_t  /*time_stamp*/)){
-			//printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time_begin);
-			count_t++;
+		if( get_encode_video_buffer_valid_size() < VIDEO_BUFFER_BLOCK_SIZE ){
+			if( -1 != processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 150 * count_t	/*time_stamp*/)){
+				//printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time_begin);
+				count_t++;
+			}
+			else{
+				printf("encode error\n");
+			}
 		}
 		else{
-			printf("encode error\n");
+			usleep(1000 / CAMERA_FRAME_RATE *1000);	//by chf: we have to sleep 1000/fps ms, to wait for next frame 
 		}
 		//printf("####### get capture :size %u framesize %u pointer %p\n",
 							//vd->buf.bytesused, vd->framesizeIn, vd->mem[vd->buf.index]);

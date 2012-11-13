@@ -1,7 +1,7 @@
 #include <linux/videodev2.h>
 #include "cli.h"
 
-#define NB_BUFFER 8
+#define NB_BUFFER 4
 #define DHT_SIZE 420
 
 #if defined IPED_233

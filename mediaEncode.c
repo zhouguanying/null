@@ -56,6 +56,11 @@ int get_encode_video_buffer(unsigned char *buffer, int size)
     return ret;
 }
 
+int get_encode_video_buffer_valid_size(void)
+{
+	return data_chunk_size(_encode_buf);
+}
+
 #define is_power_of_2(x)	((x) != 0 && (((x) & ((x) - 1)) == 0))
 
 
@@ -230,7 +235,7 @@ int openMedia(T_U32 nvbps, int width, int height)
 	rec_open_input.m_VideoRecInfo.m_nWidth				= width;
 	rec_open_input.m_VideoRecInfo.m_nHeight				= height;
 	rec_open_input.m_VideoRecInfo.m_nFPS				= 10;
-	rec_open_input.m_VideoRecInfo.m_nKeyframeInterval	= 15;//(mVideoFrameRate<<1) -1;
+	rec_open_input.m_VideoRecInfo.m_nKeyframeInterval	= 100;//(mVideoFrameRate<<1) -1;
 	rec_open_input.m_VideoRecInfo.m_nvbps				= nvbps;//mVideoBitRate;
 	rec_open_input.m_VideoRecInfo.m_eVideoType			= MEDIALIB_V_ENC_H263;  //MEDIALIB_V_ENC_MPEG;
 	rec_open_input.m_ExFunEnc							= NULL;//set mjpeg encode function

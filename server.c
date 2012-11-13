@@ -421,7 +421,7 @@ char *get_video_data(int *size)
             goto have_readed;
     }
 	#endif
-    int const video_size = 64 * 1024;
+    int const video_size = 10 * 1024;
     unsigned char *video_buf = malloc (video_size);
     *size = 0;
 #if 0
