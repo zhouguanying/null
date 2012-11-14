@@ -56,6 +56,23 @@ int get_encode_video_buffer(unsigned char *buffer, int size)
     return ret;
 }
 
+int write_encode_video_buffer(unsigned char *buffer, int size)
+{
+	int ret = 0;
+
+    encode_buffer_lock();
+	if (data_chunk_freespace(_encode_buf) >= size)
+	{
+		data_chunk_pushback(_encode_buf, buffer, size);
+	}
+	else{
+		ret = -1;
+	}
+	encode_buffer_unlock();
+
+    return ret;
+}
+
 int get_encode_video_buffer_valid_size(void)
 {
 	return data_chunk_size(_encode_buf);
@@ -112,13 +129,41 @@ T_S32 ak_rec_cb_fread(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
 	return fread(buf, 1, size, headfile);
 }
 
+static int encode_temp_buf_size = 5;
+static char* encode_temp_buffer = NULL;
+
+void clear_encode_temp_buffer()
+{
+	encode_temp_buf_size = 5;
+	if( encode_temp_buffer == NULL ){
+		  encode_temp_buffer = malloc( 512*1024);
+		  encode_temp_buffer[0] = encode_temp_buffer[1] = encode_temp_buffer[2] = 0;
+		  encode_temp_buffer[3] = 1; encode_temp_buffer[4] = 0xc;
+	}
+}
+
+int get_temp_buffer_data(char** buffer, int* size)
+{
+	if( encode_temp_buffer == NULL )
+		return -1;
+	*buffer = encode_temp_buffer;
+	*size = encode_temp_buf_size;
+	return 0;
+}
+
 T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
 {
   int ret = size;
+  if( encode_temp_buffer == NULL ){
+		encode_temp_buffer = malloc( 512*1024);
+		encode_temp_buffer[0] = encode_temp_buffer[1] = encode_temp_buffer[2] = 0;
+		encode_temp_buffer[3] = 1; encode_temp_buffer[4] = 0xc;
+  }
   
   if(!strncmp("00dc",buf,4))
   {
     //ret=fwrite(buf+8,1, size,videofile);
+#if 0
     encode_buffer_lock();
     unsigned char *p = (unsigned char *)buf;
     //data_chunk_pushback(_encode_buf, buf + 8, size - 8);
@@ -127,11 +172,17 @@ T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
     p[5] = 0;
     p[6] = 1;
     p[7] = 0x0c;
-    data_chunk_pushback(_encode_buf, buf + 3, size - 3 + 8);
+    data_chunk_pushback(_encode_buf, buf + 8 - 5, size + 5 - 8);
     //printf("pushback %ld size buffer size %ld\n", size, _encode_buf->data_size);
 	//printf(" encode type: %x, %x, %x, %x, %x, %x, %x\n",p[8],p[9],p[10],p[11],p[12],p[13],p[14] );
     //printf("video data size %d, encode buffer size %ld\n", size, data_chunk_size(_encode_buf));
     encode_buffer_unlock();
+#else
+	encode_buffer_lock();
+	memcpy( encode_temp_buffer+encode_temp_buf_size, buf, size );
+	encode_temp_buf_size += size;
+	encode_buffer_unlock();
+#endif
   }
   else if(!strncmp("00wb",buf,4))
   {

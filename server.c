@@ -421,7 +421,7 @@ char *get_video_data(int *size)
             goto have_readed;
     }
 	#endif
-    int const video_size = 10 * 1024;
+    int const video_size = 16 * 1024;
     unsigned char *video_buf = malloc (video_size);
     *size = 0;
 #if 0
@@ -891,6 +891,9 @@ int start_video_monitor(struct sess_ctx* sess)
 	start_monitor_capture();
     attempts = 0;
     int const send_stride = 16 * 1024;
+
+	need_I_frame = 1;
+	
     for (;;)
     {
         size = 0;

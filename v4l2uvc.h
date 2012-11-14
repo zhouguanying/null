@@ -46,6 +46,8 @@ struct vdIn
 
 };
 
+extern int need_I_frame;
+
 int
 init_videoIn(struct vdIn *vd, char *device, int width, int height,
              int format, int grabmethod);
