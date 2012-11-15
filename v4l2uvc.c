@@ -28,8 +28,6 @@ static int debug = 0;
 #define VIDEO_BUFFER_BLOCK_SIZE 100*1024
 #define CAMERA_FRAME_RATE		25
 
-int need_I_frame = 0;
-
 static void  *lock;
 static int init_device(struct vdIn *vd);
 static void uninit_device(struct vdIn *vd);
@@ -389,6 +387,7 @@ int uvcGrab(struct vdIn *vd)
 #endif
     int ret;
     char *time;
+	int status;
     if (!vd->isstreaming)
         if (video_enable(vd))
             goto err;
@@ -419,27 +418,26 @@ int uvcGrab(struct vdIn *vd)
         break;
     case V4L2_PIX_FMT_YUYV:
 //        printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
-		if( need_I_frame ){
-			printf("after %d p frame, we need an I frame\n", count_t-1);
-			MediaRestartFast();
-			//MediaRestart(16*1024*1024, 1280,720);
-			count_t = 1;
-			need_I_frame = 0;
-		}
-		if( get_encode_video_buffer_valid_size() < VIDEO_BUFFER_BLOCK_SIZE ){
-			//by chf: after encoding one frame, compressed data are stored in temp buffer, we should take them later
-			clear_encode_temp_buffer();
+		status = check_monitor_queue_status();
+		if( status != MONITOR_STATUS_NEED_NOTHING ){
+			clear_encode_temp_buffer(); //by chf: after encoding one frame, compressed data are stored in static temp buffer, we should take them later
+			if( status == MONITOR_STATUS_NEED_I_FRAME ){
+				printf("after %d p frame, we need an I frame for some reasons\n", count_t-1);
+				MediaRestartFast();
+				//MediaRestart(16*1024*1024, 1280,720);
+				count_t = 1;
+			}
+
 			if( -1 != processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 150 * count_t	/*time_stamp*/)){
 				//printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time_begin);
-				unsigned char* buffer;
+				char* buffer;
 				int size;
 				if( -1 != get_temp_buffer_data(&buffer,&size) ){
-					if( write_encode_video_buffer(buffer,size) == 0 ){
+					if( write_monitor_packet_queue(buffer,size) == 0 ){
 						count_t++;
 					}
 					else{
-						printf("write_encode_video_buffer error, may be overflowed\n");
-						need_I_frame = 1;
+						printf("so strange, write_monitor_packet_queue error, what happened?????\n");
 					}
 				}
 				else{

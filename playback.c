@@ -444,6 +444,7 @@ void* playback_thread(void * arg)
 //    unsigned int snd_size;
     socket = pb->sess->sc->video_socket;
     pb->sess->ucount = 1;
+	pb->sess->session_type = SESSION_TYPE_PLAYBACK;
     add_sess(pb->sess);
     take_sess_up(pb->sess);
 

@@ -43,6 +43,8 @@
 #define LOG_FILE    "/tmp/v2ipd.log"
 char *v2ipd_logfile = LOG_FILE; /* Fix me */
 
+#define MAX_SEND_PACKET_NUM	5
+
 int nand_fd;
 
 extern void (*sigset(int sig, void (*disp)(int)))(int);
@@ -77,6 +79,8 @@ pthread_mutex_t g_sess_id_mask_lock;
 char g_sess_id_mask[MAX_NUM_IDS];
 int daemon_msg_queue;
 vs_share_mem* v2ipd_share_mem;
+
+static int need_I_frame = 0;
 
 static void send_alive(void)
 {
@@ -402,56 +406,6 @@ static void sig_handler(int signum)
 
 struct vdIn *vdin_camera = NULL;
 
-char *get_video_data(int *size)
-{
-//    const char *videodevice = "/dev/video0";
-    int canuse = 0;
- //   char *buff;
-    pthread_t self_tid;
-    self_tid = pthread_self();
-//try_again:
-    //pthread_mutex_lock(&vdin_camera->tmpbufflock);
-	#if 0
-    int i;
-    for (i = 0; i < MAX_CONNECTIONS; i++)
-    {
-        if (vdin_camera->hrb_tid[i] == 0)
-            canuse = i;
-        else if (vdin_camera->hrb_tid[i] == self_tid)
-            goto have_readed;
-    }
-	#endif
-    int const video_size = 16 * 1024;
-    unsigned char *video_buf = malloc (video_size);
-    *size = 0;
-#if 0
-    buff = malloc(vdin_camera->buf.bytesused + DHT_SIZE + sizeof(picture_info_t));
-    memcpy(buff, vdin_camera->framebuffer, vdin_camera->buf.bytesused + DHT_SIZE + sizeof(picture_info_t));
-    *size = vdin_camera->buf.bytesused + DHT_SIZE + sizeof(picture_info_t);
-#else
-    do
-    {
-        if (get_encode_video_buffer(video_buf, video_size))
-            *size = video_size;
-        else
-            usleep(1000 * 1);
-    } while (*size == 0);
-
-    //log_debug("get video size %d\n", *size);
-
-    //*size = vdin_camera->buf.bytesused;
-#endif
-    vdin_camera->hrb_tid[canuse] = self_tid;
-    //pthread_mutex_unlock(&vdin_camera->tmpbufflock);
-    return (char *)video_buf;
-#if 0
-have_readed:
-    //pthread_mutex_unlock(&vdin_camera->tmpbufflock);
-    usleep(20000);
-    goto try_again;
-#endif
-}
-
 static char* get_data(int* size, int *width, int *height)
 {
     const char *videodevice = "/dev/video0";
@@ -635,6 +589,7 @@ int do_net_update(void *arg)
     unsigned int __system_f_size;
     struct stat    st;
 
+	sess->session_type = SESSION_TYPE_UPDATE;
     add_sess(sess);
     take_sess_up(sess);
     if (is_do_update())
@@ -859,6 +814,165 @@ exit:
 
 int udt_send(int udtsocket , int sock_t, char *buf , int len);
 
+//by chf: check whick kind of frame monitor needed
+/*
+return:
+-1: don't need any frame now
+0:  need I frame
+1:  need other frame as normal
+*/
+int check_monitor_queue_status(void)
+{
+	struct sess_ctx* sess = global_ctx_running_list;
+	int count = 0;
+
+	if( is_do_update() ){
+		return MONITOR_STATUS_NEED_NOTHING;
+	}
+
+	if( need_I_frame ){
+		need_I_frame = 0;
+		return MONITOR_STATUS_NEED_I_FRAME;
+	}
+
+	//by chf: how many monitor session
+	while( sess != NULL ){
+		if( sess->session_type == SESSION_TYPE_MONITOR ){
+			count++;
+		}
+		sess = sess->next;
+	}
+	if( count == 0 ){
+		return MONITOR_STATUS_NEED_NOTHING;
+	}
+	if( count == 1 ){
+		sess = global_ctx_running_list;
+		while( sess!= NULL ){
+			if( sess->session_type == SESSION_TYPE_MONITOR ){
+				break;
+			}
+			sess = sess->next;
+		}
+		if( sess->send_list.total_packet_num < MAX_SEND_PACKET_NUM ){
+			return MONITOR_STATUS_NEED_ANY;
+		}
+		else{
+			printf("packet queue is full now, total %d packets\n", sess->send_list.total_packet_num );
+			return MONITOR_STATUS_NEED_NOTHING;
+		}
+	}
+	else{
+		printf("**********************multi monitor session is not support now***********************************\n");
+		sleep(3);
+		return MONITOR_STATUS_NEED_NOTHING;
+	}
+	
+	return MONITOR_STATUS_NEED_ANY;
+}
+
+int write_monitor_packet_queue(char* buf, int size)
+{
+	struct sess_ctx* sess = global_ctx_running_list;
+	int ret = 0;
+
+	if( size == 0 )
+		return -1;
+	if( is_do_update() ){
+		return -1;
+	}
+	
+	pthread_mutex_lock(&global_ctx_lock);//by chf: because we are writing into all monitor queue, so we use global lock instead of private lock
+	while( sess != NULL ){
+		if( sess->session_type == SESSION_TYPE_MONITOR ){
+			if( sess->send_list.total_packet_num < MAX_SEND_PACKET_NUM && sess->send_list.current_state == PACKET_QUEUE_NORMAL ){
+				SEND_PACKET* packet = malloc(sizeof(SEND_PACKET));
+				if( packet == NULL ){
+					printf("no buffer for send packet\n");
+					ret  = -1;
+					goto err_exit;
+				}
+				if( (packet->date_buf = malloc( size ) ) == NULL ){
+					printf("no buffer for send packet data\n");
+					ret  = -1;
+					goto err_exit;
+				}
+				memcpy( packet->date_buf, buf, size );
+				packet->size = size;
+				list_add_tail(&packet->list,&sess->send_list.send_packet_list_head);
+				sess->send_list.total_packet_num++;
+			}
+			else if(sess->send_list.total_packet_num >= MAX_SEND_PACKET_NUM){
+				sess->send_list.current_state = PACKET_QUEUE_OVERFLOWED;
+				printf("meet a session packet queue overflow\n");
+			}
+		}
+		sess = sess->next;
+	}
+
+	pthread_mutex_unlock(&global_ctx_lock);
+	return 0;
+err_exit:
+	return ret;
+}
+
+SEND_PACKET* get_monitor_queue_packet(struct sess_ctx* sess)
+{
+	SEND_PACKET* packet;
+	
+	if( sess->send_list.total_packet_num == 0 ){
+		return 0;
+	}
+
+	pthread_mutex_lock(&global_ctx_lock);
+	packet = list_first_entry(&sess->send_list.send_packet_list_head,SEND_PACKET,list);
+	list_del(&packet->list);
+	sess->send_list.total_packet_num--;
+	pthread_mutex_unlock(&global_ctx_lock);
+	return packet;
+}
+
+static int init_monitor_packet_queue(struct sess_ctx* sess)
+{
+	pthread_mutex_init(&sess->send_list.lock, NULL);
+	INIT_LIST_HEAD(&sess->send_list.send_packet_list_head);
+	sess->send_list.total_packet_num = sess->send_list.total_size = 0;
+	sess->send_list.current_state = PACKET_QUEUE_NORMAL;
+	return 0;
+}
+
+static void free_packet(SEND_PACKET* packet)
+{
+	if( packet == NULL ){
+		return;
+	}
+	free( packet->date_buf );
+	free( packet );
+	packet = NULL;
+	return;
+}
+
+static void free_monitor_packet_queue(struct sess_ctx* sess)
+{
+	SEND_PACKET* packet;
+	struct list_head* p;
+	
+	pthread_mutex_lock(&global_ctx_lock);
+	list_for_each(p,&sess->send_list.send_packet_list_head){
+		packet = list_entry(p,SEND_PACKET,list);
+		//by chf:
+		list_del(&packet->list);
+		sess->send_list.total_packet_num--;
+		free_packet( packet );
+	}
+	if( sess->send_list.total_packet_num != 0 ){
+		sess->send_list.total_packet_num = 0;
+		printf("******************************************something strange happened during free packet queue******************************************\n");
+	}
+	pthread_mutex_unlock(&global_ctx_lock);
+	
+	return;
+}
+
 int start_video_monitor(struct sess_ctx* sess)
 {
     log_debug("start \n");
@@ -868,6 +982,7 @@ int start_video_monitor(struct sess_ctx* sess)
     int size;
     pthread_t tid;
     int attempts;
+	SEND_PACKET* packet;
 
     log_debug("888888888888888888 \n");
     if (is_do_update())
@@ -875,6 +990,8 @@ int start_video_monitor(struct sess_ctx* sess)
         log_warning("do update\n");
         goto exit;
     }
+	sess->session_type = SESSION_TYPE_MONITOR;
+	init_monitor_packet_queue(sess);
     add_sess(sess);
     take_sess_up(sess);
     sess->ucount = 1;
@@ -888,24 +1005,31 @@ int start_video_monitor(struct sess_ctx* sess)
             goto exit;
         }
     }
+
+	need_I_frame = 1;
+
 	start_monitor_capture();
     attempts = 0;
     int const send_stride = 16 * 1024;
 
-	need_I_frame = 1;
 	
     for (;;)
     {
-        size = 0;
-        //log_debug("get video data %p size %d before\n", buffer, size);
-        buffer = get_video_data(&size);
+        packet = get_monitor_queue_packet(sess);
+		if( packet == NULL ){
+			//handle_video_thread();
+			usleep(10*1000);
+			continue;
+		}
+        buffer = packet->date_buf;
+		size = packet->size;
         //log_debug("get video data %p size %d end\n", buffer, size);
         int i = 0;
         while (size > 0)
         {
             if (!sess->running)
             {
-                free(buffer);
+                free_packet( packet );
                 goto exit;
             }
             if (size >= send_stride)
@@ -934,7 +1058,7 @@ int start_video_monitor(struct sess_ctx* sess)
                 }
                 printf("sent data error,the connection may currupt!\n");
                 printf("ret==%d\n", ret);
-                free(buffer);
+                free_packet( packet );
                 goto exit;
             }
             //printf("sess->is_tcp = %d , sent message =%d\n",sess->is_tcp , ret);
@@ -942,12 +1066,12 @@ int start_video_monitor(struct sess_ctx* sess)
             size -= ret;
             i += ret;
         }
-        free(buffer);
-        handle_video_thread();
+        free_packet( packet );
     }
 
 exit:
     /* Take down session */
+	free_monitor_packet_queue(sess);
     del_sess(sess);
     take_sess_down(sess);
 	stop_monitor_capture();

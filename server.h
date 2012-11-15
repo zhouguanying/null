@@ -24,8 +24,48 @@ extern "C"
 #include <fcntl.h>
 #include "includes.h"
 #include "socket_container.h"
+#include "list.h"
 
 #define USE_CLI
+
+enum  SESSION_TYPE_T  
+{
+    SESSION_TYPE_MONITOR = 0, 
+	SESSION_TYPE_PLAYBACK , 
+	SESSION_TYPE_UPDATE , 
+	SESSION_TYPE_NONE,
+};
+
+enum  PACKET_QUEUE_STATUS_T  
+{
+    PACKET_QUEUE_NORMAL = 0, 
+	PACKET_QUEUE_OVERFLOWED, 
+	PACKET_QUEUE_DOWNFLOWED , 
+};
+
+
+typedef enum SESSION_TYPE_T SESSION_TYPE;
+typedef enum PACKET_QUEUE_STATUS_T PACKET_QUEUE_STATUS;
+
+
+struct SEND_PACKET_LIST_HEAD_T
+{
+	int total_packet_num; // the packet numbers in current send queue
+	int total_size;		// the size in bytes of total packets
+	PACKET_QUEUE_STATUS current_state;
+	pthread_mutex_t lock;
+	struct list_head send_packet_list_head;
+};
+
+struct SEND_PACKET_T
+{
+	char* date_buf;
+	int size;
+	struct list_head list;
+};
+
+typedef struct SEND_PACKET_LIST_HEAD_T SEND_PACKET_LIST_HEAD;
+typedef struct SEND_PACKET_T SEND_PACKET;
 
 struct sess_ctx
 {
@@ -78,6 +118,8 @@ struct sess_ctx
     int     file_fd;
     int     motion_detected;
     int     haveconnected;
+	SESSION_TYPE session_type;
+	SEND_PACKET_LIST_HEAD send_list;
     struct sess_ctx * next;
     struct socket_container *sc;
 };
@@ -136,8 +178,6 @@ void  del_sess(struct sess_ctx *sess);
 void take_sess_up(struct sess_ctx *sess);
 void take_sess_down(struct sess_ctx *sess);
 
-
-char * get_video_data(int *size);
 int start_video_monitor(struct sess_ctx* sess);
 int start_video_record(struct sess_ctx* sess);
 int do_net_update(void *arg);
@@ -160,6 +200,14 @@ void v2ipd_request_timeover_protect();
 void v2ipd_stop_timeover_protect();
 
 unsigned char checksum(unsigned char cksum, unsigned char *data, int size);
+
+#define MONITOR_STATUS_NEED_NOTHING -1
+#define MONITOR_STATUS_NEED_I_FRAME 0
+#define MONITOR_STATUS_NEED_ANY  1
+//return: -1:don't need any frame now  0:need I frame  1:need other frame as normal
+int check_monitor_queue_status(void);
+int write_monitor_packet_queue(char* buf, int size);
+SEND_PACKET* get_monitor_queue_packet(struct sess_ctx* sess);
 
 #ifdef __cplusplus
 }
