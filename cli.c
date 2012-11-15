@@ -745,7 +745,8 @@ static char *set_transport_type(struct sess_ctx *sess , char *arg , int *rsp_len
         close_socket_container(sc);
         return NULL;
     }
-    r = malloc(6);
+    r = malloc(12);
+	memset(r,0,12);
     if (!r)
     {
         g_cli_ctx->arg = NULL;
@@ -818,7 +819,13 @@ static char *set_transport_type(struct sess_ctx *sess , char *arg , int *rsp_len
     r[3] = (char)threadcfg.brightness;
     r[4] = (char)threadcfg.contrast;
     r[5] = (char)threadcfg.volume;
-    *rsp_len = 6;
+	r[6] = ':'; 
+	r[7] = 'm';
+	r[8] = 'p';
+	r[9] = 'e';
+	r[10] = 'g';
+	r[11] = '4';
+    *rsp_len = 12;
     return r;
 
 }
