@@ -845,6 +845,8 @@ int check_monitor_queue_status(void)
 	if( count == 0 ){
 		return MONITOR_STATUS_NEED_NOTHING;
 	}
+	
+    pthread_mutex_lock(&global_ctx_lock);
 	if( count == 1 ){
 		sess = global_ctx_running_list;
 		while( sess!= NULL ){
@@ -854,19 +856,23 @@ int check_monitor_queue_status(void)
 			sess = sess->next;
 		}
 		if( sess->send_list.total_packet_num < MAX_SEND_PACKET_NUM ){
+			pthread_mutex_unlock(&global_ctx_lock);
 			return MONITOR_STATUS_NEED_ANY;
 		}
 		else{
 			printf("packet queue is full now, total %d packets\n", sess->send_list.total_packet_num );
+			pthread_mutex_unlock(&global_ctx_lock);
 			return MONITOR_STATUS_NEED_NOTHING;
 		}
 	}
 	else{
 		printf("**********************multi monitor session is not support now***********************************\n");
+		pthread_mutex_unlock(&global_ctx_lock);
 		sleep(3);
 		return MONITOR_STATUS_NEED_NOTHING;
 	}
 	
+	pthread_mutex_unlock(&global_ctx_lock);
 	return MONITOR_STATUS_NEED_ANY;
 }
 
@@ -912,6 +918,7 @@ int write_monitor_packet_queue(char* buf, int size)
 	pthread_mutex_unlock(&global_ctx_lock);
 	return 0;
 err_exit:
+	pthread_mutex_unlock(&global_ctx_lock);
 	return ret;
 }
 
@@ -919,11 +926,12 @@ SEND_PACKET* get_monitor_queue_packet(struct sess_ctx* sess)
 {
 	SEND_PACKET* packet;
 	
+	pthread_mutex_lock(&global_ctx_lock);
 	if( sess->send_list.total_packet_num == 0 ){
+		pthread_mutex_unlock(&global_ctx_lock);
 		return 0;
 	}
 
-	pthread_mutex_lock(&global_ctx_lock);
 	packet = list_first_entry(&sess->send_list.send_packet_list_head,SEND_PACKET,list);
 	list_del(&packet->list);
 	sess->send_list.total_packet_num--;
@@ -1018,7 +1026,7 @@ int start_video_monitor(struct sess_ctx* sess)
         packet = get_monitor_queue_packet(sess);
 		if( packet == NULL ){
 			//handle_video_thread();
-			usleep(10*1000);
+			usleep(20*1000);
 			continue;
 		}
         buffer = packet->date_buf;
