@@ -963,11 +963,11 @@ static void free_monitor_packet_queue(struct sess_ctx* sess)
 {
 	SEND_PACKET* packet;
 	struct list_head* p;
+    struct list_head* n;
 	
 	pthread_mutex_lock(&global_ctx_lock);
-	list_for_each(p,&sess->send_list.send_packet_list_head){
+	list_for_each_safe(p,n,&sess->send_list.send_packet_list_head){
 		packet = list_entry(p,SEND_PACKET,list);
-		//by chf:
 		list_del(&packet->list);
 		sess->send_list.total_packet_num--;
 		free_packet( packet );
@@ -1079,8 +1079,8 @@ int start_video_monitor(struct sess_ctx* sess)
 
 exit:
     /* Take down session */
-	free_monitor_packet_queue(sess);
     del_sess(sess);
+	free_monitor_packet_queue(sess);
     take_sess_down(sess);
 	stop_monitor_capture();
 
