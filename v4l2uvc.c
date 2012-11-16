@@ -356,7 +356,8 @@ int uvcGrab(struct vdIn *vd)
 #define HEADERFRAME1 0xaf
 
     static int count_t = 1;
-    static unsigned long time_begin;
+	static int count_last = 1;
+    static unsigned long time_begin, time_current;
     if (count_t == 1)
     {
         time_begin = get_system_time_ms();
@@ -402,6 +403,12 @@ int uvcGrab(struct vdIn *vd)
         break;
     case V4L2_PIX_FMT_YUYV:
 //        printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
+		time_current = get_system_time_ms();
+		if( ( time_current - time_begin ) >= 10 * 1000 ){
+			printf("encode speed = %d\n", ( count_t - count_last )/10 );
+			time_begin = time_current;
+			count_last = count_t;
+		}
 		status = check_monitor_queue_status();
 		if( status != MONITOR_STATUS_NEED_NOTHING ){
 			clear_encode_temp_buffer(); //by chf: after encoding one frame, compressed data are stored in static temp buffer, we should take them later
@@ -409,7 +416,8 @@ int uvcGrab(struct vdIn *vd)
 				printf("after %d p frame, we need an I frame for some reasons\n", count_t-1);
 				MediaRestartFast();
 				//MediaRestart(16*1024*1024, 1280,720);
-				count_t = 1;
+				count_t = count_last = 1;
+				time_begin = time_current = get_system_time_ms();
 			}
 
 			if( -1 != processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 150 * count_t	/*time_stamp*/)){
@@ -740,7 +748,7 @@ static int init_userp(struct vdIn *vd, unsigned int buffer_size)
             return -1;
         }
     }
-    MediaEncodeMain(1024 * 1024 * 16,
+    MediaEncodeMain(1024 * 1024 * 4,
                     vd->width,
                     vd->height);
     return 0;
