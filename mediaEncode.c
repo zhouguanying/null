@@ -22,6 +22,7 @@ T_MEDIALIB_STRUCT mRecLibHandle;
 T_MEDIALIB_REC_OPEN_INPUT rec_open_input;
 T_MEDIALIB_REC_OPEN_OUTPUT rec_open_output;
 
+#if 0
 static data_chunk_t *_encode_buf = NULL;
 static pthread_mutex_t _encode_buf_lock;
 void encode_buffer_lock()
@@ -77,6 +78,8 @@ int get_encode_video_buffer_valid_size(void)
 {
 	return data_chunk_size(_encode_buf);
 }
+
+#endif
 
 #define is_power_of_2(x)	((x) != 0 && (((x) & ((x) - 1)) == 0))
 
@@ -153,7 +156,7 @@ int get_temp_buffer_data(char** buffer, int* size)
 
 T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
 {
-  int ret = size;
+//  int ret = size;
   if( encode_temp_buffer == NULL ){
 		encode_temp_buffer = malloc( 512*1024);
 		encode_temp_buffer[0] = encode_temp_buffer[1] = encode_temp_buffer[2] = 0;
@@ -178,10 +181,10 @@ T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
     //printf("video data size %d, encode buffer size %ld\n", size, data_chunk_size(_encode_buf));
     encode_buffer_unlock();
 #else
-	encode_buffer_lock();
+//	encode_buffer_lock();
 	memcpy( encode_temp_buffer+encode_temp_buf_size, buf, size );
 	encode_temp_buf_size += size;
-	encode_buffer_unlock();
+//	encode_buffer_unlock();
 #endif
   }
   else if(!strncmp("00wb",buf,4))
@@ -357,10 +360,13 @@ int openMedia(T_U32 nvbps, int width, int height)
 
 	debug("MediaLib_Rec_Start ok \n");
 
+#if 0
 	if( _encode_buf == NULL ){
 		_encode_buf = data_chunk_new(1024 * 1024 * 5);
 		pthread_mutex_init(&_encode_buf_lock, NULL);
 	}
+#endif
+
 	return 0;
 	//above only call one time when system start
 }
