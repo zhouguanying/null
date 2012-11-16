@@ -191,7 +191,7 @@ T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
   }
   else
   {
-      printf("other data size %d\n", size);
+//      printf("other data size %d\n", size);
     //ret=fwrite(buf,1, size,headfile);
   }
     

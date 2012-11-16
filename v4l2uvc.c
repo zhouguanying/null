@@ -351,25 +351,9 @@ static picture_info_t p_info =
     {0, 0, 0, 1, 0xc},
 };
 
-static unsigned long begin_t;
-static int _capture_on = 0;
-void start_monitor_capture(void)
-{
-    begin_t = get_system_time_ms();
-    clear_encode_video_buffer();
-    _capture_on = 1;
-}
-
-void stop_monitor_capture(void)
-{
-    _capture_on = 0;
-}
-
 int uvcGrab(struct vdIn *vd)
 {
 #define HEADERFRAME1 0xaf
-    if (!_capture_on)
-        return -1;
 
     static int count_t = 1;
     static unsigned long time_begin;

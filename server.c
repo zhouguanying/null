@@ -825,14 +825,10 @@ int check_monitor_queue_status(void)
 {
 	struct sess_ctx* sess = global_ctx_running_list;
 	int count = 0;
+	int ret;
 
 	if( is_do_update() ){
 		return MONITOR_STATUS_NEED_NOTHING;
-	}
-
-	if( need_I_frame ){
-		need_I_frame = 0;
-		return MONITOR_STATUS_NEED_I_FRAME;
 	}
 
 	//by chf: how many monitor session
@@ -855,6 +851,12 @@ int check_monitor_queue_status(void)
 			}
 			sess = sess->next;
 		}
+		sess->send_list.current_state = PACKET_QUEUE_NORMAL;
+		if( need_I_frame ){
+			need_I_frame = 0;
+			pthread_mutex_unlock(&global_ctx_lock);
+			return MONITOR_STATUS_NEED_I_FRAME;
+		}
 		if( sess->send_list.total_packet_num < MAX_SEND_PACKET_NUM ){
 			pthread_mutex_unlock(&global_ctx_lock);
 			return MONITOR_STATUS_NEED_ANY;
@@ -866,14 +868,55 @@ int check_monitor_queue_status(void)
 		}
 	}
 	else{
-		printf("**********************multi monitor session is not support now***********************************\n");
+		int need_nothing = 0;
+		int need_i_frame = 0;
+		int need_any_frame = 0;
+		SEND_PACKET_LIST_HEAD * send_list;
+		
+		sess = global_ctx_running_list;
+		while( sess!= NULL ){
+			if( sess->session_type == SESSION_TYPE_MONITOR ){
+				send_list = &sess->send_list;
+				if( send_list->current_state == PACKET_QUEUE_NORMAL ){
+					if( send_list->total_packet_num < MAX_SEND_PACKET_NUM ){
+						need_any_frame = 1;
+					}
+					else{
+						need_nothing = 1;
+						send_list->current_state = PACKET_QUEUE_OVERFLOWED;
+					}
+				}
+				else if( send_list->current_state == PACKET_QUEUE_OVERFLOWED ){
+					if( send_list->total_packet_num == 0 ){
+						need_i_frame = 1;
+						send_list->current_state = PACKET_QUEUE_NORMAL;
+					}
+					else{
+						need_nothing = 1;
+					}
+				}
+				else{
+					printf("it's strange finding queue state = downflow\n");
+					need_nothing = 1;
+				}
+			}
+			sess = sess->next;
+		}
+
+		if( need_i_frame || need_I_frame ){
+			need_I_frame = 0;
+			ret = MONITOR_STATUS_NEED_I_FRAME;
+		}
+		else if( need_any_frame ){
+			ret = MONITOR_STATUS_NEED_ANY;
+		}
+		else {
+			ret = MONITOR_STATUS_NEED_NOTHING;
+		}
+
 		pthread_mutex_unlock(&global_ctx_lock);
-		sleep(3);
-		return MONITOR_STATUS_NEED_NOTHING;
+		return ret;
 	}
-	
-	pthread_mutex_unlock(&global_ctx_lock);
-	return MONITOR_STATUS_NEED_ANY;
 }
 
 int write_monitor_packet_queue(char* buf, int size)
@@ -890,24 +933,32 @@ int write_monitor_packet_queue(char* buf, int size)
 	pthread_mutex_lock(&global_ctx_lock);//by chf: because we are writing into all monitor queue, so we use global lock instead of private lock
 	while( sess != NULL ){
 		if( sess->session_type == SESSION_TYPE_MONITOR ){
-			if( sess->send_list.total_packet_num < MAX_SEND_PACKET_NUM && sess->send_list.current_state == PACKET_QUEUE_NORMAL ){
-				SEND_PACKET* packet = malloc(sizeof(SEND_PACKET));
-				if( packet == NULL ){
-					printf("no buffer for send packet\n");
-					ret  = -1;
-					goto err_exit;
+			if( sess->send_list.total_packet_num < MAX_SEND_PACKET_NUM ){
+				if( sess->send_list.current_state == PACKET_QUEUE_NORMAL ){
+					SEND_PACKET* packet = malloc(sizeof(SEND_PACKET));
+					if( packet == NULL ){
+						printf("no buffer for send packet\n");
+						ret  = -1;
+						goto err_exit;
+					}
+					if( (packet->date_buf = malloc( size ) ) == NULL ){
+						printf("no buffer for send packet data\n");
+						ret  = -1;
+						goto err_exit;
+					}
+					memcpy( packet->date_buf, buf, size );
+					packet->size = size;
+					list_add_tail(&packet->list,&sess->send_list.send_packet_list_head);
+					sess->send_list.total_packet_num++;
 				}
-				if( (packet->date_buf = malloc( size ) ) == NULL ){
-					printf("no buffer for send packet data\n");
-					ret  = -1;
-					goto err_exit;
+				else if( sess->send_list.current_state == PACKET_QUEUE_OVERFLOWED ){
+					//printf("meet a session packet queue overflowed yet\n");
 				}
-				memcpy( packet->date_buf, buf, size );
-				packet->size = size;
-				list_add_tail(&packet->list,&sess->send_list.send_packet_list_head);
-				sess->send_list.total_packet_num++;
+				else{
+					printf("it's strange to meet downflow queue\n");
+				}
 			}
-			else if(sess->send_list.total_packet_num >= MAX_SEND_PACKET_NUM){
+			else{	//for sess->send_list.total_packet_num >= MAX_SEND_PACKET_NUM
 				sess->send_list.current_state = PACKET_QUEUE_OVERFLOWED;
 				printf("meet a session packet queue overflow\n");
 			}
@@ -1013,10 +1064,11 @@ int start_video_monitor(struct sess_ctx* sess)
             goto exit;
         }
     }
-
+	
+    pthread_mutex_lock(&global_ctx_lock);
 	need_I_frame = 1;
+    pthread_mutex_unlock(&global_ctx_lock);
 
-	start_monitor_capture();
     attempts = 0;
     int const send_stride = 16 * 1024;
 
@@ -1064,8 +1116,7 @@ int start_video_monitor(struct sess_ctx* sess)
                     dbg("attempts send data now = %d\n", attempts);
                     continue;
                 }
-                printf("sent data error,the connection may currupt!\n");
-                printf("ret==%d\n", ret);
+                printf("sent data error,the connection may currupt,ret = %d!\n",ret);
                 free_packet( packet );
                 goto exit;
             }
@@ -1082,7 +1133,6 @@ exit:
     del_sess(sess);
 	free_monitor_packet_queue(sess);
     take_sess_down(sess);
-	stop_monitor_capture();
 
     return 0;
 }
