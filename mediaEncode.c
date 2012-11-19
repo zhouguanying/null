@@ -22,7 +22,8 @@ T_MEDIALIB_STRUCT mRecLibHandle;
 T_MEDIALIB_REC_OPEN_INPUT rec_open_input;
 T_MEDIALIB_REC_OPEN_OUTPUT rec_open_output;
 
-static data_chunk_t *_encode_buf;
+#if 0
+static data_chunk_t *_encode_buf = NULL;
 static pthread_mutex_t _encode_buf_lock;
 void encode_buffer_lock()
 {
@@ -55,6 +56,30 @@ int get_encode_video_buffer(unsigned char *buffer, int size)
 
     return ret;
 }
+
+int write_encode_video_buffer(unsigned char *buffer, int size)
+{
+	int ret = 0;
+
+    encode_buffer_lock();
+	if (data_chunk_freespace(_encode_buf) >= size)
+	{
+		data_chunk_pushback(_encode_buf, buffer, size);
+	}
+	else{
+		ret = -1;
+	}
+	encode_buffer_unlock();
+
+    return ret;
+}
+
+int get_encode_video_buffer_valid_size(void)
+{
+	return data_chunk_size(_encode_buf);
+}
+
+#endif
 
 #define is_power_of_2(x)	((x) != 0 && (((x) & ((x) - 1)) == 0))
 
@@ -107,13 +132,41 @@ T_S32 ak_rec_cb_fread(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
 	return fread(buf, 1, size, headfile);
 }
 
+static int encode_temp_buf_size = 5;
+static char* encode_temp_buffer = NULL;
+
+void clear_encode_temp_buffer()
+{
+	encode_temp_buf_size = 5;
+	if( encode_temp_buffer == NULL ){
+		  encode_temp_buffer = malloc( 512*1024);
+		  encode_temp_buffer[0] = encode_temp_buffer[1] = encode_temp_buffer[2] = 0;
+		  encode_temp_buffer[3] = 1; encode_temp_buffer[4] = 0xc;
+	}
+}
+
+int get_temp_buffer_data(char** buffer, int* size)
+{
+	if( encode_temp_buffer == NULL )
+		return -1;
+	*buffer = encode_temp_buffer;
+	*size = encode_temp_buf_size;
+	return 0;
+}
+
 T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
 {
-  int ret = size;
+//  int ret = size;
+  if( encode_temp_buffer == NULL ){
+		encode_temp_buffer = malloc( 512*1024);
+		encode_temp_buffer[0] = encode_temp_buffer[1] = encode_temp_buffer[2] = 0;
+		encode_temp_buffer[3] = 1; encode_temp_buffer[4] = 0xc;
+  }
   
   if(!strncmp("00dc",buf,4))
   {
     //ret=fwrite(buf+8,1, size,videofile);
+#if 0
     encode_buffer_lock();
     unsigned char *p = (unsigned char *)buf;
     //data_chunk_pushback(_encode_buf, buf + 8, size - 8);
@@ -122,10 +175,17 @@ T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
     p[5] = 0;
     p[6] = 1;
     p[7] = 0x0c;
-    data_chunk_pushback(_encode_buf, buf + 3, size - 3 + 8);
-    printf("pushback %ld size buffer size %ld\n", size, _encode_buf->data_size);
+    data_chunk_pushback(_encode_buf, buf + 8 - 5, size + 5 - 8);
+    //printf("pushback %ld size buffer size %ld\n", size, _encode_buf->data_size);
+	//printf(" encode type: %x, %x, %x, %x, %x, %x, %x\n",p[8],p[9],p[10],p[11],p[12],p[13],p[14] );
     //printf("video data size %d, encode buffer size %ld\n", size, data_chunk_size(_encode_buf));
     encode_buffer_unlock();
+#else
+//	encode_buffer_lock();
+	memcpy( encode_temp_buffer+encode_temp_buf_size, buf, size );
+	encode_temp_buf_size += size;
+//	encode_buffer_unlock();
+#endif
   }
   else if(!strncmp("00wb",buf,4))
   {
@@ -134,7 +194,7 @@ T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
   }
   else
   {
-      printf("other data size %d\n", size);
+//      printf("other data size %d\n", size);
     //ret=fwrite(buf,1, size,headfile);
   }
     
@@ -229,7 +289,7 @@ int openMedia(T_U32 nvbps, int width, int height)
 	rec_open_input.m_VideoRecInfo.m_nWidth				= width;
 	rec_open_input.m_VideoRecInfo.m_nHeight				= height;
 	rec_open_input.m_VideoRecInfo.m_nFPS				= 10;
-	rec_open_input.m_VideoRecInfo.m_nKeyframeInterval	= 15;//(mVideoFrameRate<<1) -1;
+	rec_open_input.m_VideoRecInfo.m_nKeyframeInterval	= 100;//(mVideoFrameRate<<1) -1;
 	rec_open_input.m_VideoRecInfo.m_nvbps				= nvbps;//mVideoBitRate;
 	rec_open_input.m_VideoRecInfo.m_eVideoType			= MEDIALIB_V_ENC_H263;  //MEDIALIB_V_ENC_MPEG;
 	rec_open_input.m_ExFunEnc							= NULL;//set mjpeg encode function
@@ -299,9 +359,14 @@ int openMedia(T_U32 nvbps, int width, int height)
 	}
 
 	debug("MediaLib_Rec_Start ok \n");
-	
-    _encode_buf = data_chunk_new(1024 * 1024 * 5);
-    pthread_mutex_init(&_encode_buf_lock, NULL);
+
+#if 0
+	if( _encode_buf == NULL ){
+		_encode_buf = data_chunk_new(1024 * 1024 * 5);
+		pthread_mutex_init(&_encode_buf_lock, NULL);
+	}
+#endif
+
 	return 0;
 	//above only call one time when system start
 }
@@ -336,11 +401,44 @@ int MediaDestroy()
 	MediaLib_Destroy();	
 
 	closeFile();
-    data_chunk_free(_encode_buf);
-    _encode_buf = NULL;
-    pthread_mutex_destroy(&_encode_buf_lock);
+//    data_chunk_free(_encode_buf);
+ //   _encode_buf = NULL;
+ //   pthread_mutex_destroy(&_encode_buf_lock);
 
 	return 1;
+}
+
+int MediaRestart(unsigned int nvbps, int w, int h)
+{
+	int ret;
+	ret = MediaDestroy(mRecLibHandle);
+	if( ret == -1 ){
+		printf("MediaDestroy failed\n");
+		return -1;
+	}
+	ret = MediaEncodeMain(nvbps,w,h);
+	if( ret == -1 ){
+		printf("MediaEncodeMain failed\n");
+		return -1;
+	}
+	return 0;
+}
+
+//don't change the record parameters, so restart faster
+int MediaRestartFast()
+{
+	T_BOOL ret;
+	ret = MediaLib_Rec_Stop(mRecLibHandle);
+	if( ret == AK_FALSE ){
+		printf("MediaLib_Rec_Stop failed\n");
+		return -1;
+	}
+	ret = MediaLib_Rec_Restart(mRecLibHandle, 0, MEDIALIB_REC_EV_NORMAL);
+	if( ret == AK_FALSE ){
+		printf("MediaLib_Rec_Restart failed\n");
+		return -1;
+	}
+	return 0;
 }
 
 int processVideoData(T_U8* dataPtr, int datasize, int32_t timeStamp)

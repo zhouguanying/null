@@ -37,6 +37,14 @@ int processAudioData(T_U8* dataPtr, int datasize);
 unsigned long get_system_time_ms(void);
 int MediaEncodeMain(T_U32 nvbps, int w, int h);
 int get_encode_video_buffer(unsigned char *buffer, int size);
+int write_encode_video_buffer(unsigned char *buffer, int size);
 void clear_encode_video_buffer(void);
+int get_encode_video_buffer_valid_size(void);
+int MediaRestart(unsigned int nvbps, int w, int h);
+int MediaRestartFast(void);
+
+//by chf: temp_buffer store the encoded-one-frame-date at once. should be clear before encoding every time.
+void clear_encode_temp_buffer(void);
+int get_temp_buffer_data(char** buffer, int* size);
 
 #endif

@@ -1,7 +1,7 @@
 #include <linux/videodev2.h>
 #include "cli.h"
 
-#define NB_BUFFER 8
+#define NB_BUFFER 4
 #define DHT_SIZE 420
 
 #if defined IPED_233
@@ -46,8 +46,7 @@ struct vdIn
 
 };
 
-int
-init_videoIn(struct vdIn *vd, char *device, int width, int height,
+int init_videoIn(struct vdIn *vd, char *device, int width, int height,
              int format, int grabmethod);
 int uvcGrab(struct vdIn *vd);
 int close_v4l2(struct vdIn *vd);

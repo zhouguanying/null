@@ -24,6 +24,10 @@ static int debug = 0;
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 #define DEV_NAME      "/dev/video0"
+
+#define VIDEO_BUFFER_BLOCK_SIZE 100*1024
+#define CAMERA_FRAME_RATE		25
+
 static void  *lock;
 static int init_device(struct vdIn *vd);
 static void uninit_device(struct vdIn *vd);
@@ -347,25 +351,9 @@ static picture_info_t p_info =
     {0, 0, 0, 1, 0xc},
 };
 
-static unsigned long begin_t;
-static int _capture_on = 0;
-void start_monitor_capture(void)
-{
-    begin_t = get_system_time_ms();
-    clear_encode_video_buffer();
-    _capture_on = 1;
-}
-
-void stop_monitor_capture(void)
-{
-    _capture_on = 0;
-}
-
 int uvcGrab(struct vdIn *vd)
 {
 #define HEADERFRAME1 0xaf
-    if (!_capture_on)
-        return -1;
 
     static int count_t = 1;
     static unsigned long time_begin;
@@ -383,6 +371,7 @@ int uvcGrab(struct vdIn *vd)
 #endif
     int ret;
     char *time;
+	int status;
     if (!vd->isstreaming)
         if (video_enable(vd))
             goto err;
@@ -413,9 +402,39 @@ int uvcGrab(struct vdIn *vd)
         break;
     case V4L2_PIX_FMT_YUYV:
 //        printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
-        processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 150 * count_t  /*time_stamp*/);
-        //printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time_begin);
-        count_t++;
+		status = check_monitor_queue_status();
+		if( status != MONITOR_STATUS_NEED_NOTHING ){
+			clear_encode_temp_buffer(); //by chf: after encoding one frame, compressed data are stored in static temp buffer, we should take them later
+			if( status == MONITOR_STATUS_NEED_I_FRAME || count_t  >= 10000 ){
+				printf("after %d p frame, we need an I frame for some reasons\n", count_t-1);
+				MediaRestartFast();
+				//MediaRestart(16*1024*1024, 1280,720);
+				count_t = 1;
+			}
+
+			if( -1 != processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 150 * count_t	/*time_stamp*/)){
+				//printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time_begin);
+				char* buffer;
+				int size;
+				if( -1 != get_temp_buffer_data(&buffer,&size) ){
+					if( write_monitor_packet_queue(buffer,size) == 0 ){
+						count_t++;
+					}
+					else{
+						printf("so strange, write_monitor_packet_queue error, what happened?????\n");
+					}
+				}
+				else{
+					printf("get temp buffer data error, so strange\n");
+				}
+			}
+			else{
+				printf("encode error\n");
+			}
+		}
+		else{
+			usleep(1000 / CAMERA_FRAME_RATE *1000);	//by chf: we have to sleep 1000/fps ms, to wait for next frame 
+		}
 		//printf("####### get capture :size %u framesize %u pointer %p\n",
 							//vd->buf.bytesused, vd->framesizeIn, vd->mem[vd->buf.index]);
 #if 0

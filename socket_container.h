@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 #include <sys/time.h>
-#include "server.h"
+//#include "server.h"
 
 enum  SOCKET_TYPE_T  {
     TCP_SOCKET = 0, UDT_SOCKET , UDP_SOCKET , NON_SOCKET
