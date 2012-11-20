@@ -236,9 +236,9 @@ T_BOOL ak_rec_cb_lnx_delay(T_U32 ticks)
 
 int openFile()
 {
-  headfile = fopen("head.bin","wb");
-	videofile = fopen("video.bin","wb");
-  audiofile = fopen("audio.bin","wb");
+  headfile = fopen("/tmp/head.bin","wb");
+	videofile = fopen("/tmp/video.bin","wb");
+  audiofile = fopen("/tmp/audio.bin","wb");
 	return 0;
 }
 
