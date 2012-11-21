@@ -398,10 +398,15 @@ error1:
 
 static void sig_handler(int signum)
 {
-    if (signum == SIGINT || signum == SIGIO)
-        exit(-1);
+    if (signum == SIGINT || signum == SIGIO || signum == SIGSEGV){
+		printf("SIGINT or SIGIO or SIGSEGV: %d,exit\n", signum);
+		exit(-1);
+	}
     else if (signum == SIGPIPE)
-        dbg("SIGPIPE\n");
+        printf("SIGPIPE\n");
+	else{
+		printf("signal = %d\n", signum );
+	}
 }
 
 struct vdIn *vdin_camera = NULL;
@@ -1316,7 +1321,8 @@ int start_video_record(struct sess_ctx* sess)
         if (i == SIGIO || i == SIGINT)
             sigset(i, sig_handler);
         else
-            sigignore(i);
+            //sigignore(i);
+            sigset(i, sig_handler);
     }
     pthread_mutex_init(&ignore_pic_lock , NULL);
     memset(nand_shm_file_end_head , 0xFF , 512);

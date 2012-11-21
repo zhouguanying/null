@@ -194,8 +194,8 @@ T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
   }
   else
   {
-//      printf("other data size %d\n", size);
-    //ret=fwrite(buf,1, size,headfile);
+    //printf("other data size %d\n", size);
+    size = fwrite(buf,1, size,headfile);
   }
     
 	return size;
@@ -236,17 +236,26 @@ T_BOOL ak_rec_cb_lnx_delay(T_U32 ticks)
 
 int openFile()
 {
-  headfile = fopen("/tmp/head.bin","wb");
+	headfile = fopen("/tmp/head.bin","wb");
 	videofile = fopen("/tmp/video.bin","wb");
-  audiofile = fopen("/tmp/audio.bin","wb");
+	audiofile = fopen("/tmp/audio.bin","wb");
 	return 0;
 }
 
 int closeFile()
 {
-  headfile = fclose(headfile);
-	videofile = fclose(videofile);
-  audiofile = fclose(audiofile);
+	if( headfile ){
+		fclose(headfile);
+		headfile = NULL;
+	}
+	if( videofile ){
+		fclose(videofile);
+		videofile = NULL;
+	}
+	if( audiofile ){
+		fclose(audiofile);
+		audiofile = NULL;
+	}
 	return 0;
 }
 

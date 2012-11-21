@@ -414,8 +414,12 @@ int uvcGrab(struct vdIn *vd)
 			clear_encode_temp_buffer(); //by chf: after encoding one frame, compressed data are stored in static temp buffer, we should take them later
 			if( status == MONITOR_STATUS_NEED_I_FRAME || count_t  >= 10000 ){
 				printf("after %d p frame, we need an I frame for some reasons\n", count_t-1);
-				MediaRestartFast();
-				//MediaRestart(16*1024*1024, 1280,720);
+				if( status == MONITOR_STATUS_NEED_I_FRAME ){
+					MediaRestartFast();
+				}
+				else{
+					MediaRestart(16*1024*1024, 1280,720);
+				}
 				count_t = count_last = 1;
 				time_begin = time_current = get_system_time_ms();
 			}
