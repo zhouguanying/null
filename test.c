@@ -1370,6 +1370,7 @@ read_config:
                 strncmp(threadcfg.inet_mode , "inteligent", 10) != 0)
             sprintf(threadcfg.inet_mode, "eth_only");
 
+#ifndef IPED_98
         if (strncmp(threadcfg.monitor_mode , "inteligent", 10) == 0)
         {
             if (strncmp(threadcfg.inet_mode , "wlan_only", 9) == 0)
@@ -1377,6 +1378,10 @@ read_config:
             else
                 threadcfg.framerate = 25;
         }
+#else
+		threadcfg.framerate = 10;
+		threadcfg.bitrate = 1000*1000*2;
+#endif
 
         init_sleep_time();
 

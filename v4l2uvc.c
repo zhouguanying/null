@@ -26,7 +26,7 @@ static int debug = 0;
 #define DEV_NAME      "/dev/video0"
 
 #define VIDEO_BUFFER_BLOCK_SIZE 100*1024
-#define CAMERA_FRAME_RATE		25
+#define CAMERA_REAL_FRAME_RATE		25
 
 static void  *lock;
 static int init_device(struct vdIn *vd);
@@ -355,10 +355,11 @@ int uvcGrab(struct vdIn *vd)
 {
 #define HEADERFRAME1 0xaf
 
-    static int count_t = 1;
-	static int count_last = 1;
-    static unsigned long time_begin, time_current;
-    if (count_t == 1)
+    static int count_t = 0;
+	static int count_last = 0;
+    static unsigned long time_begin, time_current, time_last = 0;
+	int frame_interval = ( 1000-100 ) / threadcfg.framerate;
+    if (count_t == 0)
     {
         time_begin = get_system_time_ms();
     }
@@ -410,25 +411,28 @@ int uvcGrab(struct vdIn *vd)
 			count_last = count_t;
 		}
 		status = check_monitor_queue_status();
-		if( status != MONITOR_STATUS_NEED_NOTHING ){
+		if( status != MONITOR_STATUS_NEED_NOTHING && ( time_current - time_last >= frame_interval ) ){
+			time_last = time_current;
 			clear_encode_temp_buffer(); //by chf: after encoding one frame, compressed data are stored in static temp buffer, we should take them later
 			if( status == MONITOR_STATUS_NEED_I_FRAME || count_t  >= 10000 ){
-				printf("after %d p frame, we need an I frame for some reasons\n", count_t-1);
+				printf("after %d p frame, we need an I frame for some reasons\n", count_t);
 				if( status == MONITOR_STATUS_NEED_I_FRAME ){
 					MediaRestartFast();
 				}
 				else{
-					MediaRestart(16*1024*1024, 1280,720);
+					MediaRestart(threadcfg.bitrate, 1280,720);
+					//MediaRestartFast();
 				}
-				count_t = count_last = 1;
+				count_t = count_last = 0;
 				time_begin = time_current = get_system_time_ms();
 			}
 
-			if( -1 != processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 150 * count_t	/*time_stamp*/)){
+			if( -1 != processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 100 * count_t	/*time_stamp*/)){
 				//printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time_begin);
 				char* buffer;
 				int size;
 				if( -1 != get_temp_buffer_data(&buffer,&size) ){
+					printf("get a frame,count = %d, size=%d\n",count_t, size);
 					if( write_monitor_packet_queue(buffer,size) == 0 ){
 						count_t++;
 					}
@@ -445,7 +449,7 @@ int uvcGrab(struct vdIn *vd)
 			}
 		}
 		else{
-			usleep(1000 / CAMERA_FRAME_RATE *1000);	//by chf: we have to sleep 1000/fps ms, to wait for next frame 
+			usleep(1000 / CAMERA_REAL_FRAME_RATE *1000);	//by chf: we have to sleep 1000/fps ms, to wait for next frame 
 		}
 		//printf("####### get capture :size %u framesize %u pointer %p\n",
 							//vd->buf.bytesused, vd->framesizeIn, vd->mem[vd->buf.index]);
@@ -752,7 +756,7 @@ static int init_userp(struct vdIn *vd, unsigned int buffer_size)
             return -1;
         }
     }
-    MediaEncodeMain(1024 * 1024 * 4,
+    MediaEncodeMain(threadcfg.bitrate,
                     vd->width,
                     vd->height);
     return 0;
@@ -764,6 +768,9 @@ static int init_device(struct vdIn *vd)
 	struct v4l2_cropcap cropcap;
 	struct v4l2_crop crop;
 	struct v4l2_format fmt;
+	struct v4l2_control m_ctrl; 
+	struct v4l2_streamparm parm;
+
 	unsigned int min;
     int camera = vd->fd;
 
@@ -825,7 +832,29 @@ static int init_device(struct vdIn *vd)
     fmt.fmt.pix.bytesperline = fmt.fmt.pix.width * 2;
   	min = fmt.fmt.pix.bytesperline * fmt.fmt.pix.height;
     printf("fmt.fmt.pix.bytesperline = %d\n", fmt.fmt.pix.bytesperline);
-	
+
+	/*set parm*/
+	CLEAR(parm);
+	parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	parm.parm.capture.timeperframe.numerator = 1; 
+	parm.parm.capture.timeperframe.denominator = 10; 
+	parm.parm.capture.capturemode = 0; 
+	if (-1 == xioctl(camera, VIDIOC_S_PARM, &parm))
+		printf("xioctl(fd, VIDIOC_S_PARM, &parm) failed\n");
+
+#if 0
+	/*set control parm*/		
+	m_ctrl.id = V4L2_CID_BRIGHTNESS;
+	m_ctrl.value = 100;
+	if (-1 == xioctl(camera, VIDIOC_S_CTRL, &m_ctrl))
+		printf("xioctl(fd, VIDIOC_S_CTRL, &parm) failed\n");
+		
+	m_ctrl.id = V4L2_CID_CONTRAST;
+	m_ctrl.value = 21;
+	if (-1 == xioctl(camera, VIDIOC_S_CTRL, &m_ctrl))
+		printf("xioctl(fd, VIDIOC_S_CTRL, &parm) failed\n");
+#endif
+
     fmt.fmt.pix.sizeimage = fmt.fmt.pix.bytesperline * fmt.fmt.pix.height;
 	fmt.fmt.pix.sizeimage += 8192;
 	fmt.fmt.pix.sizeimage = fmt.fmt.pix.sizeimage & (~(0xFFF));
