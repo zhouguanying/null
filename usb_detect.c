@@ -37,6 +37,8 @@ int ioctl_usbdet_read(void)
 {
     int    ret;
 
+	return 0;
+
     if (-1 == fd)
     {
         if (open_usbdet())
