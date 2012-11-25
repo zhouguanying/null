@@ -845,3 +845,8 @@ static void uninit_device(struct vdIn *vd)
 	akuio_unlock(lock);
 }
 
+int close_video_device()
+{
+	return close_v4l2(vdin_camera);	
+}
+

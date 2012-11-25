@@ -400,6 +400,7 @@ static void sig_handler(int signum)
 {
     if (signum == SIGINT || signum == SIGIO || signum == SIGSEGV){
 		printf("SIGINT or SIGIO or SIGSEGV: %d,exit\n", signum);
+		close_video_device();
 		exit(-1);
 	}
     else if (signum == SIGPIPE)
