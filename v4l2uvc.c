@@ -12,6 +12,7 @@
 #include "log_dbg.h"
 #include "mediaEncode.h"
 #include "audio_record.h"
+#include "video_stream_lib.h"
 
 #if defined IPED_98
 #include <akuio/akuio.h>
@@ -417,17 +418,18 @@ int uvcGrab(struct vdIn *vd)
 			if( status == MONITOR_STATUS_NEED_I_FRAME || count_t  >= 10000 ){
 				printf("after %d p frame, we need an I frame for some reasons\n", count_t);
 				if( status == MONITOR_STATUS_NEED_I_FRAME ){
-					MediaRestartFast();
+					//MediaRestartFast();
 				}
 				else{
-					MediaRestart(threadcfg.bitrate, 1280,720);
+					//MediaRestart(threadcfg.bitrate, 1280,720);
 					//MediaRestartFast();
 				}
 				count_t = count_last = 0;
 				time_begin = time_current = get_system_time_ms();
 			}
 
-			if( -1 != processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 100 * count_t	/*time_stamp*/)){
+//			if( -1 != processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 100 * count_t	/*time_stamp*/)){
+			if(-1 != encode_main((void *)vd->buf.m.userptr, vd->buf.bytesused)){
 				//printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time_begin);
 				char* buffer;
 				int size;

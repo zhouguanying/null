@@ -4,6 +4,7 @@
 #include "log_dbg.h"
 #include "data_chunk.h"
 #include <pthread.h>
+#include "video_stream_lib.h"
 
 #ifdef DEBUG
 #define printd printf
@@ -139,7 +140,7 @@ void clear_encode_temp_buffer()
 {
 	encode_temp_buf_size = 5;
 	if( encode_temp_buffer == NULL ){
-		  encode_temp_buffer = malloc( 512*1024);
+		  encode_temp_buffer = akuio_alloc_pmem( 512*1024);
 		  encode_temp_buffer[0] = encode_temp_buffer[1] = encode_temp_buffer[2] = 0;
 		  encode_temp_buffer[3] = 1; encode_temp_buffer[4] = 0xc;
 	}
@@ -158,7 +159,7 @@ T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
 {
 //  int ret = size;
   if( encode_temp_buffer == NULL ){
-		encode_temp_buffer = malloc( 512*1024);
+		encode_temp_buffer = akuio_alloc_pmem( 512*1024);
 		encode_temp_buffer[0] = encode_temp_buffer[1] = encode_temp_buffer[2] = 0;
 		encode_temp_buffer[3] = 1; encode_temp_buffer[4] = 0xc;
   }
@@ -267,8 +268,56 @@ void init_cb_func_init(T_MEDIALIB_INIT_CB* pInit_cb)
   	pInit_cb->m_FunReleaseResource = NULL;
 }
 
+static T_pVOID g_hVS;
+static T_VIDEOLIB_ENC_OPEN_INPUT open_input;
+static T_VIDEOLIB_ENC_IO_PAR video_enc_io_param;
+
 int openMedia(T_U32 nvbps, int width, int height)
 {
+  	T_MEDIALIB_INIT_CB init_cb;
+  	T_MEDIALIB_INIT_INPUT init_input;
+
+	init_cb_func_init(&init_cb);
+	init_input.m_ChipType = MEDIALIB_CHIP_AK9801;
+	init_input.m_AudioI2S = I2S_UNUSE;
+
+	if (MediaLib_Init(&init_input, &init_cb) == AK_FALSE){
+		printf("unable to init MediaLib\n");
+		return -1;
+	}
+
+	printf("init MediaLib ok \n");
+
+	memset(&open_input, 0, sizeof(T_VIDEOLIB_ENC_OPEN_INPUT));
+
+	open_input.m_VideoType = VIDEO_DRV_MPEG;
+	open_input.m_ulWidth = width;
+	open_input.m_ulHeight = height;
+	open_input.m_ulMaxVideoSize = (((open_input.m_ulWidth*open_input.m_ulHeight>>1)+511)/512)*512;
+	
+	open_input.m_CBFunc.m_FunPrintf = (MEDIALIB_CALLBACK_FUN_PRINTF)printf;
+	open_input.m_CBFunc.m_FunMalloc = (MEDIALIB_CALLBACK_FUN_MALLOC)malloc;
+	open_input.m_CBFunc.m_FunFree = (MEDIALIB_CALLBACK_FUN_FREE)free;
+	open_input.m_CBFunc.m_FunMMUInvalidateDCache = NULL;
+	open_input.m_CBFunc.m_FunCleanInvalidateDcache = NULL;
+
+	open_input.m_CBFunc.m_FunDMAMalloc             = (MEDIALIB_CALLBACK_FUN_DMA_MALLOC)akuio_alloc_pmem;
+  	open_input.m_CBFunc.m_FunDMAFree               = (MEDIALIB_CALLBACK_FUN_DMA_FREE)akuio_free_pmem;
+  	open_input.m_CBFunc.m_FunVaddrToPaddr          = (MEDIALIB_CALLBACK_FUN_VADDR_TO_PADDR)akuio_vaddr2paddr;
+  	open_input.m_CBFunc.m_FunMapAddr               = (MEDIALIB_CALLBACK_FUN_MAP_ADDR)akuio_map_regs;
+  	open_input.m_CBFunc.m_FunUnmapAddr             = (MEDIALIB_CALLBACK_FUN_UNMAP_ADDR)akuio_unmap_regs;
+  	open_input.m_CBFunc.m_FunRegBitsWrite          = (MEDIALIB_CALLBACK_FUN_REG_BITS_WRITE)akuio_sysreg_write;
+	open_input.m_CBFunc.m_FunVideoHWLock           = NULL;
+	open_input.m_CBFunc.m_FunVideoHWUnlock         = NULL;
+	
+	g_hVS = VideoStream_Enc_Open(&open_input);
+	if (AK_NULL == g_hVS)
+	{
+		return -1;
+	}
+
+	return 0;
+#if 0
   	T_MEDIALIB_INIT_CB init_cb;
   	T_MEDIALIB_INIT_INPUT init_input;
 
@@ -369,15 +418,31 @@ int openMedia(T_U32 nvbps, int width, int height)
 
 	debug("MediaLib_Rec_Start ok \n");
 
-#if 0
-	if( _encode_buf == NULL ){
-		_encode_buf = data_chunk_new(1024 * 1024 * 5);
-		pthread_mutex_init(&_encode_buf_lock, NULL);
-	}
 #endif
 
 	return 0;
 	//above only call one time when system start
+}
+
+int encode_main(char* yuv_buf, int size)
+{
+	static int count = 0;
+	int encode_size;
+	video_enc_io_param.p_curr_data = yuv_buf;
+	video_enc_io_param.p_vlc_data = (char*)((encode_temp_buffer+32));
+	video_enc_io_param.QP = 5;
+	if( count % 100 == 0 ){
+		video_enc_io_param.mode = 0;
+	}
+	else{
+		video_enc_io_param.mode = 1;
+	}
+	video_enc_io_param.bInsertP = AK_FALSE;
+	encode_size = VideoStream_Enc_Encode(g_hVS, &video_enc_io_param);
+	encode_temp_buf_size = 32;
+	encode_temp_buf_size += encode_size;
+	count++;
+	return encode_temp_buf_size;
 }
 
 int MediaEncodeMain(T_U32 nvbps, int w, int h)
@@ -385,7 +450,7 @@ int MediaEncodeMain(T_U32 nvbps, int w, int h)
 	openFile();
 
 	if (-1 == openMedia(nvbps, w, h)) {
-		printf("Failed to openMedia()\n");
+		printf("-----------------------------------------------------Failed to openMedia()\n");
 		return -1;
 	}
 

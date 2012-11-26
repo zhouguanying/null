@@ -1,9 +1,10 @@
 CC  = $(CROSS_COMPILE)gcc
 CXX = $(CROSS_COMPILE)g++
 
-CFLAGS  += -Wall -c -mcpu=arm926ej-s -O2 -I. -I./include -I../udt4/app -DIPED_98 -I./akmedialib/include/
+CFLAGS  += -Wall -c -mcpu=arm926ej-s -O2 -I. -I./include -I../udt4/app -DIPED_98 -I./akmedialib/include/ -I./akmedialib/include/akmedialib
 LDFLAGS += -L./alsa/lib/ -L./lib -lpthread -lasound -ludt -lstdc++ -lm -lspeexdsp \
-		   -L./akmedialib/lib/ -lakuio  -lakvideocodec -lakaudiocodec -lasound -lakmedialib -lak2dsys
+		   -L./akmedialib/lib/ -lakuio  -lakvideocodec -lakaudiocodec -lasound -lakmedialib -lak2dsys \
+		   -lakuio -lakimage
 
 SRC  = $(wildcard *.c)
 SRC += fatty.c 
