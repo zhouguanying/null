@@ -6,8 +6,6 @@
 #include <pthread.h>
 #include "video_stream_lib.h"
 
-#define DEBUG 1
-
 #ifdef DEBUG
 #define printd printf
 #else
@@ -276,6 +274,7 @@ static T_VIDEOLIB_ENC_IO_PAR video_enc_io_param;
 
 int openMedia(T_U32 nvbps, int width, int height)
 {
+#if !ENCODE_USING_MEDIA_LIB
   	T_MEDIALIB_INIT_CB init_cb;
   	T_MEDIALIB_INIT_INPUT init_input;
 
@@ -319,7 +318,7 @@ int openMedia(T_U32 nvbps, int width, int height)
 	}
 
 	return 0;
-#if 0
+#else
   	T_MEDIALIB_INIT_CB init_cb;
   	T_MEDIALIB_INIT_INPUT init_input;
 

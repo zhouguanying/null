@@ -364,7 +364,6 @@ int uvcGrab(struct vdIn *vd)
     static unsigned long time_begin, time_current, time_last = 0;
 	int frame_interval = ( 1000-100 ) / threadcfg.framerate;
 	int time1;
-	static int time2 = 0;
     if (count_t == 0)
     {
         time_begin = get_system_time_ms();
@@ -414,10 +413,9 @@ int uvcGrab(struct vdIn *vd)
 //        printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
 		time_current = get_system_time_ms();
 		if( ( time_current - time_begin ) >= 10 * 1000 ){
-			printf("encode speed = %d, total_time=%d\n", ( count_t - count_last )/10,time2 );
+			printf("encode speed = %d\n", ( count_t - count_last )/10 );
 			time_begin = time_current;
 			count_last = count_t;
-			time2 = 0;
 		}
 		status = check_monitor_queue_status();
 		if( status != MONITOR_STATUS_NEED_NOTHING && ( time_current - time_last >= frame_interval ) ){
@@ -436,21 +434,24 @@ int uvcGrab(struct vdIn *vd)
 				time_begin = time_current = get_system_time_ms();
 			}
 
-//			if( -1 != processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 100 * count_t	/*time_stamp*/)){
-			time1 = get_system_time_ms();
-			if(-1 != encode_main((void *)vd->buf.m.userptr, vd->buf.bytesused)){
-				time2+= get_system_time_ms() - time1;
-				printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time1);
+			//time1 = get_system_time_ms();
+#if ENCODE_USING_MEDIA_LIB
+			if( -1 != processVideoData((void *)vd->buf.m.userptr, vd->buf.bytesused, 100 * count_t	/*time_stamp*/))
+#else
+			if(-1 != encode_main((void *)vd->buf.m.userptr, vd->buf.bytesused))
+#endif
+			{
+				//printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time1);
 				char* buffer;
 				int size;
 				if( -1 != get_temp_buffer_data(&buffer,&size) ){
 					printf("get a frame,count = %d, size=%d\n",count_t, size);
-				//	if( write_monitor_packet_queue(buffer,size) == 0 ){
+					if( write_monitor_packet_queue(buffer,size) == 0 ){
 						count_t++;
-					//}
-					//else{
-				//		printf("so strange, write_monitor_packet_queue error, what happened?????\n");
-				//	}
+					}
+					else{
+						printf("so strange, write_monitor_packet_queue error, what happened?????\n");
+					}
 				}
 				else{
 					printf("get temp buffer data error, so strange\n");
@@ -461,7 +462,7 @@ int uvcGrab(struct vdIn *vd)
 			}
 		}
 		else{
-			usleep(1000 / CAMERA_REAL_FRAME_RATE *1000);	//by chf: we have to sleep 1000/fps ms, to wait for next frame 
+			usleep(10);	//by chf: sleep a little, for next frame arrive 
 		}
 		//printf("####### get capture :size %u framesize %u pointer %p\n",
 							//vd->buf.bytesused, vd->framesizeIn, vd->mem[vd->buf.index]);
