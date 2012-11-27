@@ -38,10 +38,13 @@
 #include "video_cfg.h"
 #include "log_dbg.h"
 #include "mediaEncode.h"
+#include "akjpeg.h"
 
 #define PID_FILE    "/var/run/v2ipd.pid"
 #define LOG_FILE    "/tmp/v2ipd.log"
 char *v2ipd_logfile = LOG_FILE; /* Fix me */
+
+#define DEFAULT_CAPTURE_DEVICE	"/dev/video0"
 
 #define MAX_SEND_PACKET_NUM	5
 
@@ -1325,6 +1328,10 @@ int start_video_record(struct sess_ctx* sess)
             //sigignore(i);
             sigset(i, sig_handler);
     }
+
+	akjpeg_init_without_lock();
+	akjpeg_set_task_func();
+	
     pthread_mutex_init(&ignore_pic_lock , NULL);
     memset(nand_shm_file_end_head , 0xFF , 512);
     record_header = (struct nand_record_file_header *) nand_shm_file_end_head;

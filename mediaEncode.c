@@ -6,6 +6,8 @@
 #include <pthread.h>
 #include "video_stream_lib.h"
 
+#define DEBUG 1
+
 #ifdef DEBUG
 #define printd printf
 #else
@@ -263,7 +265,7 @@ int closeFile()
 // initial callback function pointer
 void init_cb_func_init(T_MEDIALIB_INIT_CB* pInit_cb)
 {
-  	pInit_cb->m_FunPrintf          = (MEDIALIB_CALLBACK_FUN_PRINTF)printd;
+  	pInit_cb->m_FunPrintf          = (MEDIALIB_CALLBACK_FUN_PRINTF)printf;
   	pInit_cb->m_FunLoadResource    = NULL;
   	pInit_cb->m_FunReleaseResource = NULL;
 }
@@ -430,7 +432,7 @@ int encode_main(char* yuv_buf, int size)
 	int encode_size;
 	video_enc_io_param.p_curr_data = yuv_buf;
 	video_enc_io_param.p_vlc_data = (char*)((encode_temp_buffer+32));
-	video_enc_io_param.QP = 5;
+	video_enc_io_param.QP = 10;
 	if( count % 100 == 0 ){
 		video_enc_io_param.mode = 0;
 	}
