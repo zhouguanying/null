@@ -1379,7 +1379,7 @@ read_config:
                 threadcfg.framerate = 25;
         }
 #else
-		threadcfg.framerate = 10;
+		threadcfg.framerate = 12;
 		threadcfg.bitrate = 1000*1000*2;
 #endif
 
