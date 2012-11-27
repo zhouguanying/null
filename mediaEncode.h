@@ -31,6 +31,8 @@
 #include <akmedialib/sdcodec.h>
 #include <akmedialib/media_player_lib.h>
 
+#define ENCODE_USING_MEDIA_LIB	0
+
 int MediaDestroy();
 int processVideoData(T_U8* dataPtr, int datasize,int32_t timeStamp);
 int processAudioData(T_U8* dataPtr, int datasize);

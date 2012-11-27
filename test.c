@@ -715,7 +715,9 @@ int main()
         exit(0);
     }
     prepare_record();
-    if (ioctl_usbdet_read())
+#endif
+
+	if(ioctl_usbdet_read())
     {
         int hid_fd;
         //FILE *config_fp;
@@ -734,8 +736,19 @@ int main()
         int scantime = 0;
 
 
+#ifndef PED_98
         system("switch gadget && sleep 2");
+#else
+		system("umount /mnt/sdcard && sleep 2");
+		system("switch gadget && sleep 2");
+		system("echo /dev/mmcblk0p1 > /sys/devices/platform/ak98_udc/gadget/lun0/file && sleep 2");
+		system("/tmp/gadgetd &");
 
+		while(1){
+			printf("here\n");
+			sleep(5);
+		}
+#endif
         /*check the configure file if it is the newest one*/
         fd = fopen(RECORD_PAR_FILE, "r");
         if (!fd)
@@ -1061,10 +1074,14 @@ hid_fail:
         report_status_normal();
     }
 
+#ifndef IPED_98		//for host wifi and camera mode
     system("switch host");
     sleep(1);
     system("switch host");
     sleep(3);
+#else
+	system("insmod /lib/modules/ak98-fs-hcd.ko");
+	system("sleep 3");
 #endif
 
     memset(&threadcfg, 0, sizeof(threadcfg));
@@ -1353,6 +1370,7 @@ read_config:
                 strncmp(threadcfg.inet_mode , "inteligent", 10) != 0)
             sprintf(threadcfg.inet_mode, "eth_only");
 
+#ifndef IPED_98
         if (strncmp(threadcfg.monitor_mode , "inteligent", 10) == 0)
         {
             if (strncmp(threadcfg.inet_mode , "wlan_only", 9) == 0)
@@ -1360,6 +1378,10 @@ read_config:
             else
                 threadcfg.framerate = 25;
         }
+#else
+		threadcfg.framerate = 12;
+		threadcfg.bitrate = 1000*1000*2;
+#endif
 
         init_sleep_time();
 
@@ -1405,6 +1427,7 @@ read_config:
 
         check_eth0 = 0;
         check_wlan0 = 0;
+#if 0	//don't config the netork, for debug purpose only
         if (strncmp(threadcfg.inet_mode, "eth_only", strlen("eth_only")) == 0
                 || strncmp(threadcfg.inet_mode, "inteligent", strlen("inteligent")) == 0)
         {
@@ -1590,6 +1613,7 @@ wlan_udhcpc:
                 }
             }
         }
+#endif
         write_config_value(conf_p, lines);
         memset(buf, 0, 512);
         free(conf_p);
