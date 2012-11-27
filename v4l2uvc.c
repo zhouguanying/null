@@ -421,18 +421,23 @@ int uvcGrab(struct vdIn *vd)
 		if( status != MONITOR_STATUS_NEED_NOTHING && ( time_current - time_last >= frame_interval ) ){
 			time_last = time_current;
 			clear_encode_temp_buffer(); //by chf: after encoding one frame, compressed data are stored in static temp buffer, we should take them later
+#if ENCODE_USING_MEDIA_LIB
 			if( status == MONITOR_STATUS_NEED_I_FRAME || count_t  >= 10000 ){
 				printf("after %d p frame, we need an I frame for some reasons\n", count_t);
 				if( status == MONITOR_STATUS_NEED_I_FRAME ){
-					//MediaRestartFast();
+					MediaRestartFast();
 				}
 				else{
-					//MediaRestart(threadcfg.bitrate, 1280,720);
-					//MediaRestartFast();
+					MediaRestart(threadcfg.bitrate, 1280,720);
 				}
 				count_t = count_last = 0;
 				time_begin = time_current = get_system_time_ms();
 			}
+#else	//for encode using video_stream_lib, we don't need to reset media lib.
+				if( status == MONITOR_STATUS_NEED_I_FRAME ){
+					printf("after %d p frame, we need an I frame for some reasons\n", count_t);
+				}
+#endif
 
 			//time1 = get_system_time_ms();
 #if ENCODE_USING_MEDIA_LIB
