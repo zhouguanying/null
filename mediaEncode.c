@@ -141,6 +141,7 @@ void clear_encode_temp_buffer()
 	encode_temp_buf_size = 5;
 	if( encode_temp_buffer == NULL ){
 		  encode_temp_buffer = akuio_alloc_pmem( 512*1024);
+		  memset(encode_temp_buffer, 0, ( 512*1024));
 		  encode_temp_buffer[0] = encode_temp_buffer[1] = encode_temp_buffer[2] = 0;
 		  encode_temp_buffer[3] = 1; encode_temp_buffer[4] = 0xc;
 	}
@@ -160,6 +161,7 @@ T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
 //  int ret = size;
   if( encode_temp_buffer == NULL ){
 		encode_temp_buffer = akuio_alloc_pmem( 512*1024);
+		memset( encode_temp_buffer, 0, ( 512*1024));
 		encode_temp_buffer[0] = encode_temp_buffer[1] = encode_temp_buffer[2] = 0;
 		encode_temp_buffer[3] = 1; encode_temp_buffer[4] = 0xc;
   }

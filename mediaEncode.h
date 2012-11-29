@@ -45,6 +45,7 @@ int get_encode_video_buffer_valid_size(void);
 int MediaRestart(unsigned int nvbps, int w, int h);
 int MediaRestartFast(void);
 void encode_need_i_frame(void);
+int encode_main(char* yuv_buf, int size);
 
 //by chf: temp_buffer store the encoded-one-frame-date at once. should be clear before encoding every time.
 void clear_encode_temp_buffer(void);
