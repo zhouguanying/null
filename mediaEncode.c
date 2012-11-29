@@ -425,6 +425,12 @@ int openMedia(T_U32 nvbps, int width, int height)
 	//above only call one time when system start
 }
 
+static int need_i_frame;
+void encode_need_i_frame()
+{
+	need_i_frame = 1;
+}
+
 int encode_main(char* yuv_buf, int size)
 {
 	static int count = 0;
@@ -432,8 +438,9 @@ int encode_main(char* yuv_buf, int size)
 	video_enc_io_param.p_curr_data = yuv_buf;
 	video_enc_io_param.p_vlc_data = (char*)((encode_temp_buffer+32));
 	video_enc_io_param.QP = 10;
-	if( count % 100 == 0 ){
+	if( count % 100 == 0 || need_i_frame ){
 		video_enc_io_param.mode = 0;
+		need_i_frame = 0;
 	}
 	else{
 		video_enc_io_param.mode = 1;

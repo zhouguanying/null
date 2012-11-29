@@ -236,7 +236,7 @@
 extern "C" {
 #endif
 
-#define VIDEO_LIB_VERSION		"Video Lib V1.9.00"
+#define VIDEO_LIB_VERSION		"Video Lib V1.9.01--svn4757"
 
 typedef enum
 {
@@ -457,6 +457,18 @@ T_BOOL VideoStream_UpdateAddr(T_pVOID hVS, T_pVOID pInaddr, T_U32 size);
  * @retval	other	free space in video buffer
  */
 T_U32 VideoStream_GetFreeSpace(T_pVOID hVS);
+
+
+/**
+ * @brief Get the number of video frames in space
+ *
+ * @author Su_Dan
+ * @param	hVS		[in]	pointer returned by VideoStream_Open
+ * @return T_S32
+ * @retval	<0		get failed
+ * @retval	other	number of video frames in space
+ */
+T_S32 VideoStream_GetItemNum(T_pVOID hVS);
 
 
 /**

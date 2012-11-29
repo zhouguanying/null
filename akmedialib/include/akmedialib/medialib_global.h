@@ -204,6 +204,18 @@ typedef struct
 			T_U32	pack_no;
 			T_U32	list[255];
 		}m_speex;
+		struct{
+			T_U8	secUse;		//已经读取的section数目
+			T_U8	secLen;		//一个page中包含的section数
+			T_U8	tmpSec;		//已经解码的section数目
+			T_BOOL	is_eos;		//是不是最后一个page
+			T_BOOL	is_bos;		//是不是第一个page
+			T_U8	endpack;	//当前page中最后一个packet的位置
+			//解码出的sample数是一个64位的数，目前只取低32位
+			T_U32	gos;		//解码完当前page后解码出总的sample数，低32位
+			T_U32	high_gos;	//解码完当前page后解码出总的sample数，高32位，(暂时不用，留给以后需要)
+			T_U8	list[255];	//记录一个page中每个section的大小，一个page中最多含有255个section
+		}m_vorbis;
 	}m_Private;
 }T_AUDIO_SEEK_INFO;
 

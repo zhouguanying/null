@@ -62,6 +62,9 @@ struct vdIn * init_camera(void)
     saturation = threadcfg.saturation;
     gain         = threadcfg.gain;
 
+	akuio_pmem_init();
+
+
     if (init_videoIn(videoIn, (char *) videodevice, width, height, format, grabmethod) < 0)
     {
         printf("init camera device error\n");

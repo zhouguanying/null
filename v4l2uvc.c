@@ -436,6 +436,7 @@ int uvcGrab(struct vdIn *vd)
 #else	//for encode using video_stream_lib, we don't need to reset media lib.
 				if( status == MONITOR_STATUS_NEED_I_FRAME ){
 					printf("after %d p frame, we need an I frame for some reasons\n", count_t);
+					encode_need_i_frame();
 				}
 #endif
 
