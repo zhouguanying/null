@@ -7,5 +7,10 @@ typedef struct picture_info
     char TimeStamp[14];
 } picture_info_t;
 
+typedef struct picture_info_ex
+{
+    char head[5];
+    char TimeStamp[18];
+} picture_info_ex_t;
 #endif
 
