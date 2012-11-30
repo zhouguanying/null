@@ -439,6 +439,8 @@ int uvcGrab(struct vdIn *vd)
 				if( status == MONITOR_STATUS_NEED_I_FRAME ){
 					printf("after %d p frame, we need an I frame for some reasons\n", count_t);
 					encode_need_i_frame();
+					count_t = count_last = 0;
+					time_begin = time_current = get_system_time_ms();
 				}
 #endif
 
@@ -488,19 +490,22 @@ int uvcGrab(struct vdIn *vd)
 		if( jpeg_buf == NULL ){
 			jpeg_buf = malloc( 1280 * 720 * 3 / 2 + 8192 );
 		}
-		status = check_monitor_queue_status();
-		if( status == MONITOR_STATUS_NEED_ANY ){
-			if( akjpeg_encode_yuv420((void *)vd->buf.m.userptr, jpeg_buf+sizeof(picture_info_t), (void *)&psize,1280, 720 ,60) != AK_FALSE ){
-				printf("encode an jpeg file, size = %d\n", psize);
-				memcpy(jpeg_buf, &p_info , sizeof(picture_info_t));
+		if( count_t % 12 == 0 ){
+			status = check_monitor_queue_status();
+			if( status == MONITOR_STATUS_NEED_ANY ){
+				if( akjpeg_encode_yuv420((void *)vd->buf.m.userptr, jpeg_buf+sizeof(picture_info_t), (void *)&psize,1280, 720 ,60) != AK_FALSE ){
+					printf("encode an jpeg file, size = %d\n", psize);
+					memcpy(jpeg_buf, &p_info , sizeof(picture_info_t));
+					encode_need_i_frame();
 #if 1
-				if( write_monitor_packet_queue(jpeg_buf,psize+sizeof(picture_info_t)) == 0 ){
-					count_t++;
-				}
-				else{
-					printf("so strange, write_monitor_packet_queue error, what happened?????\n");
-				}
+					if( write_monitor_packet_queue(jpeg_buf,psize+sizeof(picture_info_t)) == 0 ){
+						count_t++;
+					}
+					else{
+						printf("so strange, write_monitor_packet_queue error, what happened?????\n");
+					}
 #endif
+				}
 			}
 		}
 
