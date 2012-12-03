@@ -699,12 +699,6 @@ int main()
     char *ip = NULL;
     char *mask = NULL;
 
-    if (pthread_create(&tid, NULL, (void *) usb_state_monitor, NULL) < 0)
-    {
-        printf("############ %s pthread_create usb_state_monitor failed %d\n",__func__, errno);
-        return -1;
-    }
-#if 1
     if (open_usbdet() != 0)
     {
         printf("open usb detect error\n");
@@ -717,7 +711,6 @@ int main()
         exit(0);
     }
     prepare_record();
-#endif
 
 	if(ioctl_usbdet_read())
     {
