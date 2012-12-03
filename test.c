@@ -1199,8 +1199,8 @@ read_config:
             goto read_config;
         }
         printf("cfg_v==%s\n", buf);
-#if 0
-        threadcfg.cam_id = 0x88888888;
+#if 1
+        threadcfg.cam_id = 0xcccc6666;
 #else
         if (get_cam_id(&threadcfg.cam_id) < 0)
         {
@@ -1383,7 +1383,7 @@ read_config:
         }
 #else
 		threadcfg.framerate = 12;
-		threadcfg.bitrate = 1000*1000*6;
+		threadcfg.bitrate = 1000*1000*16;
 #endif
 
         init_sleep_time();
