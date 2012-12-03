@@ -14,7 +14,7 @@
 
 #include "medialib_global.h"
 
-#define MEDIA_LIB_VERSION	"Media Lib V1.14.01"
+#define MEDIA_LIB_VERSION	"Media Lib V1.15.00--svn4740"
 
 //media handle
 typedef T_pVOID	T_MEDIALIB_STRUCT;

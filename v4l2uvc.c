@@ -332,23 +332,28 @@ video_disable(struct vdIn *vd)
     return 0;
 }
 
-static inline char * gettimestamp()
+static char * gettimestamp_ex()
 {
-    static char timestamp[15];
+    static char timestamp[18];
     time_t t;
     struct tm *curtm;
+	struct timeval now;
+	int ms;
+
     if (time(&t) == -1)
     {
         printf("get time error\n");
         exit(0);
     }
     curtm = localtime(&t);
-    sprintf(timestamp, "%04d%02d%02d%02d%02d%02d", curtm->tm_year + 1900, curtm->tm_mon + 1,
-            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, curtm->tm_sec);
+	gettimeofday(&now, NULL);
+	ms = now.tv_usec / 1000;
+    sprintf(timestamp, "%04d%02d%02d%02d%02d%02d%04d", curtm->tm_year + 1900, curtm->tm_mon + 1,
+            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, curtm->tm_sec,ms);
     return timestamp;
 }
 
-static picture_info_t p_info =
+static picture_info_ex_t p_info_ex =
 {
     {0, 0, 0, 1, 0xc},
 };
@@ -394,10 +399,13 @@ int uvcGrab(struct vdIn *vd)
         log_warning("Unable to dequeue buffer (%d). %s\n", errno, strerror(errno));
         goto err;
     }
+	time = gettimestamp_ex();
+	memcpy(p_info_ex.TimeStamp , time , sizeof(p_info_ex.TimeStamp));
     //printf("###############after xioctl VIDEOC_DQBUF#############\n");
     switch (vd->formatIn)
     {
     case V4L2_PIX_FMT_MJPEG:
+#ifndef IPED_98
         time = gettimestamp();
         memcpy(p_info.TimeStamp , time , sizeof(p_info.TimeStamp));
         memcpy(vd->tmpbuffer , &p_info , sizeof(picture_info_t));
@@ -408,6 +416,7 @@ int uvcGrab(struct vdIn *vd)
                (vd->buf.bytesused - HEADERFRAME1));
         if (debug)
             fprintf(stderr, "bytes in used %d \n", vd->buf.bytesused);
+#endif
         break;
     case V4L2_PIX_FMT_YUYV:
 //        printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
@@ -417,22 +426,55 @@ int uvcGrab(struct vdIn *vd)
 			time_begin = time_current;
 			count_last = count_t;
 		}
+#if 1
+		psize=1280*720*3/2;
+		if( jpeg_buf == NULL ){
+			jpeg_buf = malloc( 1280 * 720 * 3 / 2 + 8192 );
+		}
+		if( count_t % 12 == 0 ){
+			status = check_monitor_queue_status();
+			if( status == MONITOR_STATUS_NEED_ANY ){
+				if( akjpeg_encode_yuv420((void *)vd->buf.m.userptr, jpeg_buf+sizeof(picture_info_ex_t), (void *)&psize,1280, 720 ,60) != AK_FALSE ){
+					printf("encode an jpeg file, size = %d\n", psize);
+					memcpy(jpeg_buf, &p_info_ex , sizeof(picture_info_ex_t));
+#if 1
+					if( write_monitor_packet_queue(jpeg_buf,psize+sizeof(picture_info_ex_t)) == 0 ){
+						count_t++;
+					}
+					else{
+						printf("so strange, write_monitor_packet_queue error, what happened?????\n");
+					}
+#endif
+				}
+				break;
+			}
+		}
+#endif
+
 		status = check_monitor_queue_status();
 		if( status != MONITOR_STATUS_NEED_NOTHING && ( time_current - time_last >= frame_interval ) ){
 			time_last = time_current;
 			clear_encode_temp_buffer(); //by chf: after encoding one frame, compressed data are stored in static temp buffer, we should take them later
+#if ENCODE_USING_MEDIA_LIB
 			if( status == MONITOR_STATUS_NEED_I_FRAME || count_t  >= 10000 ){
 				printf("after %d p frame, we need an I frame for some reasons\n", count_t);
 				if( status == MONITOR_STATUS_NEED_I_FRAME ){
-					//MediaRestartFast();
+					MediaRestartFast();
 				}
 				else{
-					//MediaRestart(threadcfg.bitrate, 1280,720);
-					//MediaRestartFast();
+					MediaRestart(threadcfg.bitrate, 1280,720);
 				}
 				count_t = count_last = 0;
 				time_begin = time_current = get_system_time_ms();
 			}
+#else	//for encode using video_stream_lib, we don't need to reset media lib.
+				if( status == MONITOR_STATUS_NEED_I_FRAME ){
+					printf("after %d p frame, we need an I frame for some reasons\n", count_t);
+					encode_need_i_frame();
+					count_t = count_last = 0;
+					time_begin = time_current = get_system_time_ms();
+				}
+#endif
 
 			//time1 = get_system_time_ms();
 #if ENCODE_USING_MEDIA_LIB
@@ -446,6 +488,7 @@ int uvcGrab(struct vdIn *vd)
 				int size;
 				if( -1 != get_temp_buffer_data(&buffer,&size) ){
 					printf("get a frame,count = %d, size=%d\n",count_t, size);
+					memcpy(buffer, &p_info_ex , sizeof(picture_info_ex_t));
 					if( write_monitor_packet_queue(buffer,size) == 0 ){
 						count_t++;
 					}
@@ -474,31 +517,6 @@ int uvcGrab(struct vdIn *vd)
             memcpy(vd->framebuffer, vd->mem[vd->buf.index],
                    (size_t) vd->buf.bytesused);
 #endif
-#if 0
-		psize=1280*720*3/2;
-		if( jpeg_buf == NULL ){
-			jpeg_buf = malloc( 1280 * 720 * 3 / 2 + 8192 );
-			time = gettimestamp();
-			memcpy(p_info.TimeStamp , time , sizeof(p_info.TimeStamp));
-			memcpy(jpeg_buf, &p_info , sizeof(picture_info_t));
-		}
-		status = check_monitor_queue_status();
-		if( status != MONITOR_STATUS_NEED_NOTHING ){
-			if( akjpeg_encode_yuv420((void *)vd->buf.m.userptr, jpeg_buf+sizeof(picture_info_t), (void *)&psize,1280, 720 ,60) != AK_FALSE ){
-				printf("encode an jpeg file, size = %d\n", psize);
-#if 0
-				if( write_monitor_packet_queue(jpeg_buf,psize+sizeof(picture_info_t)) == 0 ){
-					count_t++;
-				}
-				else{
-					printf("so strange, write_monitor_packet_queue error, what happened?????\n");
-				}
-#endif
-			}
-		}
-
-#endif
-
         break;
     default:
         goto err;

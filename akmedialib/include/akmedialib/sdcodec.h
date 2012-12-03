@@ -27,57 +27,8 @@ extern "C" {
 
 /* @{@name Define audio version*/
 /**	Use this to define version string */	
-#define AUDIOCODEC_VERSION_STRING		(T_U8 *)"AudioCodec Version V1.9.02_SVN3498"
+#define AUDIOCODEC_VERSION_STRING		(T_U8 *)"AudioCodec Version V1.9.06_svn3580"
 /** @} */
-
-#ifdef _WIN32
-#ifndef UNDER_CE
-#define _SD_MODULE_MIDI_SUPPORT
-#define _SD_MODULE_MP3_SUPPORT
-#define _SD_MODULE_ENC_MP3_SUPPORT
-#define _SD_MODULE_WMA_SUPPORT
-#define _SD_MODULE_APE_SUPPORT
-#define _SD_MODULE_FLAC_SUPPORT
-#define _SD_MODULE_PCM_SUPPORT
-#define _SD_MODULE_ADPCM_SUPPORT
-#define _SD_MODULE_ENC_ADPCM_SUPPORT
-#define _SD_MODULE_AAC_SUPPORT
-#define _SD_MODULE_OGG_VORBIS_SUPPORT
-#define _SD_MODULE_AMR_SUPPORT
-#define _SD_MODULE_AMR_ENC_SUPPORT
-#define _SD_MODULE_ENC_AAC_SUPPORT
-#define _SD_MODULE_RA8LBR_SUPPORT
-#define _SD_MODULE_DRA_SUPPORT
-#define _SD_MODULE_AC3_SUPPORT
-#define _SD_MODULE_G711_SUPPORT
-#define _SD_MODULE_SBC_SUPPORT
-//#define _SD_MODULE_SBC_ENC_SUPPORT
-#define _SD_MODULE_SPEEX_SUPPORT
-#define _SD_MODULE_SPEEX_ENC_SUPPORT
-
-#else 
-// for CE
-#define _SD_MODULE_MIDI_SUPPORT
-#define _SD_MODULE_MP3_SUPPORT
-#define _SD_MODULE_ENC_MP3_SUPPORT
-#define _SD_MODULE_WMA_SUPPORT
-#define _SD_MODULE_APE_SUPPORT
-#define _SD_MODULE_FLAC_SUPPORT
-#define _SD_MODULE_PCM_SUPPORT
-#define _SD_MODULE_ADPCM_SUPPORT
-#define _SD_MODULE_ENC_ADPCM_SUPPORT
-#define _SD_MODULE_AAC_SUPPORT
-#define _SD_MODULE_OGG_VORBIS_SUPPORT
-#define _SD_MODULE_AMR_SUPPORT
-#define _SD_MODULE_AMR_ENC_SUPPORT
-#define _SD_MODULE_ENC_AAC_SUPPORT
-#define _SD_MODULE_RA8LBR_SUPPORT
-#define _SD_MODULE_DRA_SUPPORT
-#define _SD_MODULE_AC3_SUPPORT
-#define _SD_MODULE_G711_SUPPORT
-#endif /* #ifndef UNDER_CE */
-
-#endif /* #ifdef _WIN32 */
 
 #if defined ANDROID
 #define _SD_MODULE_MIDI_SUPPORT
@@ -101,10 +52,6 @@ extern "C" {
 // #define _SD_MODULE_SPEEX_SUPPORT
 // #define _SD_MODULE_SPEEX_ENC_SUPPORT
 #endif 
-
-#ifdef FOR_SPOTLIGHT
-#define THRIFT_STACK_SPACE
-#endif
 
 typedef enum
 {
@@ -139,6 +86,13 @@ typedef enum
 	_SD_BUFFER_ERROR
 }T_AUDIO_BUF_STATE;
 
+typedef enum
+{
+	_STREAM_BUF_LEN = 0,
+	_STREAM_BUF_REMAIN_DATA,
+	_STREAM_BUF_MIN_LEN
+}T_AUDIO_INBUF_STATE;
+
 typedef struct
 {
 	MEDIALIB_CALLBACK_FUN_MALLOC			Malloc;
@@ -147,25 +101,15 @@ typedef struct
 	MEDIALIB_CALLBACK_FUN_RTC_DELAY			delay;
 	MEDIALIB_CALLBACK_FUN_CMMBSYNCTIME		cmmbsynctime;
 	MEDIALIB_CALLBACK_FUN_CMMBAUDIORECDATA  cmmbaudiorecdata;
-#ifdef FOR_SPOTLIGHT
-	MEDIALIB_CALLBACK_FUN_READ				read;
-	MEDIALIB_CALLBACK_FUN_SEEK				seek; 
-	MEDIALIB_CALLBACK_FUN_TELL				tell;
-#endif
 }T_AUDIO_CB_FUNS;
 
 typedef struct
 {
-#ifdef FOR_SPOTLIGHT
-	T_S32	haudio;
-#endif
 	T_U32	m_Type;				//media type
 	T_U32	m_SampleRate;		//sample rate, sample per second
 	T_U16	m_Channels;			//channel number
 	T_U16	m_BitsPerSample;	//bits per sample
 
-
-	
 	T_U32   m_InbufLen;         //input buffer length
 	T_U8    *m_szData; 
 	T_U32   m_szDataLen;
@@ -179,10 +123,6 @@ typedef struct
 			T_U32	nFileSize;
 		} m_midi;
 	}m_Private;
-#ifdef BLUETOOTH_PLAY
-	T_U32  decVolEna;   // decode volume enable::  1: 音频库里解码的时候做音量控制,   0:音频库里解码的时候不做音量控制
-	T_U32  decVolume;   // decode volume value:: this volume is effective, when decVolCtl==1
-#endif
 }T_AUDIO_IN_INFO;
 
 typedef struct
@@ -193,21 +133,15 @@ typedef struct
 
 typedef struct
 {
-#if defined ANDROID 
 	volatile T_U8	*pwrite;	//pointer of write pos
 	T_U32	free_len;	//buffer free length
 	volatile T_U8	*pstart;	//buffer start address
 	T_U32	start_len;	//start free length
-#else
-  T_U8	*pwrite;	//pointer of write pos
-	T_U32	free_len;	//buffer free length
-  T_U8	*pstart;	//buffer start address
-	T_U32	start_len;	//start free length
-#endif
 }T_AUDIO_BUFFER_CONTROL;
 
-
-typedef enum{ AMR_ENC_MR475 = 0,
+typedef enum
+{ 
+	    AMR_ENC_MR475 = 0,
 			AMR_ENC_MR515,
 			AMR_ENC_MR59,
 			AMR_ENC_MR67,
@@ -215,13 +149,9 @@ typedef enum{ AMR_ENC_MR475 = 0,
 			AMR_ENC_MR795,
 			AMR_ENC_MR102,
 			AMR_ENC_MR122,
-
 			AMR_ENC_MRDTX,
-
 			AMR_ENC_N_MODES	/* number of (SPC) modes */
-
-			} T_AUDIO_AMR_ENCODE_MODE ;
-
+} T_AUDIO_AMR_ENCODE_MODE ;
 
 typedef struct
 {
@@ -607,6 +537,24 @@ T_S32 _SD_Decode_ParseFHead(T_VOID *audio_decode);
 * @retval 函数调用成功返回T_VOID指针，否则返回AK_NULL
 */
 T_VOID *_SD_Decode_Open_Fast(T_AUDIO_DECODE_INPUT *audio_input, T_AUDIO_DECODE_OUT *audio_output);
+
+
+/*
+* @brief 获取音频库输入buf相关信息
+* @date 2012-7-6
+* @param [in] audio_decode :音频解码结构体
+				[in]  type: T_AUDIO_INBUF_STATE 指定需要获取的信息，分别可以取以下值：
+							type = _STREAM_BUF_LEN 时函数返回输入buf的buf长度，
+							type = _STREAM_BUF_REMAIN_DATA 时函数返回输入buf中剩余未解码数据的长度，
+							type = _STREAM_BUF_MIN_LEN 时函数返回解码所需最小buf长度
+				
+* @return T_S32
+* @retval 0:  buffer空，没有剩余数据
+*         >0: buffer中剩余没解码数据的长度
+*         <0: 输入指针非法
+*/
+T_S32  _SD_Get_Input_Buf_Info(T_VOID *audio_decode,T_AUDIO_INBUF_STATE type);
+
 
 #ifdef __cplusplus
 }

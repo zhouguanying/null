@@ -480,21 +480,24 @@ out:
 int get_cam_id(unsigned int *id)
 {
     FILE*fp;
-    int id0, id1, id2;
     char buf[64];
-    fp = fopen("/sys/uid/otp/id", "r");
+	char* id_path = "/sys/uid/id";
+    fp = fopen(id_path, "r");
     if (!fp)
     {
+    	printf("open %s error\n",id_path);
         return -1;
     }
     memset(buf, 0, sizeof(buf));
     if (fgets(buf, 64, fp) == NULL)
     {
+    	printf("fgets %s error\n", id_path);
         fclose(fp);
         return -1;
     }
-    if (sscanf(buf, "%x %x %x %x", &id0, &id1, &id2, id) != 4)
+    if (sscanf(buf, "%x", id) != 1)
     {
+    	printf("sscanf %s error\n", buf);
         fclose(fp);
         return -1;
     }
@@ -1196,8 +1199,8 @@ read_config:
             goto read_config;
         }
         printf("cfg_v==%s\n", buf);
-#if 1
-        threadcfg.cam_id = 0xaaaa6666;
+#if 0
+        threadcfg.cam_id = 0x88888888;
 #else
         if (get_cam_id(&threadcfg.cam_id) < 0)
         {
@@ -1380,7 +1383,7 @@ read_config:
         }
 #else
 		threadcfg.framerate = 12;
-		threadcfg.bitrate = 1000*1000*2;
+		threadcfg.bitrate = 1000*1000*6;
 #endif
 
         init_sleep_time();

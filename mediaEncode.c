@@ -141,6 +141,7 @@ void clear_encode_temp_buffer()
 	encode_temp_buf_size = 5;
 	if( encode_temp_buffer == NULL ){
 		  encode_temp_buffer = akuio_alloc_pmem( 512*1024);
+		  memset(encode_temp_buffer, 0, ( 512*1024));
 		  encode_temp_buffer[0] = encode_temp_buffer[1] = encode_temp_buffer[2] = 0;
 		  encode_temp_buffer[3] = 1; encode_temp_buffer[4] = 0xc;
 	}
@@ -160,6 +161,7 @@ T_S32 ak_rec_cb_fwrite(T_S32 hFileWriter, T_pVOID buf, T_S32 size)
 //  int ret = size;
   if( encode_temp_buffer == NULL ){
 		encode_temp_buffer = akuio_alloc_pmem( 512*1024);
+		memset( encode_temp_buffer, 0, ( 512*1024));
 		encode_temp_buffer[0] = encode_temp_buffer[1] = encode_temp_buffer[2] = 0;
 		encode_temp_buffer[3] = 1; encode_temp_buffer[4] = 0xc;
   }
@@ -425,6 +427,12 @@ int openMedia(T_U32 nvbps, int width, int height)
 	//above only call one time when system start
 }
 
+static int need_i_frame;
+void encode_need_i_frame()
+{
+	need_i_frame = 1;
+}
+
 int encode_main(char* yuv_buf, int size)
 {
 	static int count = 0;
@@ -432,8 +440,9 @@ int encode_main(char* yuv_buf, int size)
 	video_enc_io_param.p_curr_data = yuv_buf;
 	video_enc_io_param.p_vlc_data = (char*)((encode_temp_buffer+32));
 	video_enc_io_param.QP = 10;
-	if( count % 100 == 0 ){
+	if( count % 100 == 0 || need_i_frame ){
 		video_enc_io_param.mode = 0;
+		need_i_frame = 0;
 	}
 	else{
 		video_enc_io_param.mode = 1;

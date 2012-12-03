@@ -816,6 +816,7 @@ static char *set_transport_type(struct sess_ctx *sess , char *arg , int *rsp_len
         }
     }
 
+#ifdef IPED_98
     r[3] = (char)threadcfg.brightness;
     r[4] = (char)threadcfg.contrast;
     r[5] = (char)threadcfg.volume;
@@ -826,6 +827,12 @@ static char *set_transport_type(struct sess_ctx *sess , char *arg , int *rsp_len
 	r[10] = 'g';
 	r[11] = '4';
     *rsp_len = 12;
+#else
+	r[3] = (char)threadcfg.brightness;
+	r[4] = (char)threadcfg.contrast;
+	r[5] = (char)threadcfg.volume;
+	*rsp_len = 6;
+#endif
     return r;
 
 }
