@@ -1417,7 +1417,7 @@ read_config:
 
         check_eth0 = 0;
         check_wlan0 = 0;
-#if 0	//don't config the netork, for debug purpose only
+#if 1	//don't config the netork, for debug purpose only
         if (strncmp(threadcfg.inet_mode, "eth_only", strlen("eth_only")) == 0
                 || strncmp(threadcfg.inet_mode, "inteligent", strlen("inteligent")) == 0)
         {
@@ -1515,6 +1515,9 @@ eth_dhcp:
                 || strncmp(threadcfg.inet_mode, "inteligent", strlen("inteligent")) == 0)
         {
             printf("------------configure wlan----------------\n");
+			system("insmod /lib/modules/ak98-fs-hcd.ko");
+			system("insmod /lib/modules/8192cu.ko");
+			
             check_wlan0 = 1;
             if (config_wifi() < 0)
             {
