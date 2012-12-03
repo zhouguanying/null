@@ -705,7 +705,7 @@ int main()
         printf("############ %s pthread_create usb_state_monitor failed %d\n",__func__, errno);
         return -1;
     }
-#if 0
+#if 1
     if (open_usbdet() != 0)
     {
         printf("open usb detect error\n");
@@ -738,19 +738,14 @@ int main()
         FILE *wifi_fp;
         int scantime = 0;
 
-
-#ifndef PED_98
+#ifndef IPED_98
         system("switch gadget && sleep 2");
 #else
 		system("umount /mnt/sdcard && sleep 2");
 		system("switch gadget && sleep 2");
-		system("echo /dev/mmcblk0p1 > /sys/devices/platform/ak98_udc/gadget/lun0/file && sleep 2");
-		system("/tmp/gadgetd &");
+//		system("echo /dev/mmcblk0p1 > /sys/devices/platform/ak98_udc/gadget/lun0/file && sleep 2");
+		system("gadgetd &");
 
-		while(1){
-			printf("here\n");
-			sleep(5);
-		}
 #endif
         /*check the configure file if it is the newest one*/
         fd = fopen(RECORD_PAR_FILE, "r");
