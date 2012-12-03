@@ -184,23 +184,22 @@ int do_update()
 }
 
 int usb_state_monitor()
-{
-    while (1)
-    {
-        if (is_do_update())
-            return 0;
-        /*
-        if (ioctl_usbdet_read())
-        {
-            if (is_do_update())
-                return 0;
-            system("reboot &");
-            exit(0);
-        }
-        */
-        sleep(10);
-    }
-}
+	{
+		while (1)
+		{
+			if (is_do_update())
+				return 0;
+			if (ioctl_usbdet_read())
+			{
+				if (is_do_update())
+					return 0;
+				system("reboot &");
+				exit(0);
+			}
+			sleep(1);
+		}
+	}
+
 
 static int set_fl(int fd, int flags)
 {
