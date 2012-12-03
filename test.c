@@ -1233,8 +1233,11 @@ read_config:
         extract_value(conf_p, lines, CFG_MONITOR_RESOLUTION, 1, threadcfg.resolution);
         printf("resolution = %s\n", threadcfg.resolution);
 
-        if (strncmp(threadcfg.resolution , "vga", 3) != 0 && strncmp(threadcfg.resolution , "qvga", 4) != 0)
+        if (strncmp(threadcfg.resolution , "720p", 4) != 0 && strncmp(threadcfg.resolution , "vga", 3) != 0 
+			&& strncmp(threadcfg.resolution , "qvga", 4) != 0)
+		{
             sprintf(threadcfg.resolution, "vga");
+		}
 
         extract_value(conf_p, lines, CFG_GOP, 0, (void *)&threadcfg.gop);
         printf("gop = %d\n", threadcfg.gop);
@@ -1277,7 +1280,8 @@ read_config:
         extract_value(conf_p, lines, CFG_RECORD_RESOLUTION, 1, (void *) threadcfg.record_resolution);
         printf("record_resolution = %s\n", threadcfg.record_resolution);
 
-        if (strncmp(threadcfg.record_resolution , "vga", 3) != 0 && strncmp(threadcfg.record_resolution , "qvga", 4) != 0)
+        if (strncmp(threadcfg.record_resolution , "720p", 4) != 0 && strncmp(threadcfg.record_resolution , "vga", 3) != 0 
+			&& strncmp(threadcfg.record_resolution , "qvga", 4) != 0)
             memcpy(threadcfg.record_resolution , threadcfg.resolution , 64);
         else
             memcpy(threadcfg.resolution , threadcfg.record_resolution, 64);

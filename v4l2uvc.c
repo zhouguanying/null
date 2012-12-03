@@ -132,7 +132,7 @@ init_videoIn(struct vdIn *vd, char *device, int width, int height,
             (unsigned char *) calloc(1, (size_t) vd->width * (vd->height + 8) * 2);
         break;
     case V4L2_PIX_FMT_YUYV:
-        fprintf(stderr, "use V4L2_PIX_FMT_YUYV format framesize %d\n", vd->framesizeIn);
+        printf("use V4L2_PIX_FMT_YUYV format, width=%d, height=%d, framesize %d\n",vd->width, vd->height, vd->framesizeIn);
         vd->framebuffer = (unsigned char *) calloc(1, (size_t) vd->framesizeIn);
         break;
     default:
@@ -757,6 +757,7 @@ void restart_v4l2(int width , int height)
         printf("init camera device error\n");
         exit(0);
     }
+#if 0
     while (uvcGrab(vdin_camera) < 0)
     {
         trygrab--;
@@ -765,6 +766,8 @@ void restart_v4l2(int width , int height)
         printf("Error grabbing\n");
         usleep(100000);
     }
+#endif
+
     pthread_mutex_unlock(&vdin_camera->tmpbufflock);
 }
 
