@@ -433,7 +433,8 @@ int uvcGrab(struct vdIn *vd)
 		}
 		if( count_t % 12 == 0 ){
 			status = check_monitor_queue_status();
-			if( status == MONITOR_STATUS_NEED_ANY ){
+			if( status == MONITOR_STATUS_NEED_ANY && ( time_current - time_last >= frame_interval )){
+				time_last = time_current;
 				if( akjpeg_encode_yuv420((void *)vd->buf.m.userptr, jpeg_buf+sizeof(picture_info_ex_t), (void *)&psize,1280, 720 ,60) != AK_FALSE ){
 					printf("encode an jpeg file, size = %d\n", psize);
 					memcpy(jpeg_buf, &p_info_ex , sizeof(picture_info_ex_t));
