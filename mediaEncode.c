@@ -5,6 +5,7 @@
 #include "data_chunk.h"
 #include <pthread.h>
 #include "video_stream_lib.h"
+#include "server.h"
 
 #ifdef DEBUG
 #define printd printf
@@ -274,6 +275,13 @@ static T_pVOID g_hVS;
 static T_VIDEOLIB_ENC_OPEN_INPUT open_input;
 static T_VIDEOLIB_ENC_IO_PAR video_enc_io_param;
 
+int closeMedia()
+{
+	VideoStream_Enc_Close(g_hVS);
+	MediaLib_Destroy();
+	return 0;
+}
+
 int openMedia(T_U32 nvbps, int width, int height)
 {
 #if !ENCODE_USING_MEDIA_LIB
@@ -433,16 +441,21 @@ void encode_need_i_frame()
 	need_i_frame = 1;
 }
 
+#define QP_BEST 3
+#define QP_WORST 15
+#define QUALITY_BEST 100
+#define QUALITY_WORST 0
 int encode_main(char* yuv_buf, int size)
 {
 	static int count = 0;
 	int encode_size;
 	video_enc_io_param.p_curr_data = yuv_buf;
 	video_enc_io_param.p_vlc_data = (char*)((encode_temp_buffer+32));
-	video_enc_io_param.QP = 10;
+	video_enc_io_param.QP = (threadcfg.record_quality-QUALITY_WORST)*(QP_BEST-QP_WORST)/(QUALITY_BEST-QUALITY_WORST)+QP_WORST;
 	if( count % 100 == 0 || need_i_frame ){
 		video_enc_io_param.mode = 0;
 		need_i_frame = 0;
+		printf("qp=%d\n",video_enc_io_param.QP);
 	}
 	else{
 		video_enc_io_param.mode = 1;

@@ -151,6 +151,7 @@ struct threadconfig
     char     record_resolution[64];
     char     original_resolution[64];
     volatile int record_sensitivity;
+	volatile int record_quality;
     volatile int record_normal_speed;
     volatile int record_normal_duration;
     volatile int record_slow_speed;
@@ -168,6 +169,7 @@ extern int              session_number;
 extern pthread_mutex_t  global_ctx_lock;
 
 extern struct threadconfig threadcfg;
+extern int change_video_format;
 
 extern void force_reset_v2ipd(void);
 

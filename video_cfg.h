@@ -34,6 +34,7 @@
 #define CFG_RECORD_NORMAL_SPEED         "r_nor_speed"
 #define CFG_RECORD_NORMAL_DURATION     "r_nor_duration"
 #define CFG_RECORD_SENSITIVITY             "r_sensitivity"
+#define CFG_RECORD_QUALITY             "r_qua"
 #define CFG_RECORD_SLOW_SPEED         "r_slow_speed"
 #define CFG_RECORD_FAST_SPEED             "r_fast_speed"
 #define CFG_RECORD_FAST_DURATION         "r_fast_duration"

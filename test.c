@@ -1312,11 +1312,15 @@ read_config:
 
 
         extract_value(conf_p, lines, CFG_RECORD_SENSITIVITY, 0, (void *)&threadcfg.record_sensitivity);
-        printf("record_sensitivity = %d\n", threadcfg.record_sensitivity);
-
         if (threadcfg.record_sensitivity < 1 || threadcfg.record_sensitivity > 3)
             threadcfg.record_sensitivity = 1;
+        printf("record_sensitivity = %d\n", threadcfg.record_sensitivity);
 
+        extract_value(conf_p, lines, CFG_RECORD_QUALITY, 0, (void *)&threadcfg.record_quality);
+        if (threadcfg.record_quality < 0 || threadcfg.record_quality > 100)
+            threadcfg.record_quality = 60;
+        printf("record_quality = %d\n", threadcfg.record_quality);
+		
         extract_value(conf_p, lines, CFG_RECORD_SLOW_SPEED, 0, (void *)&threadcfg.record_slow_speed);
         printf("record_slow_speed = %d\n", threadcfg.record_slow_speed);
 
