@@ -65,8 +65,8 @@ struct vdIn * init_camera(void)
 		height = 480;
 	}
 	else if ( strncmp(threadcfg.record_resolution , "qvga", 4) == 0){
-		width = 320;
-		height = 240;
+		width = 352;
+		height = 288;
 	}
 	else {
 		width = 1280;
