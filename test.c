@@ -184,23 +184,22 @@ int do_update()
 }
 
 int usb_state_monitor()
-{
-    while (1)
-    {
-        if (is_do_update())
-            return 0;
-        /*
-        if (ioctl_usbdet_read())
-        {
-            if (is_do_update())
-                return 0;
-            system("reboot &");
-            exit(0);
-        }
-        */
-        sleep(10);
-    }
-}
+	{
+		while (1)
+		{
+			if (is_do_update())
+				return 0;
+			if (ioctl_usbdet_read())
+			{
+				if (is_do_update())
+					return 0;
+				system("reboot &");
+				exit(0);
+			}
+			sleep(1);
+		}
+	}
+
 
 static int set_fl(int fd, int flags)
 {
@@ -700,12 +699,6 @@ int main()
     char *ip = NULL;
     char *mask = NULL;
 
-    if (pthread_create(&tid, NULL, (void *) usb_state_monitor, NULL) < 0)
-    {
-        printf("############ %s pthread_create usb_state_monitor failed %d\n",__func__, errno);
-        return -1;
-    }
-#if 0
     if (open_usbdet() != 0)
     {
         printf("open usb detect error\n");
@@ -718,7 +711,6 @@ int main()
         exit(0);
     }
     prepare_record();
-#endif
 
 	if(ioctl_usbdet_read())
     {
@@ -738,19 +730,14 @@ int main()
         FILE *wifi_fp;
         int scantime = 0;
 
-
-#ifndef PED_98
+#ifndef IPED_98
         system("switch gadget && sleep 2");
 #else
 		system("umount /mnt/sdcard && sleep 2");
 		system("switch gadget && sleep 2");
-		system("echo /dev/mmcblk0p1 > /sys/devices/platform/ak98_udc/gadget/lun0/file && sleep 2");
-		system("/tmp/gadgetd &");
+//		system("echo /dev/mmcblk0p1 > /sys/devices/platform/ak98_udc/gadget/lun0/file && sleep 2");
+		system("gadgetd &");
 
-		while(1){
-			printf("here\n");
-			sleep(5);
-		}
 #endif
         /*check the configure file if it is the newest one*/
         fd = fopen(RECORD_PAR_FILE, "r");
@@ -1246,8 +1233,11 @@ read_config:
         extract_value(conf_p, lines, CFG_MONITOR_RESOLUTION, 1, threadcfg.resolution);
         printf("resolution = %s\n", threadcfg.resolution);
 
-        if (strncmp(threadcfg.resolution , "vga", 3) != 0 && strncmp(threadcfg.resolution , "qvga", 4) != 0)
+        if (strncmp(threadcfg.resolution , "720p", 4) != 0 && strncmp(threadcfg.resolution , "vga", 3) != 0 
+			&& strncmp(threadcfg.resolution , "qvga", 4) != 0)
+		{
             sprintf(threadcfg.resolution, "vga");
+		}
 
         extract_value(conf_p, lines, CFG_GOP, 0, (void *)&threadcfg.gop);
         printf("gop = %d\n", threadcfg.gop);
@@ -1290,7 +1280,8 @@ read_config:
         extract_value(conf_p, lines, CFG_RECORD_RESOLUTION, 1, (void *) threadcfg.record_resolution);
         printf("record_resolution = %s\n", threadcfg.record_resolution);
 
-        if (strncmp(threadcfg.record_resolution , "vga", 3) != 0 && strncmp(threadcfg.record_resolution , "qvga", 4) != 0)
+        if (strncmp(threadcfg.record_resolution , "720p", 4) != 0 && strncmp(threadcfg.record_resolution , "vga", 3) != 0 
+			&& strncmp(threadcfg.record_resolution , "qvga", 4) != 0)
             memcpy(threadcfg.record_resolution , threadcfg.resolution , 64);
         else
             memcpy(threadcfg.resolution , threadcfg.record_resolution, 64);
@@ -1321,11 +1312,15 @@ read_config:
 
 
         extract_value(conf_p, lines, CFG_RECORD_SENSITIVITY, 0, (void *)&threadcfg.record_sensitivity);
-        printf("record_sensitivity = %d\n", threadcfg.record_sensitivity);
-
         if (threadcfg.record_sensitivity < 1 || threadcfg.record_sensitivity > 3)
             threadcfg.record_sensitivity = 1;
+        printf("record_sensitivity = %d\n", threadcfg.record_sensitivity);
 
+        extract_value(conf_p, lines, CFG_RECORD_QUALITY, 0, (void *)&threadcfg.record_quality);
+        if (threadcfg.record_quality < 0 || threadcfg.record_quality > 100)
+            threadcfg.record_quality = 60;
+        printf("record_quality = %d\n", threadcfg.record_quality);
+		
         extract_value(conf_p, lines, CFG_RECORD_SLOW_SPEED, 0, (void *)&threadcfg.record_slow_speed);
         printf("record_slow_speed = %d\n", threadcfg.record_slow_speed);
 
@@ -1430,7 +1425,7 @@ read_config:
 
         check_eth0 = 0;
         check_wlan0 = 0;
-#if 0	//don't config the netork, for debug purpose only
+#if 1	//don't config the netork, for debug purpose only
         if (strncmp(threadcfg.inet_mode, "eth_only", strlen("eth_only")) == 0
                 || strncmp(threadcfg.inet_mode, "inteligent", strlen("inteligent")) == 0)
         {
@@ -1528,6 +1523,9 @@ eth_dhcp:
                 || strncmp(threadcfg.inet_mode, "inteligent", strlen("inteligent")) == 0)
         {
             printf("------------configure wlan----------------\n");
+			system("insmod /lib/modules/ak98-fs-hcd.ko");
+			system("insmod /lib/modules/8192cu.ko");
+			
             check_wlan0 = 1;
             if (config_wifi() < 0)
             {

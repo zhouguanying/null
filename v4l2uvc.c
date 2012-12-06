@@ -90,7 +90,6 @@ int
 init_videoIn(struct vdIn *vd, char *device, int width, int height,
              int format, int grabmethod)
 {
-
     if (vd == NULL || device == NULL)
         return -1;
     if (width == 0 || height == 0)
@@ -111,6 +110,7 @@ init_videoIn(struct vdIn *vd, char *device, int width, int height,
     vd->height = height;
     vd->formatIn = format;
     vd->grabmethod = grabmethod;
+	
     if (init_v4l2(vd) < 0)
     {
         log_warning(" Init v4L2 failed !! exit fatal \n");
@@ -132,7 +132,7 @@ init_videoIn(struct vdIn *vd, char *device, int width, int height,
             (unsigned char *) calloc(1, (size_t) vd->width * (vd->height + 8) * 2);
         break;
     case V4L2_PIX_FMT_YUYV:
-        fprintf(stderr, "use V4L2_PIX_FMT_YUYV format framesize %d\n", vd->framesizeIn);
+        printf("use V4L2_PIX_FMT_YUYV format, width=%d, height=%d, framesize %d\n",vd->width, vd->height, vd->framesizeIn);
         vd->framebuffer = (unsigned char *) calloc(1, (size_t) vd->framesizeIn);
         break;
     default:
@@ -142,6 +142,7 @@ init_videoIn(struct vdIn *vd, char *device, int width, int height,
     }
     if (!vd->framebuffer)
         goto error;
+	
     return 0;
 error:
     //sleep(20);
@@ -419,7 +420,7 @@ int uvcGrab(struct vdIn *vd)
 #endif
         break;
     case V4L2_PIX_FMT_YUYV:
-//        printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
+  //      printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
 		time_current = get_system_time_ms();
 		if( ( time_current - time_begin ) >= 10 * 1000 ){
 			printf("encode speed = %d\n", ( count_t - count_last )/10 );
@@ -433,8 +434,9 @@ int uvcGrab(struct vdIn *vd)
 		}
 		if( count_t % 12 == 0 ){
 			status = check_monitor_queue_status();
-			if( status == MONITOR_STATUS_NEED_ANY ){
-				if( akjpeg_encode_yuv420((void *)vd->buf.m.userptr, jpeg_buf+sizeof(picture_info_ex_t), (void *)&psize,1280, 720 ,60) != AK_FALSE ){
+			if( status == MONITOR_STATUS_NEED_ANY && ( time_current - time_last >= frame_interval )){
+				time_last = time_current;
+				if( akjpeg_encode_yuv420((void *)vd->buf.m.userptr, jpeg_buf+sizeof(picture_info_ex_t), (void *)&psize,vd->width, vd->height,60) != AK_FALSE ){
 					printf("encode an jpeg file, size = %d\n", psize);
 					memcpy(jpeg_buf, &p_info_ex , sizeof(picture_info_ex_t));
 #if 1
@@ -462,7 +464,7 @@ int uvcGrab(struct vdIn *vd)
 					MediaRestartFast();
 				}
 				else{
-					MediaRestart(threadcfg.bitrate, 1280,720);
+					MediaRestart(threadcfg.bitrate, vd->width,vd->height);
 				}
 				count_t = count_last = 0;
 				time_begin = time_current = get_system_time_ms();
@@ -747,16 +749,18 @@ void restart_v4l2(int width , int height)
 {
     log_debug("cemera restart \n");
     const char *videodevice = "/dev/video0";
-    int format = V4L2_PIX_FMT_MJPEG;
+    int format = V4L2_PIX_FMT_YUYV;
     int grabmethod = 1;
     int trygrab = 5;
     pthread_mutex_lock(&vdin_camera->tmpbufflock);
+	closeMedia();
     close_v4l2(vdin_camera);
     if (init_videoIn(vdin_camera, (char *) videodevice, width, height, format, grabmethod) < 0)
     {
         printf("init camera device error\n");
         exit(0);
     }
+#if 0
     while (uvcGrab(vdin_camera) < 0)
     {
         trygrab--;
@@ -765,6 +769,8 @@ void restart_v4l2(int width , int height)
         printf("Error grabbing\n");
         usleep(100000);
     }
+#endif
+
     pthread_mutex_unlock(&vdin_camera->tmpbufflock);
 }
 

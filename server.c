@@ -85,6 +85,8 @@ vs_share_mem* v2ipd_share_mem;
 
 static int need_I_frame = 0;
 
+int change_video_format = 0;
+
 static void send_alive(void)
 {
     if (msqid < 0)
@@ -1459,6 +1461,22 @@ NORMAL_MODE:
             dbg("is do update return now\n");
             goto __out;
         }
+		if( change_video_format ){
+			change_video_format = 0;
+			if(strncmp(threadcfg.resolution, "qvga", 4) == 0){
+				restart_v4l2(352,288);
+			}
+			else if(strncmp(threadcfg.resolution, "vga", 3) == 0){
+				restart_v4l2(640,480);
+			}
+			else if(strncmp(threadcfg.resolution, "720p", 4) == 0){
+				restart_v4l2(1280,720);
+			}
+			else{
+				printf("my god\n");
+			}
+			encode_need_i_frame();
+		}
         gettimeofday(&endtime, NULL);
         if (abs(endtime.tv_sec - alive_old_time.tv_sec) >= 3)
         {

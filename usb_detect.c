@@ -7,11 +7,12 @@
 #include  <fcntl.h>
 #include  <termios.h>
 #include  <errno.h>
+#include "usb_detect.h"
 
 #define    IOCTL_USBDET_READ                11
 #define    IOCTL_USBDET_LED_DRIVE        15
 
-#define    USBDET_DEV_NAME    "/dev/usbdet"
+#define    USBDET_DEV_NAME    "/dev/gpio"
 
 
 static    int     fd = -1;
@@ -37,8 +38,6 @@ int ioctl_usbdet_read(void)
 {
     int    ret;
 
-	return 0;
-
     if (-1 == fd)
     {
         if (open_usbdet())
@@ -47,7 +46,7 @@ int ioctl_usbdet_read(void)
         }
     }
 
-    ret = ioctl(fd, IOCTL_USBDET_READ, 0);
+    ret = ioctl(fd, _IOR(DEV_MAGIC,USBD,int), NULL);
 
     return    ret;
 }
@@ -55,6 +54,8 @@ int ioctl_usbdet_read(void)
 int ioctl_usbdet_led(int led)
 {
     int    ret;
+
+	return 0;
 
     if (-1 == fd)
     {

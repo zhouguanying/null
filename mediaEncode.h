@@ -50,5 +50,7 @@ int encode_main(char* yuv_buf, int size);
 //by chf: temp_buffer store the encoded-one-frame-date at once. should be clear before encoding every time.
 void clear_encode_temp_buffer(void);
 int get_temp_buffer_data(char** buffer, int* size);
+int closeMedia(void);
+
 
 #endif

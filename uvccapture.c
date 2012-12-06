@@ -55,8 +55,24 @@ struct vdIn * init_camera(void)
     }
 #endif
 
-    width = 1280;
-    height = 720;
+	printf("record resolution=%s\n", threadcfg.record_resolution);
+	if ( strncmp(threadcfg.record_resolution , "720p", 4) == 0 ){
+		width = 1280;
+		height = 720;
+	} 
+	else if( strncmp(threadcfg.record_resolution , "vga", 3) == 0 ){
+		width = 640;
+		height = 480;
+	}
+	else if ( strncmp(threadcfg.record_resolution , "qvga", 4) == 0){
+		width = 320;
+		height = 240;
+	}
+	else {
+		width = 1280;
+		height = 720;
+	}
+	
     brightness = threadcfg.brightness;
     contrast    = threadcfg.contrast;
     saturation = threadcfg.saturation;

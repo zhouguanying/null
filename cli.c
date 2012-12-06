@@ -1865,6 +1865,48 @@ static void set_volume(char *arg)
     }
 }
 
+static void set_vide_format(char* arg)
+{
+	if( strncmp(arg, "qvga", 4) == 0 ){
+		memset(threadcfg.resolution, 0, sizeof(threadcfg.resolution));
+		memcpy(threadcfg.resolution, "qvga", 4);
+		change_video_format = 1;
+		return;
+	}
+	else if( strncmp(arg,"vga",3)== 0 ){
+		memset(threadcfg.resolution, 0, sizeof(threadcfg.resolution));
+		memcpy(threadcfg.resolution, "vga", 3);
+		change_video_format = 1;
+		return;
+	}
+	else if( strncmp(arg,"720p", 4 ) == 0 ){
+		memset(threadcfg.resolution, 0, sizeof(threadcfg.resolution));
+		memcpy(threadcfg.resolution, "720p", 4);
+		change_video_format = 1;
+		return;
+	}
+	else{
+		return;
+	}
+}
+
+static void set_vide_quality(char* arg)
+{
+    char buf[32];
+    int value;
+    if (!arg)
+        return;
+    memset(buf, 0, 32);
+    memcpy(buf, arg, strlen(arg));
+    if (sscanf(buf, "%d", &value) != 1)
+    {
+        dbg("error quality\n");
+        return;
+    }
+	threadcfg.record_quality = value;
+	return;
+}
+
 static char* GetTime(char* arg)
 {
     char* buffer;
@@ -2434,6 +2476,10 @@ static char *do_cli_cmd(void *sess,
         SetIpAddress(param);
     else if (strncmp(cmd, "pb_set_status", 13) == 0)
         resp = cli_playback_set_status(sess, param);
+    else if (strncmp(cmd, "set_video_fmt", 13) == 0)
+        set_vide_format(param);
+    else if (strncmp(cmd, "set_video_quality", 17) == 0)
+        set_vide_quality(param);
     else
         dbg("unrecognized command: %s\n", cmd);
 

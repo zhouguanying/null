@@ -896,6 +896,9 @@ void cfg_network()
 
 void *network_thread(void *arg)
 {
+	if( !threadcfg.inet_udhcpc ){
+		system("killall ifplugd");
+	}
     sleep(60);
     for (;;)
     {
