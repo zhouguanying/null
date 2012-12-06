@@ -368,7 +368,7 @@ int uvcGrab(struct vdIn *vd)
     static int count_t = 0;
 	static int count_last = 0;
     static unsigned long time_begin, time_current, time_last = 0;
-	int frame_interval = ( 1000-100 ) / threadcfg.framerate;
+	int frame_interval = ( 1000- 200 ) / threadcfg.framerate;
 	int time1;
     if (count_t == 0)
     {
@@ -448,6 +448,7 @@ int uvcGrab(struct vdIn *vd)
 					}
 #endif
 				}
+                time_last = time_current;
 				break;
 			}
 		}
@@ -489,7 +490,7 @@ int uvcGrab(struct vdIn *vd)
 				char* buffer;
 				int size;
 				if( -1 != get_temp_buffer_data(&buffer,&size) ){
-					printf("get a frame,count = %d, size=%d\n",count_t, size);
+					//printf("get a frame,count = %d, size=%d\n",count_t, size);
 					memcpy(buffer, &p_info_ex , sizeof(picture_info_ex_t));
 					if( write_monitor_packet_queue(buffer,size) == 0 ){
 						count_t++;

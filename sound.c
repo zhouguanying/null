@@ -61,7 +61,7 @@ static CBuffer              *playback_buffer;
 static CBuffer              *capture_buffer;
 static CBuffer              *echo_buffer;
 
-// TODO: playback and capture periods are not unify
+// TODO: playback and capture periods are not unity
 static data_chunk_t *_playback_buffer;
 static data_chunk_t *_echo_buffer;
 static int          _period_bytes_pb;

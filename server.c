@@ -1514,7 +1514,8 @@ NORMAL_MODE:
                 }
             }
 #endif
-            usleep(1000 * 20);
+            //usleep(1000 * 20);
+            usleep(1000);
         }
         continue;
 
