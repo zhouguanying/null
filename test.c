@@ -849,6 +849,9 @@ open_hid:
                     sprintf(p , "cam_id=%x\n", threadcfg.cam_id);
                     data_len += strlen(p);
                     p += strlen(p);
+                    sprintf(p , MODEL_NAME);
+                    data_len += strlen(p);
+                    p += strlen(p);
                     s = get_clean_video_cfg(&cfg_len);
                     if (!s)
                     {

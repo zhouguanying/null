@@ -1639,6 +1639,9 @@ static char *GetConfig(char *arg , int *rsp_len)
         sprintf(p, "cam_id=%x\n", threadcfg.cam_id);
         (*rsp_len) += strlen(p);
         p += strlen(p);
+        sprintf(p, MODEL_NAME);
+        (*rsp_len) += strlen(p);
+        p += strlen(p);
         s = get_clean_video_cfg(&cfg_len);
         if (!s)
         {

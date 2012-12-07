@@ -11,6 +11,7 @@
 #define CURR_VIDEO_CFG_VERSION        "1.0.4"
 
 #define APP_VERSION                     "version=6.0.5\n"
+#define MODEL_NAME						"model=IP2001\n"
 #define UDP_SERVER_ADDR                  "udp.iped.com.cn"
 
 #define CFG_VERSION                        "cfg_v"
