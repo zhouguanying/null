@@ -890,10 +890,16 @@ open_hid:
                 case HID_READ_SEARCH_WIFI:
                     printf("HID_READ_SEARCH_WIFI\n");
                     close(hid_fd);
+#ifndef IPED_98
                     system("switch host");
                     sleep(1);
                     system("switch host");
                     sleep(3);
+#else
+					system("insmod /lib/modules/ak98-fs-hcd.ko");
+					system("insmod /lib/modules/8192cu.ko");
+					system("sleep 3");
+#endif
                     do
                     {
                         hid_buf = get_parse_scan_result(& numssid, NULL);
@@ -902,8 +908,10 @@ open_hid:
                     if (hid_buf == NULL)
                         goto hid_fail;
                     free(hid_buf);
+#ifndef IPED_98
                     system("switch gadget");
                     sleep(5);
+#endif
                     if ((hid_fd = open("/dev/hidg0", O_RDWR)) != -1 && set_fl(hid_fd, O_NONBLOCK) != -1)
                         dbg("reopen hid sucess now begin to send data\n");
                     else
@@ -1122,6 +1130,7 @@ hid_fail:
     sleep(3);
 #else
 	system("insmod /lib/modules/ak98-fs-hcd.ko");
+	system("insmod /lib/modules/8192cu.ko");
 	system("sleep 3");
 #endif
 
