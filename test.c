@@ -511,6 +511,7 @@ int get_cam_id(unsigned int *id)
 #define HID_SET_PSWD                   5
 #define HID_SET_SYS_TIME               6
 #define HID_GET_WIFI_RESULT           7
+#define HID_SET_DEVICE               8
 
 //#define HID_FAILE                       4
 
@@ -1043,6 +1044,56 @@ open_hid:
                     dbg("time = %s\n", hid_unit_buf + 2);
                     set_system_time(hid_unit_buf + 2);
                     break;
+				case HID_SET_DEVICE:
+					printf("HID_SET_DEVICE:%s\n",hid_unit_buf+2);
+					hid_buf = malloc(4096);
+					fd = fopen(ID_FILE,"wb");
+					if( fd == NULL ){
+						memset( hid_buf, 0, 4096 );
+						strcpy(hid_buf,"open id file error");
+						write(hid_fd , hid_buf, HID_RDWR_UNIT);
+						break;
+					}
+					memset( hid_buf, 0x0a, 4096 );
+					hid_buf[0]='0';
+					hid_buf[1]='x';
+					memcpy(hid_buf+2, hid_unit_buf+2,8);
+					if( fwrite(hid_buf,1,11,fd) != 11 ){
+						printf("write id file error\n");
+						fclose(fd);
+						memset( hid_buf, 0, 4096 );
+						strcpy(hid_buf,"write id file error");
+						write(hid_fd , hid_buf, HID_RDWR_UNIT);
+						break;
+					}
+					fclose(fd);
+					system("sync");
+
+					fd = fopen(MAC_FILE,"wb");
+					if( fd == NULL ){
+						memset( hid_buf, 0, 4096 );
+						strcpy(hid_buf,"open mac file error");
+						write(hid_fd , hid_buf, HID_RDWR_UNIT);
+						break;
+					}
+					memset( hid_buf, 0x0a, 4096 );
+					memcpy(hid_buf, hid_unit_buf+11,17);
+					if( fwrite(hid_buf,1,18,fd) != 18 ){
+						printf("write mac file error\n");
+						fclose(fd);
+						memset( hid_buf, 0, 4096 );
+						strcpy(hid_buf,"write mac file error");
+						write(hid_fd , hid_buf, HID_RDWR_UNIT);
+						break;
+					}
+					fclose(fd);
+					
+					memset( hid_buf, 0, 4096 );
+					strcpy(hid_buf,"ok");
+					write(hid_fd , hid_buf, HID_RDWR_UNIT);
+					free(hid_buf);
+					break;
+
                 default:
                     if (!hid_unit_buf[1])
                         dbg("###########get garbage discard it############\n");

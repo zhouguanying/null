@@ -70,6 +70,9 @@
 #define CFG_VALUE_NORMAL                 "normal"
 #define CFG_VALUE_INTELLIGENT             "inteligent"
 
+#define ID_FILE							"/data/ID"
+#define MAC_FILE						"/data/mac"
+
 /*this file mark if this kernel is a encryption kernel or no encryption kernel
 *encryption kernel if this file exist , otherwise no encryption kernel
 */
