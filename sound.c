@@ -226,8 +226,10 @@ static void circular_write(CBuffer *buffer, char *data)
 
     if (buffer->start == buffer->first)
     {
-        if (buffer == capture_buffer)
+        if (buffer == capture_buffer){
             printf("capture_buffer overrun\n");
+			sleep(2);
+		}
         else if (buffer == playback_buffer)
             printf("playback_buffer overrun\n");
         else if (buffer == echo_buffer)
