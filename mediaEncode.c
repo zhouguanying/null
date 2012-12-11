@@ -452,6 +452,7 @@ int encode_main(char* yuv_buf, int size)
 	video_enc_io_param.p_curr_data = yuv_buf;
 	video_enc_io_param.p_vlc_data = (char*)((encode_temp_buffer+32));
 	video_enc_io_param.QP = (threadcfg.record_quality-QUALITY_WORST)*(QP_BEST-QP_WORST)/(QUALITY_BEST-QUALITY_WORST)+QP_WORST;
+retry:
 	if( count % 100 == 0 || need_i_frame ){
 		video_enc_io_param.mode = 0;
 		need_i_frame = 0;
@@ -462,6 +463,9 @@ int encode_main(char* yuv_buf, int size)
 	}
 	video_enc_io_param.bInsertP = AK_FALSE;
 	encode_size = VideoStream_Enc_Encode(g_hVS, &video_enc_io_param);
+	if( need_i_frame ){		//if the flag is set during encoding, we have to retry to make sure I frame is next frame
+		goto retry;
+	}
 	encode_temp_buf_size = 32;
 	encode_temp_buf_size += encode_size;
 	count++;

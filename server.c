@@ -83,8 +83,6 @@ char g_sess_id_mask[MAX_NUM_IDS];
 int daemon_msg_queue;
 vs_share_mem* v2ipd_share_mem;
 
-static int need_I_frame = 0;
-
 int change_video_format = 0;
 
 static void send_alive(void)
@@ -863,11 +861,6 @@ int check_monitor_queue_status(void)
 			sess = sess->next;
 		}
 		sess->send_list.current_state = PACKET_QUEUE_NORMAL;
-		if( need_I_frame ){
-			need_I_frame = 0;
-			pthread_mutex_unlock(&global_ctx_lock);
-			return MONITOR_STATUS_NEED_I_FRAME;
-		}
 		if( sess->send_list.total_packet_num < MAX_SEND_PACKET_NUM ){
 			pthread_mutex_unlock(&global_ctx_lock);
 			return MONITOR_STATUS_NEED_ANY;
@@ -914,8 +907,7 @@ int check_monitor_queue_status(void)
 			sess = sess->next;
 		}
 
-		if( need_i_frame || need_I_frame ){
-			need_I_frame = 0;
+		if( need_i_frame ){
 			ret = MONITOR_STATUS_NEED_I_FRAME;
 		}
 		else if( need_any_frame ){
@@ -1077,7 +1069,7 @@ int start_video_monitor(struct sess_ctx* sess)
     }
 	
     pthread_mutex_lock(&global_ctx_lock);
-	need_I_frame = 1;
+	encode_need_i_frame();
     pthread_mutex_unlock(&global_ctx_lock);
 
     attempts = 0;
