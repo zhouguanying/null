@@ -340,6 +340,8 @@ static char * gettimestamp_ex()
     struct tm *curtm;
 	struct timeval now;
 	int ms;
+	static int last_sec = 0, last_ms = 0;
+	int sec;
 
     if (time(&t) == -1)
     {
@@ -349,8 +351,16 @@ static char * gettimestamp_ex()
     curtm = localtime(&t);
 	gettimeofday(&now, NULL);
 	ms = now.tv_usec / 1000;
+	sec = curtm->tm_sec;
+	if( ms < last_ms ){
+		if( sec == last_sec ){	// ms turnround,but second may not turnround
+			sec++;
+		}
+	}
     sprintf(timestamp, "%04d%02d%02d%02d%02d%02d%04d", curtm->tm_year + 1900, curtm->tm_mon + 1,
-            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, curtm->tm_sec,ms);
+            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, sec,ms);
+	last_sec = curtm->tm_sec;
+	last_ms = ms;
     return timestamp;
 }
 
