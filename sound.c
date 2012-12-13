@@ -481,21 +481,21 @@ static void *playback(void *arg)
 
                 pthread_mutex_unlock(&circular_mutex);
                 if (sleep_start)
-                    usleep(10000); // crucial
+                    usleep(100000); // crucial
                 else
                     usleep(10);
             }
             else
             {
                 pthread_mutex_unlock(&circular_mutex);
-                usleep(20000);
+                usleep(100000);
             }
         }
         else
         {
             n           = 0;
             sleep_start = 0;
-            usleep(50000);
+            usleep(100000);
         }
     }
 
