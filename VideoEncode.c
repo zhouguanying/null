@@ -130,6 +130,7 @@ int main(int argc, char* argv[])
     threadcfg.contrast = encoder_shm_addr->contrast;
     threadcfg.saturation = encoder_shm_addr->saturation;
     threadcfg.gain = encoder_shm_addr->gain;
+    threadcfg.record_quality = encoder_shm_addr->record_quality;
 	
 	memset(threadcfg.record_resolution,0,sizeof(threadcfg.record_resolution));
 	if(encoder_shm_addr->width == 352){
@@ -168,6 +169,19 @@ int main(int argc, char* argv[])
 			close_video_device();
 			printf("encoder exit for main process's cmd\n");
 			exit(0);
+		}
+
+		if( encoder_shm_addr->para_changed ){
+			encoder_shm_addr->para_changed = 0;
+			threadcfg.record_quality = encoder_shm_addr->record_quality;
+			if( threadcfg.brightness != encoder_shm_addr->brightness ){
+				threadcfg.brightness = encoder_shm_addr->brightness;
+				v4l2_contrl_brightness(vd, threadcfg.brightness);
+			}
+			if( threadcfg.contrast != encoder_shm_addr->contrast ){
+				threadcfg.contrast = encoder_shm_addr->contrast;
+				v4l2_contrl_contrast(vd, threadcfg.contrast);
+			}
 		}
 		
 		if (count_t == 0)

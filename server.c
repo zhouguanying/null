@@ -1282,6 +1282,15 @@ static inline void write_syn_sound(int *need_video_internal_head)
     }
 }
 
+void encoder_para_changed()
+{
+	encoder_shm_addr->para_changed = 1;
+	encoder_shm_addr->brightness = threadcfg.brightness;
+	encoder_shm_addr->contrast = threadcfg.contrast;
+	encoder_shm_addr->saturation = threadcfg.saturation;
+	encoder_shm_addr->record_quality = threadcfg.record_quality;
+}
+
 int snd_soft_restart();
 struct vdIn * init_camera(void);
 
@@ -1357,61 +1366,6 @@ again:
 			break;
 	}
 	
-
-#if 0
-    switch (vd->formatIn)
-	{
-		case V4L2_PIX_FMT_YUYV:
-			time_current = get_system_time_ms();
-			if( ( time_current - time_begin ) >= 10 * 1000 ){
-				printf("encode speed = %d\n", ( count_t - count_last )/10 );
-				time_begin = time_current;
-				count_last = count_t;
-			}
-
-			status = check_monitor_queue_status();
-			if( status != MONITOR_STATUS_NEED_NOTHING && ( time_current - time_last >= frame_interval ) ){
-				time_last = time_current;
-				clear_encode_temp_buffer(); //by chf: after encoding one frame, compressed data are stored in static temp buffer, we should take them later
-				if( status == MONITOR_STATUS_NEED_I_FRAME ){
-					printf("after %d p frame, we need an I frame for some reasons\n", count_t);
-					encode_need_i_frame();
-					count_t = count_last = 0;
-					time_begin = time_current = get_system_time_ms();
-				}
-
-				//time1 = get_system_time_ms();
-				if(-1 != encode_main((void *)vd->buf.m.userptr, vd->buf.bytesused))
-				{
-					//printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time1);
-					char* buffer;
-					int size;
-					if( -1 != get_temp_buffer_data(&buffer,&size) ){
-						printf("get a frame,count = %d, size=%d\n",count_t, size);
-						memcpy(buffer, &p_info_ex , sizeof(picture_info_ex_t));
-						if( write_monitor_packet_queue(buffer,size) == 0 ){
-							count_t++;
-						}
-						else{
-							printf("so strange, write_monitor_packet_queue error, what happened?????\n");
-						}
-					}
-					else{
-						printf("get temp buffer data error, so strange\n");
-					}
-				}
-				else{
-					printf("encode error\n");
-				}
-			}
-			else{
-				usleep(10);	//by chf: sleep a little, for next frame arrive 
-			}
-		    break;
-		default:
-		    break;
-	}
-#endif
     return 0;
 }
 
@@ -1637,12 +1591,14 @@ NORMAL_MODE:
 	encoder_shm_addr->width = 1280;
 	encoder_shm_addr->height = 720;
 	encoder_shm_addr->exit = 0;
+	
 	encoder_shm_addr->para_changed = 0;
     encoder_shm_addr->frame_rate = 12;
     encoder_shm_addr->brightness = 50;
     encoder_shm_addr->contrast = 50;
     encoder_shm_addr->saturation = 50;
     encoder_shm_addr->gain =50;
+    encoder_shm_addr->record_quality = threadcfg.record_quality;
 
 	system("/sdcard/encoder&");
 

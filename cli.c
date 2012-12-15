@@ -1817,8 +1817,13 @@ static void set_brightness(char *arg)
         dbg("error brightness\n");
         return;
     }
+#ifdef ENCODER_IN_ONE_PROCESS
     if (v4l2_contrl_brightness(vdin_camera, value) == 0)
         threadcfg.brightness = value;
+#else
+	threadcfg.brightness = value;
+	encoder_para_changed();
+#endif
 }
 
 static void set_contrast(char *arg)
@@ -1834,8 +1839,13 @@ static void set_contrast(char *arg)
         dbg("error contrast\n");
         return;
     }
+#ifdef ENCODER_IN_ONE_PROCESS
     if (v4l2_contrl_contrast(vdin_camera, value) == 0)
         threadcfg.contrast = value;
+#else
+	threadcfg.contrast = value;
+	encoder_para_changed();
+#endif
 }
 
 static void set_volume(char *arg)
@@ -1891,6 +1901,7 @@ static void set_vide_quality(char* arg)
         return;
     }
 	threadcfg.record_quality = value;
+	encoder_para_changed();
 	return;
 }
 

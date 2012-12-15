@@ -215,6 +215,8 @@ SEND_PACKET* get_monitor_queue_packet(struct sess_ctx* sess);
 char * gettimestamp_ex(void);
 char * gettimestamp(void);
 
+void encoder_para_changed(void);
+
 #ifdef __cplusplus
 }
 #endif
