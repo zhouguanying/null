@@ -82,22 +82,6 @@ static char boundary[] = "000XMAIL000";
 static unsigned int    mailfileno = 0;
 static unsigned int    mailsubjectno = 0;
 
-static inline char * gettimestamp()
-{
-    static char timestamp[32];
-    time_t t;
-    struct tm *curtm;
-    if (time(&t) == -1)
-    {
-        printf("get time error\n");
-        exit(0);
-    }
-    curtm = localtime(&t);
-    sprintf(timestamp, "%04d-%02d-%02d-%02d-%02d-%02d", curtm->tm_year + 1900, curtm->tm_mon + 1,
-            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, curtm->tm_sec);
-    return timestamp;
-}
-
 void init_mail_attatch_data_list(char *mailbox)
 {
     memset(&attach_data_list_head, 0, sizeof(attach_data_list_head));

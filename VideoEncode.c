@@ -28,6 +28,7 @@
 #include "audio_record.h"
 #include "video_stream_lib.h"
 #include "akjpeg.h"
+#include "vpu_server.h"
 
 static picture_info_ex_t p_info_ex =
 {
@@ -35,6 +36,9 @@ static picture_info_ex_t p_info_ex =
 };
 static char* jpeg_buf = NULL;
 static struct vdIn *vd = NULL;
+
+static int encoder_shm_id;
+static encoder_share_mem* encoder_shm_addr;
 
 static void sig_handler(int signum)
 {
@@ -59,37 +63,6 @@ int set_raw_config_value(char * buffer)
 int set_system_time(char * time)
 {
 	return 0;
-}
-
-static char * gettimestamp_ex()
-{
-    static char timestamp[18];
-    time_t t;
-    struct tm *curtm;
-	struct timeval now;
-	int ms;
-	static int last_sec = 0, last_ms = 0;
-	int sec;
-
-    if (time(&t) == -1)
-    {
-        printf("get time error\n");
-        exit(0);
-    }
-    curtm = localtime(&t);
-	gettimeofday(&now, NULL);
-	ms = now.tv_usec / 1000;
-	sec = curtm->tm_sec;
-	if( ms < last_ms ){
-		if( sec == last_sec ){	// ms turnround,but second may not turnround
-			sec++;
-		}
-	}
-    sprintf(timestamp, "%04d%02d%02d%02d%02d%02d%04d", curtm->tm_year + 1900, curtm->tm_mon + 1,
-            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, sec,ms);
-	last_sec = curtm->tm_sec;
-	last_ms = ms;
-    return timestamp;
 }
 
 static int xioctl(int fh, int request, void *arg)
@@ -126,16 +99,22 @@ int main(int argc, char* argv[])
 	int i;
 	FILE* file;
 
+	printf("start encoder process\n");
+
+#if 0
 	if( argc < 2 ){
 		printf("usage: encoder qvga\n");
 		return 0;
 	}
+#endif
 
+#ifdef WRITE_YUV_OUT
 	file = fopen("/tmp/yuv", "wb");
 	if( file == NULL ){
 		printf("can not open temp file\n");
 		return 0;
 	}
+#endif
 
     for (i = 1; i <= _NSIG; i++)
     {
@@ -146,37 +125,54 @@ int main(int argc, char* argv[])
             sigset(i, sig_handler);
     }
 
+
+    if ((encoder_shm_id = shmget(ENCODER_SHM_KEY , ENCODER_SHM_SIZE , 0666)) < 0)
+    {
+        perror("shmget : open");
+        exit(0);
+    }
+    if ((encoder_shm_addr = (encoder_share_mem *)shmat(encoder_shm_id , 0 , 0)) < 0)
+    {
+        perror("shmat :");
+        exit(0);
+    }
+	encoder_shm_addr->data_encoder = (char*)((int)encoder_shm_addr + sizeof(encoder_share_mem));
+
+#if 0
 	sprintf(threadcfg.record_resolution, "%s", argv[1]);
 	printf("threadcfg.record_resolution = %s\n", threadcfg.record_resolution);
-	
-	threadcfg.brightness = 
-	threadcfg.contrast = 
-	threadcfg.saturation =
-	threadcfg.gain = 50;
+#endif
 
-	if( !strncmp( argv[1], "qvga", 4 )){
-		width = 352;
-		height = 288;
+	width = encoder_shm_addr->width;
+	height = encoder_shm_addr->height;
+
+    threadcfg.brightness = encoder_shm_addr->brightness;
+    threadcfg.contrast = encoder_shm_addr->contrast;
+    threadcfg.saturation = encoder_shm_addr->saturation;
+    threadcfg.gain = encoder_shm_addr->gain;
+	memset(threadcfg.record_resolution,0,sizeof(threadcfg.record_resolution));
+	if(encoder_shm_addr->width == 352){
+		sprintf(threadcfg.record_resolution,"%s","qvga");
 	}
-	else if( !strncmp( argv[1],"vga", 3 )){
-		width = 640;
-		height = 480;
+	else if( encoder_shm_addr->width == 640 ){
+		sprintf(threadcfg.record_resolution,"%s","vga");
 	}
-	else{		//default 720p
-		width = 1280;
-		height = 720;
+	else{
+		sprintf(threadcfg.record_resolution,"%s","720p");
 	}
 
 	printf("start init\n");
 	
 	akjpeg_init_without_lock();
 	akjpeg_set_task_func();
-	
+
 	if ((vd = (struct vdIn *)init_camera()) == NULL)
 	{
 		printf("init camera error\n");
 		return -1;
 	}
+	clear_encode_temp_buffer();
+
 	printf("start encoder\n");
 	while(1)
 	{
@@ -188,16 +184,17 @@ int main(int argc, char* argv[])
 		char *time;
 		int status;
 		unsigned int  psize;
+
+		if( encoder_shm_addr->exit ){
+			close_video_device();
+			exit(0);
+		}
 		
 		if (count_t == 0)
 		{
 			time_begin = get_system_time_ms();
 		}
 
-		if( count_t >= 6 ){
-			break;
-		}
-	
 		if (!vd->isstreaming)
 			if (video_enable(vd))
 				goto err;
@@ -221,14 +218,16 @@ int main(int argc, char* argv[])
 				break;
 			case V4L2_PIX_FMT_YUYV:
 		  	  //printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
-			  fwrite(vd->buf.m.userptr, 1, width*height*3/2, file);
+#ifdef WRITE_YUV_OUT
+				fwrite(vd->buf.m.userptr, 1, width*height*3/2, file);
+#endif
 				time_current = get_system_time_ms();
 				if( ( time_current - time_begin ) >= 10 * 1000 ){
 					printf("encode speed = %d\n", ( count_t - count_last )/10 );
 					time_begin = time_current;
 					count_last = count_t;
 				}
-#if 1
+#if 0
 				psize=1280*720*3/2;
 				if( jpeg_buf == NULL ){
 					jpeg_buf = malloc( 1280 * 720 * 3 / 2 + 8192 );
@@ -256,13 +255,15 @@ int main(int argc, char* argv[])
 					}
 				}
 #endif
-		
-				//status = check_monitor_queue_status();
-				status = MONITOR_STATUS_NEED_ANY;
-				if( status != MONITOR_STATUS_NEED_NOTHING && ( time_current - time_last >= frame_interval ) ){
+				if( encoder_shm_addr->state == ENCODER_STATE_WAIT_FINISH){
+					status = encoder_shm_addr->next_frame_type;
+				}
+				else{
+					status = ENCODER_FRAME_TYPE_NONE;
+				}
+				if( status != ENCODER_FRAME_TYPE_NONE && ( time_current - time_last >= frame_interval ) ){
 					time_last = time_current;
-					clear_encode_temp_buffer(); //by chf: after encoding one frame, compressed data are stored in static temp buffer, we should take them later
-					if( status == MONITOR_STATUS_NEED_I_FRAME ){
+					if( status == ENCODER_FRAME_TYPE_I ){
 						printf("after %d p frame, we need an I frame for some reasons\n", count_t);
 						encode_need_i_frame();
 						count_t = count_last = 0;
@@ -270,24 +271,26 @@ int main(int argc, char* argv[])
 					}
 		
 					//time1 = get_system_time_ms();
+again:
 					if(-1 != encode_main((void *)vd->buf.m.userptr, vd->buf.bytesused))
 					{
 						//printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time1);
 						char* buffer;
 						int size;
+
+						if( encoder_shm_addr->force_I_frame ){
+							encoder_shm_addr->force_I_frame = 0;
+							encode_need_i_frame();
+							goto again;
+						}
+
 						if( -1 != get_temp_buffer_data(&buffer,&size) ){
 							printf("get a frame,count = %d, size=%d\n",count_t, size);
 							memcpy(buffer, &p_info_ex , sizeof(picture_info_ex_t));
-#if 0
-							if( write_monitor_packet_queue(buffer,size) == 0 ){
-								count_t++;
-							}
-							else{
-								printf("so strange, write_monitor_packet_queue error, what happened?????\n");
-							}
-#else
+							memcpy(encoder_shm_addr->data_encoder, buffer, size);
+							encoder_shm_addr->data_size = size;
+							encoder_shm_addr->state = ENCODER_STATE_FINISHED;
 							count_t++;
-#endif
 						}
 						else{
 							printf("get temp buffer data error, so strange\n");
@@ -298,7 +301,7 @@ int main(int argc, char* argv[])
 					}
 				}
 				else{
-					usleep(10); //by chf: sleep a little, for next frame arrive 
+					usleep(1*1000); //by chf: sleep a little, for next frame arrive 
 				}
 				//printf("####### get capture :size %u framesize %u pointer %p\n",
 									//vd->buf.bytesused, vd->framesizeIn, vd->mem[vd->buf.index]);
@@ -315,7 +318,9 @@ int main(int argc, char* argv[])
 		}
 	}
 
+#ifdef WRITE_YUV_OUT
 	fclose(file);
+#endif
 	close_v4l2(vd);
 	return 0;
 

@@ -51,6 +51,41 @@
 #define RECORD_SHM_ATTR_TABLE_POS             RECORD_SHM_INDEX_TABLE_POS
 #define RECORD_SHM_15SEC_TABLE_POS        (RECORD_SHM_ATTR_TABLE_POS + 32*1024)
 
+#define ENCODER_SHM_KEY      790
+#define ENCODER_SHM_SIZE   (512*1024 +4096)
+
+#define ENCODER_FRAME_TYPE_NONE	0
+#define ENCODER_FRAME_TYPE_I	1
+#define ENCODER_FRAME_TYPE_P	2
+#define ENCODER_FRAME_TYPE_JPEG	3
+
+#define ENCODER_STATE_WAITCMD		0
+#define ENCODER_STATE_WAIT_FINISH	1
+#define ENCODER_STATE_FINISHED		2
+
+#define ENCODER_MUTEX_SEM_NAME	"sem"
+
+typedef struct
+{
+	int width;
+	int height;
+	int exit;
+	
+	int para_changed;	// below parameters can be changed dynamically
+    int frame_rate;
+    int brightness;
+    int contrast;
+    int saturation;
+    int gain;
+
+	int state;	//0: wait for cmd, only main can write; 1: need a frame, only encoder can write; 2: encoder finished, main can write 			
+	int force_I_frame;	//must output an I frame even encoder is in process
+	int next_frame_type;	//which kind of frame encoder should output
+	int data_size;			//compressed data length
+	char* data_main;				// compressed data buffer
+	char* data_encoder;				//because main and encoder processes' shm address are same, so we have to use two addr 
+} encoder_share_mem;
+
 typedef struct
 {
     int replay_file_start_sectors;

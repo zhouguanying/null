@@ -333,37 +333,6 @@ video_disable(struct vdIn *vd)
     return 0;
 }
 
-static char * gettimestamp_ex()
-{
-    static char timestamp[18];
-    time_t t;
-    struct tm *curtm;
-	struct timeval now;
-	int ms;
-	static int last_sec = 0, last_ms = 0;
-	int sec;
-
-    if (time(&t) == -1)
-    {
-        printf("get time error\n");
-        exit(0);
-    }
-    curtm = localtime(&t);
-	gettimeofday(&now, NULL);
-	ms = now.tv_usec / 1000;
-	sec = curtm->tm_sec;
-	if( ms < last_ms ){
-		if( sec == last_sec ){	// ms turnround,but second may not turnround
-			sec++;
-		}
-	}
-    sprintf(timestamp, "%04d%02d%02d%02d%02d%02d%04d", curtm->tm_year + 1900, curtm->tm_mon + 1,
-            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, sec,ms);
-	last_sec = curtm->tm_sec;
-	last_ms = ms;
-    return timestamp;
-}
-
 static picture_info_ex_t p_info_ex =
 {
     {0, 0, 0, 1, 0xc},

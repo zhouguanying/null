@@ -333,7 +333,7 @@ int create_file_segments(int free_msize, char* fp_dir)
 
     while ((entry = readdir(dp)) != NULL)
     {
-        if (strlen(entry->d_name) == 12 && !strncmp(entry->d_name + 8, ".dat", 4))
+        if (strlen(entry->d_name) == 12 && !strncmp(entry->d_name + 8, ".DAT", 4))
         {
             int len = strlen(fp_dir) + strlen(entry->d_name) + 2 ;
             full_name = malloc(len);

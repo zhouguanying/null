@@ -51,22 +51,6 @@ static struct cli_handler cli_cmd_handler;
 static int cli_socket = -1;
 SOCKET_TYPE cli_st;
 
-static inline char *gettimestamp()
-{
-    static char timestamp[15];
-    time_t t;
-    struct tm *curtm;
-    if (time(&t) == -1)
-    {
-        printf("get time error\n");
-        exit(0);
-    }
-    curtm = localtime(&t);
-    sprintf(timestamp, "%04d%02d%02d%02d%02d%02d", curtm->tm_year + 1900, curtm->tm_mon + 1,
-            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, curtm->tm_sec);
-    return timestamp;
-}
-
 static struct cli_sess_ctx *new_session(void *arg)
 {
     struct cli_sess_ctx *sess = NULL;

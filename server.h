@@ -206,10 +206,14 @@ unsigned char checksum(unsigned char cksum, unsigned char *data, int size);
 #define MONITOR_STATUS_NEED_NOTHING -1
 #define MONITOR_STATUS_NEED_I_FRAME 0
 #define MONITOR_STATUS_NEED_ANY  1
+#define MONITOR_STATUS_NEED_JPEG 2
 //return: -1:don't need any frame now  0:need I frame  1:need other frame as normal
 int check_monitor_queue_status(void);
 int write_monitor_packet_queue(char* buf, int size);
 SEND_PACKET* get_monitor_queue_packet(struct sess_ctx* sess);
+
+char * gettimestamp_ex(void);
+char * gettimestamp(void);
 
 #ifdef __cplusplus
 }

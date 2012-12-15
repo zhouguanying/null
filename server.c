@@ -67,6 +67,9 @@ extern char *v2ipd_logfile;
 #define EXIT_SUCCESS    0
 #define EXIT_FAILURE    1
 
+static int encoder_shm_id;
+static encoder_share_mem* encoder_shm_addr;
+
 static pthread_mutex_t     v_thread_sleep_t_lock;
 static int v_thread_sleep_time ;
 static unsigned char do_update_flag = 0;
@@ -84,6 +87,7 @@ int daemon_msg_queue;
 vs_share_mem* v2ipd_share_mem;
 
 int change_video_format = 0;
+static int force_i_frame = 0;
 
 static void send_alive(void)
 {
@@ -1070,6 +1074,7 @@ int start_video_monitor(struct sess_ctx* sess)
 	
     pthread_mutex_lock(&global_ctx_lock);
 	encode_need_i_frame();
+	force_i_frame = 1;
     pthread_mutex_unlock(&global_ctx_lock);
 
     attempts = 0;
@@ -1204,7 +1209,7 @@ static void init_sensitivity_diff_size(int width , int height)
 char pause_record = 0;
 char force_close_file = 0;
 
-static inline char * gettimestamp()
+char * gettimestamp()
 {
     static char timestamp[15];
     time_t t;
@@ -1217,6 +1222,37 @@ static inline char * gettimestamp()
     curtm = localtime(&t);
     sprintf(timestamp, "%04d%02d%02d%02d%02d%02d", curtm->tm_year + 1900, curtm->tm_mon + 1,
             curtm->tm_mday, curtm->tm_hour, curtm->tm_min, curtm->tm_sec);
+    return timestamp;
+}
+
+char * gettimestamp_ex()
+{
+    static char timestamp[18];
+    time_t t;
+    struct tm *curtm;
+	struct timeval now;
+	int ms;
+	static int last_sec = 0, last_ms = 0;
+	int sec;
+
+    if (time(&t) == -1)
+    {
+        printf("get time error\n");
+        exit(0);
+    }
+    curtm = localtime(&t);
+	gettimeofday(&now, NULL);
+	ms = now.tv_usec / 1000;
+	sec = curtm->tm_sec;
+	if( ms < last_ms ){
+		if( sec == last_sec ){	// ms turnround,but second may not turnround
+			sec++;
+		}
+	}
+    sprintf(timestamp, "%04d%02d%02d%02d%02d%02d%04d", curtm->tm_year + 1900, curtm->tm_mon + 1,
+            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, sec,ms);
+	last_sec = curtm->tm_sec;
+	last_ms = ms;
     return timestamp;
 }
 
@@ -1250,6 +1286,137 @@ int snd_soft_restart();
 struct vdIn * init_camera(void);
 
 #define NO_RECORD_FILE   "/data/norecord"
+
+static int DataGrab(encoder_share_mem* encoder)
+{
+	static int count_t = 0;
+	static int count_last = 0;
+    static unsigned long time_begin, time_current, time_last = 0;
+	int frame_interval = ( 1000-100 ) / threadcfg.framerate;
+	int time1;
+    int ret;
+    char *time;
+	int status;
+	unsigned int  psize;
+	
+    if (count_t == 0)
+    {
+        time_begin = get_system_time_ms();
+    }
+
+again:
+	time_current = get_system_time_ms();
+	if( ( time_current - time_begin ) >= 10 * 1000 ){
+		printf("encode speed = %d\n", ( count_t - count_last )/10 );
+		time_begin = time_current;
+		count_last = count_t;
+	}
+
+	if( force_i_frame ){
+		encoder->force_I_frame = 1;
+		force_i_frame = 0;
+	}
+
+	switch( encoder->state ){
+		case ENCODER_STATE_WAITCMD:	// wait for main process to write a cmd
+			status = check_monitor_queue_status();
+			if( status != MONITOR_STATUS_NEED_NOTHING ){
+				//printf("main need %d\n", status);
+				if( status == MONITOR_STATUS_NEED_I_FRAME ){
+					encoder->next_frame_type = ENCODER_FRAME_TYPE_I;
+				}
+				else if( status == MONITOR_STATUS_NEED_ANY ){
+					encoder->next_frame_type = ENCODER_FRAME_TYPE_P;
+				}
+				else if( status == MONITOR_STATUS_NEED_JPEG ){
+					encoder->next_frame_type = ENCODER_FRAME_TYPE_JPEG;
+				}
+				encoder->data_size = 0;
+				encoder->state = ENCODER_STATE_WAIT_FINISH;
+			}
+			else{
+				encoder->next_frame_type = ENCODER_FRAME_TYPE_NONE;
+			}
+			usleep(10*1000);
+			break;
+		case ENCODER_STATE_WAIT_FINISH:	// wait encoder to finish the cmd
+			usleep(5*1000);
+			break;
+		case ENCODER_STATE_FINISHED:	//encoder finished 
+			if( encoder->data_size == 0 || encoder->data_size > ENCODER_SHM_SIZE - sizeof(encoder_share_mem)){
+				printf("encoder error\n");
+				encoder->state = ENCODER_STATE_WAITCMD;
+				break;
+			}
+			//printf("ready to write at address %x, size %d\n", encoder->data_main, encoder->data_size);
+			if( write_monitor_packet_queue(encoder->data_main,encoder->data_size) == 0 ){
+				count_t++;
+			}
+			//printf("write finished\n");
+			encoder->state = ENCODER_STATE_WAITCMD;
+			goto again;
+		default:
+			break;
+	}
+	
+
+#if 0
+    switch (vd->formatIn)
+	{
+		case V4L2_PIX_FMT_YUYV:
+			time_current = get_system_time_ms();
+			if( ( time_current - time_begin ) >= 10 * 1000 ){
+				printf("encode speed = %d\n", ( count_t - count_last )/10 );
+				time_begin = time_current;
+				count_last = count_t;
+			}
+
+			status = check_monitor_queue_status();
+			if( status != MONITOR_STATUS_NEED_NOTHING && ( time_current - time_last >= frame_interval ) ){
+				time_last = time_current;
+				clear_encode_temp_buffer(); //by chf: after encoding one frame, compressed data are stored in static temp buffer, we should take them later
+				if( status == MONITOR_STATUS_NEED_I_FRAME ){
+					printf("after %d p frame, we need an I frame for some reasons\n", count_t);
+					encode_need_i_frame();
+					count_t = count_last = 0;
+					time_begin = time_current = get_system_time_ms();
+				}
+
+				//time1 = get_system_time_ms();
+				if(-1 != encode_main((void *)vd->buf.m.userptr, vd->buf.bytesused))
+				{
+					//printf("encode video data count %d timestamp %lu ms\n", count_t, get_system_time_ms() - time1);
+					char* buffer;
+					int size;
+					if( -1 != get_temp_buffer_data(&buffer,&size) ){
+						printf("get a frame,count = %d, size=%d\n",count_t, size);
+						memcpy(buffer, &p_info_ex , sizeof(picture_info_ex_t));
+						if( write_monitor_packet_queue(buffer,size) == 0 ){
+							count_t++;
+						}
+						else{
+							printf("so strange, write_monitor_packet_queue error, what happened?????\n");
+						}
+					}
+					else{
+						printf("get temp buffer data error, so strange\n");
+					}
+				}
+				else{
+					printf("encode error\n");
+				}
+			}
+			else{
+				usleep(10);	//by chf: sleep a little, for next frame arrive 
+			}
+		    break;
+		default:
+		    break;
+	}
+#endif
+    return 0;
+}
+
 int start_video_record(struct sess_ctx* sess)
 {
     int ret;
@@ -1305,6 +1472,7 @@ int start_video_record(struct sess_ctx* sess)
     int j;
     struct stat st;
 
+#ifdef ENCODER_IN_ONE_PROCESS
     if (!vdin_camera)
     {
         if ((vdin_camera = (struct vdIn *)init_camera()) == NULL)
@@ -1313,6 +1481,7 @@ int start_video_record(struct sess_ctx* sess)
             return -1;
         }
     }
+#endif
 
     for (i = 1; i <= _NSIG; i++)
     {
@@ -1323,9 +1492,24 @@ int start_video_record(struct sess_ctx* sess)
             sigset(i, sig_handler);
     }
 
+    if ((encoder_shm_id = shmget(ENCODER_SHM_KEY , ENCODER_SHM_SIZE , 0666)) < 0)
+    {
+        perror("shmget : open");
+        exit(0);
+    }
+    if ((encoder_shm_addr = (encoder_share_mem *)shmat(encoder_shm_id , 0 , 0)) < 0)
+    {
+        perror("shmat :");
+        exit(0);
+    }
+	memset(encoder_shm_addr, 0, ENCODER_SHM_SIZE);
+	encoder_shm_addr->data_main = (char*)((int)encoder_shm_addr + sizeof(encoder_share_mem));
+
+#ifdef ENCODER_IN_ONE_PROCESS
 	akjpeg_init_without_lock();
 	akjpeg_set_task_func();
-	
+#endif
+
     pthread_mutex_init(&ignore_pic_lock , NULL);
     memset(nand_shm_file_end_head , 0xFF , 512);
     record_header = (struct nand_record_file_header *) nand_shm_file_end_head;
@@ -1339,10 +1523,16 @@ int start_video_record(struct sess_ctx* sess)
     record_15sec_pos = time_15sec_table;
 
     i = 0;
+
+#ifdef ENCODER_IN_ONE_PROCESS
     width = vdin_camera->width;
     height = vdin_camera->height;
     prev_height = height = vdin_camera->height;
     prev_width = width = vdin_camera->width;
+#else
+    prev_height = height = 640;
+    prev_width = width = 480;
+#endif
     init_sensitivity_diff_size(width,  height);
 
     if (threadcfg.email_alarm)
@@ -1445,14 +1635,33 @@ NORMAL_MODE:
     memcpy(&prev_write_sound_time, &starttime, sizeof(struct timeval));
     video_internal_header.flag[0] = SET_ALL_FLAG_CHANGE;
     memcpy(&index_table_15sec_last_time , &starttime , sizeof(struct timeval));
+
+	encoder_shm_addr->width = 1280;
+	encoder_shm_addr->height = 720;
+	encoder_shm_addr->exit = 0;
+	encoder_shm_addr->para_changed = 0;
+    encoder_shm_addr->frame_rate = 12;
+    encoder_shm_addr->brightness = 50;
+    encoder_shm_addr->contrast = 50;
+    encoder_shm_addr->saturation = 50;
+    encoder_shm_addr->gain =50;
+
+	system("/sdcard/encoder&");
+
+	printf("ready to start monitor\n");
+
     while (1)
     {
         if (is_do_update())
         {
+#ifdef ENCODER_IN_ONE_PROCESS
             close_v4l2(vdin_camera);
+#endif
             dbg("is do update return now\n");
             goto __out;
         }
+
+#ifdef ENCODER_IN_ONE_PROCESS
 		if( change_video_format ){
 			change_video_format = 0;
 			if(strncmp(threadcfg.resolution, "qvga", 4) == 0){
@@ -1469,6 +1678,9 @@ NORMAL_MODE:
 			}
 			encode_need_i_frame();
 		}
+#else
+
+#endif
         gettimeofday(&endtime, NULL);
         if (abs(endtime.tv_sec - alive_old_time.tv_sec) >= 3)
         {
@@ -1487,27 +1699,15 @@ NORMAL_MODE:
             }
             memcpy(&alive_old_time, &endtime, sizeof(struct timeval));
         }
-#if 0
-        int trygrab = 10;
-#endif
 
+#ifdef ENCODER_IN_ONE_PROCESS
         if (uvcGrab(vdin_camera) < 0)
         {
-#if 0
-            trygrab--;
-            log_debug("uvcGrad failed trygrab %d\n", trygrab);
-            if (trygrab <= 0)
-            {
-                close_v4l2(vdin_camera);
-                if (init_videoIn(vdin_camera, (char *) videodevice, vdin_camera->width, vdin_camera->height, V4L2_PIX_FMT_YUYV, 1) < 0)
-                {
-                    log_warning("init camera device error\n");
-                    exit(0);
-                }
-            }
-#endif
             usleep(1000 * 20);
         }
+#else
+		DataGrab(encoder_shm_addr);
+#endif
         continue;
 
         buffer = get_data(&size, &width, &height);
