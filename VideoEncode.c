@@ -186,6 +186,8 @@ int main(int argc, char* argv[])
 		unsigned int  psize;
 
 		if( encoder_shm_addr->exit ){
+			encoder_shm_addr->exit = 0;
+			shmdt(encoder_shm_addr);
 			close_video_device();
 			exit(0);
 		}

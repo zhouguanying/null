@@ -1348,11 +1348,9 @@ again:
 				encoder->state = ENCODER_STATE_WAITCMD;
 				break;
 			}
-			//printf("ready to write at address %x, size %d\n", encoder->data_main, encoder->data_size);
 			if( write_monitor_packet_queue(encoder->data_main,encoder->data_size) == 0 ){
 				count_t++;
 			}
-			//printf("write finished\n");
 			encoder->state = ENCODER_STATE_WAITCMD;
 			goto again;
 		default:
@@ -1679,7 +1677,28 @@ NORMAL_MODE:
 			encode_need_i_frame();
 		}
 #else
-
+		if( change_video_format ){
+			change_video_format = 0;
+			printf("try to change the video format\n");
+			if(strncmp(threadcfg.resolution, "qvga", 4) == 0){
+				encoder_shm_addr->width = 352;
+				encoder_shm_addr->height = 288;
+			}
+			else if(strncmp(threadcfg.resolution, "vga", 3) == 0){
+				encoder_shm_addr->width = 640;
+				encoder_shm_addr->height = 480;
+			}
+			else if(strncmp(threadcfg.resolution, "720p", 4) == 0){
+				encoder_shm_addr->width = 1280;
+				encoder_shm_addr->height = 720;
+			}
+			encoder_shm_addr->exit = 1;
+			sleep(1);
+			encoder_shm_addr->exit = 0;
+			printf("restart the encoder process\n");
+			system("/sdcard/encoder&");
+			force_i_frame = 1;
+		}
 #endif
         gettimeofday(&endtime, NULL);
         if (abs(endtime.tv_sec - alive_old_time.tv_sec) >= 3)
