@@ -40,18 +40,20 @@ static struct vdIn *vd = NULL;
 static int encoder_shm_id;
 static encoder_share_mem* encoder_shm_addr;
 
-static void sig_handler(int signum)
+struct vdIn * init_camera(void);
+
+static void sig_handler_encoder(int signum)
 {
     if (signum == SIGINT || signum == SIGIO || signum == SIGSEGV){
-		printf("SIGINT or SIGIO or SIGSEGV: %d,exit\n", signum);
+		printf("encoder got a SIGINT or SIGIO or SIGSEGV: %d,exit\n", signum);
 		if( vd )
 			close_v4l2(vd);
 		exit(-1);
 	}
     else if (signum == SIGPIPE)
-        printf("SIGPIPE\n");
+        printf("encoder got SIGPIPE\n");
 	else{
-		printf("signal = %d\n", signum );
+		printf("encoder got signal = %d\n", signum );
 	}
 }
 
@@ -97,34 +99,17 @@ int main(int argc, char* argv[])
 {
 	int width, height;
 	int i;
-	FILE* file;
 
-	printf("start encoder process\n");
-
-#if 0
-	if( argc < 2 ){
-		printf("usage: encoder qvga\n");
-		return 0;
-	}
-#endif
-
-#ifdef WRITE_YUV_OUT
-	file = fopen("/tmp/yuv", "wb");
-	if( file == NULL ){
-		printf("can not open temp file\n");
-		return 0;
-	}
-#endif
+	printf("************************start encoder process************************\n");
 
     for (i = 1; i <= _NSIG; i++)
     {
         if (i == SIGIO || i == SIGINT)
-            sigset(i, sig_handler);
+            sigset(i, sig_handler_encoder);
         else
             //sigignore(i);
-            sigset(i, sig_handler);
+            sigset(i, sig_handler_encoder);
     }
-
 
     if ((encoder_shm_id = shmget(ENCODER_SHM_KEY , ENCODER_SHM_SIZE , 0666)) < 0)
     {
@@ -138,11 +123,6 @@ int main(int argc, char* argv[])
     }
 	encoder_shm_addr->data_encoder = (char*)((int)encoder_shm_addr + sizeof(encoder_share_mem));
 
-#if 0
-	sprintf(threadcfg.record_resolution, "%s", argv[1]);
-	printf("threadcfg.record_resolution = %s\n", threadcfg.record_resolution);
-#endif
-
 	width = encoder_shm_addr->width;
 	height = encoder_shm_addr->height;
 
@@ -150,6 +130,7 @@ int main(int argc, char* argv[])
     threadcfg.contrast = encoder_shm_addr->contrast;
     threadcfg.saturation = encoder_shm_addr->saturation;
     threadcfg.gain = encoder_shm_addr->gain;
+	
 	memset(threadcfg.record_resolution,0,sizeof(threadcfg.record_resolution));
 	if(encoder_shm_addr->width == 352){
 		sprintf(threadcfg.record_resolution,"%s","qvga");
@@ -161,8 +142,6 @@ int main(int argc, char* argv[])
 		sprintf(threadcfg.record_resolution,"%s","720p");
 	}
 
-	printf("start init\n");
-	
 	akjpeg_init_without_lock();
 	akjpeg_set_task_func();
 
@@ -173,22 +152,21 @@ int main(int argc, char* argv[])
 	}
 	clear_encode_temp_buffer();
 
-	printf("start encoder\n");
 	while(1)
 	{
 		static int count_t = 0;
 		static int count_last = 0;
 		static unsigned long time_begin, time_current, time_last = 0;
-		int frame_interval = ( 1000-100 ) / 10;
+		int frame_interval = ( 1000-100 ) / encoder_shm_addr->frame_rate;
 		int ret;
 		char *time;
 		int status;
-		unsigned int  psize;
 
 		if( encoder_shm_addr->exit ){
 			encoder_shm_addr->exit = 0;
 			shmdt(encoder_shm_addr);
 			close_video_device();
+			printf("encoder exit for main process's cmd\n");
 			exit(0);
 		}
 		
@@ -200,6 +178,7 @@ int main(int argc, char* argv[])
 		if (!vd->isstreaming)
 			if (video_enable(vd))
 				goto err;
+			
 		memset(&vd->buf, 0, sizeof(struct v4l2_buffer));
 		vd->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		vd->buf.memory = V4L2_MEMORY_USERPTR;
@@ -215,14 +194,8 @@ int main(int argc, char* argv[])
 		//printf("###############after xioctl VIDEOC_DQBUF#############\n");
 		switch (vd->formatIn)
 		{
-			case V4L2_PIX_FMT_MJPEG:
-				printf("*************************************unsupported format*************************************\n");
-				break;
 			case V4L2_PIX_FMT_YUYV:
 		  	  //printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
-#ifdef WRITE_YUV_OUT
-				fwrite(vd->buf.m.userptr, 1, width*height*3/2, file);
-#endif
 				time_current = get_system_time_ms();
 				if( ( time_current - time_begin ) >= 10 * 1000 ){
 					printf("encode speed = %d\n", ( count_t - count_last )/10 );
@@ -272,7 +245,6 @@ int main(int argc, char* argv[])
 						time_begin = time_current = get_system_time_ms();
 					}
 		
-					//time1 = get_system_time_ms();
 again:
 					if(-1 != encode_main((void *)vd->buf.m.userptr, vd->buf.bytesused))
 					{
@@ -282,6 +254,7 @@ again:
 
 						if( encoder_shm_addr->force_I_frame ){
 							encoder_shm_addr->force_I_frame = 0;
+							printf("encoder force an I frame by main process\n");
 							encode_need_i_frame();
 							goto again;
 						}
@@ -303,7 +276,7 @@ again:
 					}
 				}
 				else{
-					usleep(1*1000); //by chf: sleep a little, for next frame arrive 
+					usleep(5*1000); //by chf: sleep a little, for next frame arrive 
 				}
 				//printf("####### get capture :size %u framesize %u pointer %p\n",
 									//vd->buf.bytesused, vd->framesizeIn, vd->mem[vd->buf.index]);
@@ -320,9 +293,6 @@ again:
 		}
 	}
 
-#ifdef WRITE_YUV_OUT
-	fclose(file);
-#endif
 	close_v4l2(vd);
 	return 0;
 
