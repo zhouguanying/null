@@ -845,6 +845,7 @@ int check_monitor_queue_status(void)
 	}
 
 	//by chf: how many monitor session
+    pthread_mutex_lock(&global_ctx_lock);
 	while( sess != NULL ){
 		if( sess->session_type == SESSION_TYPE_MONITOR ){
 			count++;
@@ -852,10 +853,10 @@ int check_monitor_queue_status(void)
 		sess = sess->next;
 	}
 	if( count == 0 ){
+		pthread_mutex_unlock(&global_ctx_lock);
 		return MONITOR_STATUS_NEED_NOTHING;
 	}
 	
-    pthread_mutex_lock(&global_ctx_lock);
 	if( count == 1 ){
 		sess = global_ctx_running_list;
 		while( sess!= NULL ){
@@ -1296,79 +1297,6 @@ struct vdIn * init_camera(void);
 
 #define NO_RECORD_FILE   "/data/norecord"
 
-static int DataGrab(encoder_share_mem* encoder)
-{
-	static int count_t = 0;
-	static int count_last = 0;
-    static unsigned long time_begin, time_current, time_last = 0;
-	int frame_interval = ( 1000-100 ) / threadcfg.framerate;
-	int time1;
-    int ret;
-    char *time;
-	int status;
-	unsigned int  psize;
-	
-    if (count_t == 0)
-    {
-        time_begin = get_system_time_ms();
-    }
-
-again:
-	time_current = get_system_time_ms();
-	if( ( time_current - time_begin ) >= 10 * 1000 ){
-		printf("encode speed = %d\n", ( count_t - count_last )/10 );
-		time_begin = time_current;
-		count_last = count_t;
-	}
-
-	if( force_i_frame ){
-		encoder->force_I_frame = 1;
-		force_i_frame = 0;
-	}
-
-	switch( encoder->state ){
-		case ENCODER_STATE_WAITCMD:	// wait for main process to write a cmd
-			status = check_monitor_queue_status();
-			if( status != MONITOR_STATUS_NEED_NOTHING ){
-				//printf("main need %d\n", status);
-				if( status == MONITOR_STATUS_NEED_I_FRAME ){
-					encoder->next_frame_type = ENCODER_FRAME_TYPE_I;
-				}
-				else if( status == MONITOR_STATUS_NEED_ANY ){
-					encoder->next_frame_type = ENCODER_FRAME_TYPE_P;
-				}
-				else if( status == MONITOR_STATUS_NEED_JPEG ){
-					encoder->next_frame_type = ENCODER_FRAME_TYPE_JPEG;
-				}
-				encoder->data_size = 0;
-				encoder->state = ENCODER_STATE_WAIT_FINISH;
-			}
-			else{
-				encoder->next_frame_type = ENCODER_FRAME_TYPE_NONE;
-			}
-			usleep(10*1000);
-			break;
-		case ENCODER_STATE_WAIT_FINISH:	// wait encoder to finish the cmd
-			usleep(5*1000);
-			break;
-		case ENCODER_STATE_FINISHED:	//encoder finished 
-			if( encoder->data_size == 0 || encoder->data_size > ENCODER_SHM_SIZE - sizeof(encoder_share_mem)){
-				printf("encoder error\n");
-				encoder->state = ENCODER_STATE_WAITCMD;
-				break;
-			}
-			if( write_monitor_packet_queue(encoder->data_main,encoder->data_size) == 0 ){
-				count_t++;
-			}
-			encoder->state = ENCODER_STATE_WAITCMD;
-			goto again;
-		default:
-			break;
-	}
-	
-    return 0;
-}
-
 int start_video_record(struct sess_ctx* sess)
 {
     int ret;
@@ -1399,14 +1327,11 @@ int start_video_record(struct sess_ctx* sess)
     int width ;
     int height;
     int email_alarm;
-    int record_slow_speed = 0;
-    int record_fast_speed = 0;
     int record_normal_speed;
     int record_normal_duration = 3;
     int record_last_state = 0;
     int timestamp_change = 0;
     int pictures_to_write = 0;
-    int record_fast_duration = 0;
     int sensitivity_index = threadcfg.record_sensitivity;;
     int record_mode = 0;
     int need_write_internal_head = 0;
@@ -1424,44 +1349,6 @@ int start_video_record(struct sess_ctx* sess)
     int j;
     struct stat st;
 
-#ifdef ENCODER_IN_ONE_PROCESS
-    if (!vdin_camera)
-    {
-        if ((vdin_camera = (struct vdIn *)init_camera()) == NULL)
-        {
-            printf("init camera error\n");
-            return -1;
-        }
-    }
-#endif
-
-    for (i = 1; i <= _NSIG; i++)
-    {
-        if (i == SIGIO || i == SIGINT)
-            sigset(i, sig_handler);
-        else
-            //sigignore(i);
-            sigset(i, sig_handler);
-    }
-
-    if ((encoder_shm_id = shmget(ENCODER_SHM_KEY , ENCODER_SHM_SIZE , 0666)) < 0)
-    {
-        perror("shmget : open");
-        exit(0);
-    }
-    if ((encoder_shm_addr = (encoder_share_mem *)shmat(encoder_shm_id , 0 , 0)) < 0)
-    {
-        perror("shmat :");
-        exit(0);
-    }
-	memset(encoder_shm_addr, 0, ENCODER_SHM_SIZE);
-	encoder_shm_addr->data_main = (char*)((int)encoder_shm_addr + sizeof(encoder_share_mem));
-
-#ifdef ENCODER_IN_ONE_PROCESS
-	akjpeg_init_without_lock();
-	akjpeg_set_task_func();
-#endif
-
     pthread_mutex_init(&ignore_pic_lock , NULL);
     memset(nand_shm_file_end_head , 0xFF , 512);
     record_header = (struct nand_record_file_header *) nand_shm_file_end_head;
@@ -1476,15 +1363,10 @@ int start_video_record(struct sess_ctx* sess)
 
     i = 0;
 
-#ifdef ENCODER_IN_ONE_PROCESS
-    width = vdin_camera->width;
-    height = vdin_camera->height;
-    prev_height = height = vdin_camera->height;
-    prev_width = width = vdin_camera->width;
-#else
+
     prev_height = height = 640;
     prev_width = width = 480;
-#endif
+
     init_sensitivity_diff_size(width,  height);
 
     if (threadcfg.email_alarm)
@@ -1509,18 +1391,8 @@ int start_video_record(struct sess_ctx* sess)
         record_mode = 0;
         threadcfg.sdcard_exist = 0;
     }
-    else if (strncmp(threadcfg.record_mode, "inteligent", strlen("inteligent")) == 0)
-    {
-        goto NORMAL_MODE;
-        record_mode = 2;
-        record_fast_duration = threadcfg.record_fast_duration;
-        record_slow_speed = threadcfg.record_slow_speed;
-        record_fast_speed = threadcfg.record_fast_speed;
-        usec_between_image = (unsigned long long)1000000 / record_fast_speed;
-    }
     else
     {
-NORMAL_MODE:
         record_mode = 3;
         record_normal_duration = threadcfg.record_normal_duration;
         usec_between_image = (unsigned long long)1000000 / threadcfg.record_normal_speed;
@@ -1591,14 +1463,14 @@ NORMAL_MODE:
 	encoder_shm_addr->width = 1280;
 	encoder_shm_addr->height = 720;
 	encoder_shm_addr->exit = 0;
-	
+
 	encoder_shm_addr->para_changed = 0;
-    encoder_shm_addr->frame_rate = 12;
-    encoder_shm_addr->brightness = 50;
-    encoder_shm_addr->contrast = 50;
-    encoder_shm_addr->saturation = 50;
-    encoder_shm_addr->gain =50;
-    encoder_shm_addr->record_quality = threadcfg.record_quality;
+	encoder_shm_addr->frame_rate = 12;
+	encoder_shm_addr->brightness = 50;
+	encoder_shm_addr->contrast = 50;
+	encoder_shm_addr->saturation = 50;
+	encoder_shm_addr->gain =50;
+	encoder_shm_addr->record_quality = threadcfg.record_quality;
 
 	system("/sdcard/encoder&");
 
@@ -1608,54 +1480,10 @@ NORMAL_MODE:
     {
         if (is_do_update())
         {
-#ifdef ENCODER_IN_ONE_PROCESS
-            close_v4l2(vdin_camera);
-#endif
             dbg("is do update return now\n");
             goto __out;
         }
 
-#ifdef ENCODER_IN_ONE_PROCESS
-		if( change_video_format ){
-			change_video_format = 0;
-			if(strncmp(threadcfg.resolution, "qvga", 4) == 0){
-				restart_v4l2(352,288);
-			}
-			else if(strncmp(threadcfg.resolution, "vga", 3) == 0){
-				restart_v4l2(640,480);
-			}
-			else if(strncmp(threadcfg.resolution, "720p", 4) == 0){
-				restart_v4l2(1280,720);
-			}
-			else{
-				printf("my god\n");
-			}
-			encode_need_i_frame();
-		}
-#else
-		if( change_video_format ){
-			change_video_format = 0;
-			printf("try to change the video format\n");
-			if(strncmp(threadcfg.resolution, "qvga", 4) == 0){
-				encoder_shm_addr->width = 352;
-				encoder_shm_addr->height = 288;
-			}
-			else if(strncmp(threadcfg.resolution, "vga", 3) == 0){
-				encoder_shm_addr->width = 640;
-				encoder_shm_addr->height = 480;
-			}
-			else if(strncmp(threadcfg.resolution, "720p", 4) == 0){
-				encoder_shm_addr->width = 1280;
-				encoder_shm_addr->height = 720;
-			}
-			encoder_shm_addr->exit = 1;
-			sleep(1);
-			encoder_shm_addr->exit = 0;
-			printf("restart the encoder process\n");
-			system("/sdcard/encoder&");
-			force_i_frame = 1;
-		}
-#endif
         gettimeofday(&endtime, NULL);
         if (abs(endtime.tv_sec - alive_old_time.tv_sec) >= 3)
         {
@@ -1675,14 +1503,8 @@ NORMAL_MODE:
             memcpy(&alive_old_time, &endtime, sizeof(struct timeval));
         }
 
-#ifdef ENCODER_IN_ONE_PROCESS
-        if (uvcGrab(vdin_camera) < 0)
-        {
-            usleep(1000 * 20);
-        }
-#else
-		DataGrab(encoder_shm_addr);
-#endif
+//		DataGrab(encoder_shm_addr);
+
         continue;
 
         buffer = get_data(&size, &width, &height);
@@ -1759,14 +1581,6 @@ NORMAL_MODE:
             }
         }
 
-        if (pictures_to_write > 0 && abs(size - size0) > sensitivity_diff_size[sensitivity_index])
-        {
-            if (record_mode == 2)
-                pictures_to_write = record_fast_speed * record_fast_duration;
-            else if (record_mode == 1)
-                pictures_to_write = record_normal_speed * record_normal_duration;
-        }
-
         switch (record_mode)
         {
         case 0:/*not record*/
@@ -1774,109 +1588,10 @@ NORMAL_MODE:
             break;
         case 1:
         {
-            if (pictures_to_write <= 0)
-            {
-                if (abs(size - size0) > sensitivity_diff_size[sensitivity_index])
-                {
-                    usec_between_image = (unsigned long long)1000000 / record_normal_speed;
-                    pictures_to_write = record_normal_speed * record_normal_duration;
-                    gettimeofday(&starttime, NULL);
-                    if (record_last_state == RECORD_STATE_STOP)
-                    {
-                        sound_amr_buffer_clean(MAX_NUM_IDS - 1);
-                        timestamp = gettimestamp();
-                        memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
-                        memcpy(&prev_write_sound_time, &starttime, sizeof(struct timeval));
-                        record_last_state = RECORD_STATE_FAST;
-                        timestamp_change = 1;
-                    }
-                }
-                else
-                {
-                    pictures_to_write = 0;
-                    if (record_last_state == RECORD_STATE_FAST)
-                    {
-                        write_syn_sound(&internal_head_for_sound);
-                        record_last_state = RECORD_STATE_STOP;
-                    }
-                }
-            }
-            else
-            {
-                if (record_normal_speed < 25)
-                {
-                    gettimeofday(&endtime, NULL);
-                    timeuse = (unsigned long long)1000000 * abs(endtime.tv_sec - starttime.tv_sec) + endtime.tv_usec - starttime.tv_usec;
-                    if (abs(timeuse) >= usec_between_image)
-                    {
-                        memcpy(&starttime, &endtime, sizeof(struct timeval));
-                    }
-                    else
-                    {
-                        size0 = size;
-                        free(buffer);
-                        continue;
-                    }
-                }
-            }
-            break;
-        }
+		}
         case 2:
-        {
-            if (pictures_to_write <= 0)
-            {
-                if (abs(size - size0) > sensitivity_diff_size[sensitivity_index])
-                {
-                    pictures_to_write = record_fast_speed * record_fast_duration;
-                    if (record_last_state == RECORD_STATE_SLOW)
-                    {
-                        record_last_state = RECORD_STATE_FAST;
-                        frameratechange = 1;
-                        usec_between_image = (unsigned long long)1000000 / record_fast_speed;
-                        memset(&starttime, 0, sizeof(struct timeval));
-                    }
-                }
-                else
-                {
-                    if (record_last_state == RECORD_STATE_FAST)
-                    {
-                        record_last_state = RECORD_STATE_SLOW;
-                        frameratechange = 1;
-                        usec_between_image = (unsigned long long) 1000000 / record_slow_speed;
-                    }
-                    pictures_to_write = 1;
-                }
-                gettimeofday(&endtime, NULL);
-                timeuse = (unsigned long long)1000000 * abs(endtime.tv_sec - starttime.tv_sec) + endtime.tv_usec - starttime.tv_usec;
-                if (abs(timeuse) >= usec_between_image)
-                {
-                    memcpy(&starttime, &endtime, sizeof(struct timeval));
-                }
-                else
-                {
-                    pictures_to_write = 0;
-                }
-            }
-            else
-            {
-                if (record_fast_speed < 25)
-                {
-                    gettimeofday(&endtime, NULL);
-                    timeuse = (unsigned long long)1000000 * abs(endtime.tv_sec - starttime.tv_sec) + endtime.tv_usec - starttime.tv_usec;
-                    if (abs(timeuse) >= usec_between_image)
-                    {
-                        memcpy(&starttime, &endtime, sizeof(struct timeval));
-                    }
-                    else
-                    {
-                        size0 = size;
-                        free(buffer);
-                        continue;
-                    }
-                }
-            }
-            break;
-        }
+		{
+		}
         case 3:
         {
             usec_between_image = (unsigned long long) 1000000 / record_normal_speed;
@@ -2037,4 +1752,159 @@ __out:
     }
     return 0;
 }
+
+static int DataGrab(encoder_share_mem* encoder)
+{
+	static int count_t = 0;
+	static int count_last = 0;
+    static unsigned long time_begin, time_current;
+	int status;
+	
+    if (count_t == 0)
+    {
+        time_begin = get_system_time_ms();
+    }
+
+again:
+	time_current = get_system_time_ms();
+	if( ( time_current - time_begin ) >= 10 * 1000 ){
+		printf("encode speed = %d\n", ( count_t - count_last )/10 );
+		time_begin = time_current;
+		count_last = count_t;
+	}
+
+	if( force_i_frame ){
+		encoder->force_I_frame = 1;
+		force_i_frame = 0;
+	}
+
+	switch( encoder->state ){
+		case ENCODER_STATE_WAITCMD:	// wait for main process to write a cmd
+			status = check_monitor_queue_status();
+			if( status != MONITOR_STATUS_NEED_NOTHING ){
+				//printf("main need %d\n", status);
+				if( status == MONITOR_STATUS_NEED_I_FRAME ){
+					encoder->next_frame_type = ENCODER_FRAME_TYPE_I;
+				}
+				else if( status == MONITOR_STATUS_NEED_ANY ){
+					encoder->next_frame_type = ENCODER_FRAME_TYPE_P;
+				}
+				else if( status == MONITOR_STATUS_NEED_JPEG ){
+					encoder->next_frame_type = ENCODER_FRAME_TYPE_JPEG;
+				}
+				encoder->data_size = 0;
+				encoder->state = ENCODER_STATE_WAIT_FINISH;
+			}
+			else{
+				encoder->next_frame_type = ENCODER_FRAME_TYPE_NONE;
+			}
+			usleep(10*1000);
+			break;
+		case ENCODER_STATE_WAIT_FINISH:	// wait encoder to finish the cmd
+			usleep(5*1000);
+			break;
+		case ENCODER_STATE_FINISHED:	//encoder finished 
+			if( encoder->data_size == 0 || encoder->data_size > ENCODER_SHM_SIZE - sizeof(encoder_share_mem)){
+				printf("encoder error\n");
+				encoder->state = ENCODER_STATE_WAITCMD;
+				break;
+			}
+			if( write_monitor_packet_queue(encoder->data_main,encoder->data_size) == 0 ){
+				count_t++;
+			}
+			encoder->state = ENCODER_STATE_WAITCMD;
+			goto again;
+		default:
+			break;
+	}
+	
+    return 0;
+}
+
+int start_data_capture(struct sess_ctx* sess)
+{
+	int i;
+	
+    for (i = 1; i <= _NSIG; i++)
+    {
+        if (i == SIGIO || i == SIGINT)
+            sigset(i, sig_handler);
+        else
+            //sigignore(i);
+            sigset(i, sig_handler);
+    }
+
+    if ((encoder_shm_id = shmget(ENCODER_SHM_KEY , ENCODER_SHM_SIZE , 0666)) < 0)
+    {
+        perror("shmget : open");
+        exit(0);
+    }
+    if ((encoder_shm_addr = (encoder_share_mem *)shmat(encoder_shm_id , 0 , 0)) < 0)
+    {
+        perror("shmat :");
+        exit(0);
+    }
+	memset(encoder_shm_addr, 0, ENCODER_SHM_SIZE);
+	encoder_shm_addr->data_main = (char*)((int)encoder_shm_addr + sizeof(encoder_share_mem));
+
+	encoder_shm_addr->width = 1280;
+	encoder_shm_addr->height = 720;
+	encoder_shm_addr->exit = 0;
+	
+	encoder_shm_addr->para_changed = 0;
+    encoder_shm_addr->frame_rate = 12;
+    encoder_shm_addr->brightness = 50;
+    encoder_shm_addr->contrast = 50;
+    encoder_shm_addr->saturation = 50;
+    encoder_shm_addr->gain =50;
+    encoder_shm_addr->record_quality = threadcfg.record_quality;
+
+	system("/sdcard/encoder&");
+
+	printf("ready to start capture\n");
+
+    while (1)
+    {
+        if (is_do_update())
+        {
+            dbg("is do update return now\n");
+            goto __out;
+        }
+
+		if( change_video_format ){
+			change_video_format = 0;
+			printf("try to change the video format\n");
+			if(strncmp(threadcfg.resolution, "qvga", 4) == 0){
+				encoder_shm_addr->width = 352;
+				encoder_shm_addr->height = 288;
+			}
+			else if(strncmp(threadcfg.resolution, "vga", 3) == 0){
+				encoder_shm_addr->width = 640;
+				encoder_shm_addr->height = 480;
+			}
+			else if(strncmp(threadcfg.resolution, "720p", 4) == 0){
+				encoder_shm_addr->width = 1280;
+				encoder_shm_addr->height = 720;
+			}
+			encoder_shm_addr->exit = 1;
+			sleep(1);
+			encoder_shm_addr->exit = 0;
+			printf("restart the encoder process\n");
+			system("/sdcard/encoder&");
+			force_i_frame = 1;
+		}
+
+		DataGrab(encoder_shm_addr);
+
+    }
+
+__out:
+    while (is_do_update())
+    {
+        //ret = msgsnd(msqid , &msg, sizeof(vs_ctl_message) - sizeof(long), 0);
+        sleep(3);
+    }
+    return 0;
+}
+
 

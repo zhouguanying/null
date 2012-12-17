@@ -182,6 +182,7 @@ void take_sess_down(struct sess_ctx *sess);
 
 int start_video_monitor(struct sess_ctx* sess);
 int start_video_record(struct sess_ctx* sess);
+int start_data_capture(struct sess_ctx* sess);
 int do_net_update(void *arg);
 void init_g_sess_id_mask();
 int get_sess_id();
