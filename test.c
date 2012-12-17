@@ -53,22 +53,6 @@ struct configstruct
     char value[64];
 };
 
-static inline char * gettimestamp()
-{
-    static char timestamp[15];
-    time_t t;
-    struct tm *curtm;
-    if (time(&t) == -1)
-    {
-        printf("get time error\n");
-        exit(0);
-    }
-    curtm = localtime(&t);
-    sprintf(timestamp, "%04d%02d%02d%02d%02d%02d", curtm->tm_year + 1900, curtm->tm_mon + 1,
-            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, curtm->tm_sec);
-    return timestamp;
-}
-
 void start_udt_lib();
 
 int test_video_record_and_monitor(struct sess_ctx* system_sess)
@@ -88,11 +72,20 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 
     sound_start_thread();
     sleep(1);
+#if 0
     if (pthread_create(&tid, NULL, (void *) start_video_record, system_sess) < 0)
     {
         free_system_session(system_sess);
         return -1;
     }
+#endif
+
+    if (pthread_create(&tid, NULL, (void *) start_data_capture, NULL) < 0)
+    {
+        free_system_session(system_sess);
+        return -1;
+    }
+	
     if (pthread_create(&tid, NULL, network_thread, NULL) < 0)
     {
         free_system_session(system_sess);
@@ -1488,7 +1481,7 @@ read_config:
 
         check_eth0 = 0;
         check_wlan0 = 0;
-#if 1	//don't config the netork, for debug purpose only
+#if 0	//don't config the netork, for debug purpose only
         if (strncmp(threadcfg.inet_mode, "eth_only", strlen("eth_only")) == 0
                 || strncmp(threadcfg.inet_mode, "inteligent", strlen("inteligent")) == 0)
         {
