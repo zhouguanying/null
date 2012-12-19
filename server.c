@@ -838,7 +838,9 @@ int check_monitor_queue_status(void)
 {
 	struct sess_ctx* sess = global_ctx_running_list;
 	int count = 0;
-	int ret;
+	int ret = MONITOR_STATUS_NEED_NOTHING;
+	SEND_PACKET_LIST_HEAD * send_list;
+    struct timeval current_time;
 
 	if( is_do_update() ){
 		return MONITOR_STATUS_NEED_NOTHING;
@@ -853,8 +855,8 @@ int check_monitor_queue_status(void)
 		sess = sess->next;
 	}
 	if( count == 0 ){
-		pthread_mutex_unlock(&global_ctx_lock);
-		return MONITOR_STATUS_NEED_NOTHING;
+		ret = MONITOR_STATUS_NEED_NOTHING;
+		goto out;
 	}
 	
 	if( count == 1 ){
@@ -867,20 +869,19 @@ int check_monitor_queue_status(void)
 		}
 		sess->send_list.current_state = PACKET_QUEUE_NORMAL;
 		if( sess->send_list.total_packet_num < MAX_SEND_PACKET_NUM ){
-			pthread_mutex_unlock(&global_ctx_lock);
-			return MONITOR_STATUS_NEED_ANY;
+			ret = MONITOR_STATUS_NEED_ANY;
+			goto out;
 		}
 		else{
 			printf("packet queue is full now, total %d packets\n", sess->send_list.total_packet_num );
-			pthread_mutex_unlock(&global_ctx_lock);
-			return MONITOR_STATUS_NEED_NOTHING;
+			ret = MONITOR_STATUS_NEED_NOTHING;
+			goto out;
 		}
 	}
 	else{
 		int need_nothing = 0;
 		int need_i_frame = 0;
 		int need_any_frame = 0;
-		SEND_PACKET_LIST_HEAD * send_list;
 		
 		sess = global_ctx_running_list;
 		while( sess!= NULL ){
@@ -921,10 +922,44 @@ int check_monitor_queue_status(void)
 		else {
 			ret = MONITOR_STATUS_NEED_NOTHING;
 		}
-
-		pthread_mutex_unlock(&global_ctx_lock);
-		return ret;
 	}
+out:
+	// now check for record queue
+	sess = global_ctx_running_list;
+	while( sess != NULL ){
+		if( sess->session_type == SESSION_TYPE_RECORD){
+			break;
+		}
+		sess = sess->next;
+	}
+	if( sess == NULL ){
+		printf("can not find record session, reboot system\n");
+		exit(-1);
+	}
+	send_list = &sess->send_list;
+	gettimeofday(&current_time,NULL);
+	if(( 1000 * ( current_time.tv_sec - send_list->last_packet_time.tv_sec ) + ( current_time.tv_usec - send_list->last_packet_time.tv_usec ) / 1000 )
+		>= send_list->frame_interval_ms )
+	{
+		if( send_list->total_packet_num >= MAX_SEND_PACKET_NUM ){
+			printf("**************************************the record packet is full, it's strange**************************************\n");
+			sleep(100);
+			exit(-1);
+		}
+		if( send_list->current_state == PACKET_QUEUE_OVERFLOWED ){
+			send_list->current_state = PACKET_QUEUE_RECORD_WAIT_I_FRAME;
+			ret = MONITOR_STATUS_NEED_I_FRAME;
+		}
+		else{
+			send_list->current_state = PACKET_QUEUE_RECORD_WAIT_ANY_FRAME;
+			if( ret == MONITOR_STATUS_NEED_NOTHING ){
+				ret = MONITOR_STATUS_NEED_ANY;
+			}
+		}
+	}
+	
+	pthread_mutex_unlock(&global_ctx_lock);
+	return ret;
 }
 
 int write_monitor_packet_queue(char* buf, int size)
@@ -969,6 +1004,35 @@ int write_monitor_packet_queue(char* buf, int size)
 			else{	//for sess->send_list.total_packet_num >= MAX_SEND_PACKET_NUM
 				sess->send_list.current_state = PACKET_QUEUE_OVERFLOWED;
 				printf("meet a session packet queue overflow\n");
+			}
+		}
+		else if( sess->session_type == SESSION_TYPE_RECORD ){
+			if( sess->send_list.total_packet_num >= MAX_SEND_PACKET_NUM ){
+				printf("record packet queue is full\n");
+				exit(-1);
+			}
+			if( sess->send_list.current_state == PACKET_QUEUE_RECORD_WAIT_I_FRAME 
+				|| sess->send_list.current_state == PACKET_QUEUE_RECORD_WAIT_ANY_FRAME )
+			{
+				SEND_PACKET* packet = malloc(sizeof(SEND_PACKET));
+				if( packet == NULL ){
+					printf("no buffer for send record packet\n");
+					ret  = -1;
+					goto err_exit;
+				}
+				if( (packet->date_buf = malloc( size ) ) == NULL ){
+					printf("no buffer for send record packet data\n");
+					ret  = -1;
+					goto err_exit;
+				}
+				memcpy( packet->date_buf, buf, size );
+				packet->size = size;
+				list_add_tail(&packet->list,&sess->send_list.send_packet_list_head);
+				sess->send_list.total_packet_num++;
+				sess->send_list.current_state = PACKET_QUEUE_NORMAL;
+			}
+			else if( sess->send_list.current_state == PACKET_QUEUE_NORMAL ){
+				sess->send_list.current_state = PACKET_QUEUE_OVERFLOWED;
 			}
 		}
 		sess = sess->next;
@@ -1357,7 +1421,7 @@ int start_video_record(struct sess_ctx* system_sess)
 		exit(0);
 	}
 
-	sess->session_type = SESSION_TYPE_MONITOR;
+	sess->session_type = SESSION_TYPE_RECORD;
 	init_monitor_packet_queue(sess);
     add_sess(sess);
     take_sess_up(sess);
@@ -1421,6 +1485,10 @@ int start_video_record(struct sess_ctx* system_sess)
     sensitivity_index = threadcfg.record_sensitivity;
     record_last_state = RECORD_STATE_FAST;
 
+	sess->send_list.frame_interval_ms = 1000 / threadcfg.record_normal_speed;
+	sess->send_list.last_packet_time.tv_usec = 0;
+	sess->send_list.last_packet_time.tv_sec = 0;
+	sess->send_list.current_state = PACKET_QUEUE_OVERFLOWED;
 
     msg.msg_type = VS_MESSAGE_ID;
     msg.msg[0] = VS_MESSAGE_START_RECORDING;
