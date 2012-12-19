@@ -836,7 +836,7 @@ return:
 */
 int check_monitor_queue_status(void)
 {
-	struct sess_ctx* sess = global_ctx_running_list;
+	struct sess_ctx* sess;
 	int count = 0;
 	int ret = MONITOR_STATUS_NEED_NOTHING;
 	SEND_PACKET_LIST_HEAD * send_list;
@@ -848,6 +848,7 @@ int check_monitor_queue_status(void)
 
 	//by chf: how many monitor session
     pthread_mutex_lock(&global_ctx_lock);
+	sess = global_ctx_running_list;
 	while( sess != NULL ){
 		if( sess->session_type == SESSION_TYPE_MONITOR ){
 			count++;
@@ -956,6 +957,9 @@ out:
 				ret = MONITOR_STATUS_NEED_ANY;
 			}
 		}
+		send_list->last_packet_time = current_time;
+	}
+	else{
 	}
 	
 	pthread_mutex_unlock(&global_ctx_lock);
@@ -1067,7 +1071,7 @@ static int init_monitor_packet_queue(struct sess_ctx* sess)
 	pthread_mutex_init(&sess->send_list.lock, NULL);
 	INIT_LIST_HEAD(&sess->send_list.send_packet_list_head);
 	sess->send_list.total_packet_num = sess->send_list.total_size = 0;
-	sess->send_list.current_state = PACKET_QUEUE_NORMAL;
+	sess->send_list.current_state = PACKET_QUEUE_OVERFLOWED;
 	return 0;
 }
 
@@ -1486,8 +1490,7 @@ int start_video_record(struct sess_ctx* system_sess)
     record_last_state = RECORD_STATE_FAST;
 
 	sess->send_list.frame_interval_ms = 1000 / threadcfg.record_normal_speed;
-	sess->send_list.last_packet_time.tv_usec = 0;
-	sess->send_list.last_packet_time.tv_sec = 0;
+	gettimeofday(&sess->send_list.last_packet_time, NULL);
 	sess->send_list.current_state = PACKET_QUEUE_OVERFLOWED;
 
     msg.msg_type = VS_MESSAGE_ID;
@@ -1833,20 +1836,13 @@ static int DataGrab(encoder_share_mem* encoder)
 	static int count_last = 0;
     static unsigned long time_begin, time_current;
 	int status;
-	
+
     if (count_t == 0)
     {
         time_begin = get_system_time_ms();
     }
 
 again:
-	time_current = get_system_time_ms();
-	if( ( time_current - time_begin ) >= 10 * 1000 ){
-		printf("encode speed = %d\n", ( count_t - count_last )/10 );
-		time_begin = time_current;
-		count_last = count_t;
-	}
-
 	if( force_i_frame ){
 		encoder->force_I_frame = 1;
 		force_i_frame = 0;
@@ -1948,7 +1944,7 @@ int start_data_capture(struct sess_ctx* sess)
 
 	system("/sdcard/encoder&");
 
-	printf("ready to start capture\n");
+	printf("************************************ready to start capture************************************\n");
 
     while (1)
     {

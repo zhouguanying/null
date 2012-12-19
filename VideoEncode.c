@@ -268,13 +268,14 @@ again:
 
 						if( encoder_shm_addr->force_I_frame ){
 							encoder_shm_addr->force_I_frame = 0;
+							encoder_shm_addr->next_frame_type = ENCODER_FRAME_TYPE_I;
 							printf("encoder force an I frame by main process\n");
 							encode_need_i_frame();
 							goto again;
 						}
 
 						if( -1 != get_temp_buffer_data(&buffer,&size) ){
-							printf("get a frame,count = %d, size=%d\n",count_t, size);
+							printf("get a %d frame,count = %d, size=%d\n",encoder_shm_addr->next_frame_type, count_t, size);
 							memcpy(buffer, &p_info_ex , sizeof(picture_info_ex_t));
 							memcpy(encoder_shm_addr->data_encoder, buffer, size);
 							encoder_shm_addr->data_size = size;
