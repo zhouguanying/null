@@ -1297,7 +1297,7 @@ struct vdIn * init_camera(void);
 
 #define NO_RECORD_FILE   "/data/norecord"
 
-int start_video_record(struct sess_ctx* sess)
+int start_video_record(struct sess_ctx* system_sess)
 {
     int ret;
     char* buffer;
@@ -1348,6 +1348,19 @@ int start_video_record(struct sess_ctx* sess)
     int pic_to_alarm = 0;
     int j;
     struct stat st;
+	SEND_PACKET* packet;
+	struct sess_ctx* sess;
+
+	sess = new_system_session("record");
+	if( sess == NULL ){
+		printf("can not create record session\n");
+		exit(0);
+	}
+
+	sess->session_type = SESSION_TYPE_MONITOR;
+	init_monitor_packet_queue(sess);
+    add_sess(sess);
+    take_sess_up(sess);
 
     pthread_mutex_init(&ignore_pic_lock , NULL);
     memset(nand_shm_file_end_head , 0xFF , 512);
@@ -1403,9 +1416,6 @@ int start_video_record(struct sess_ctx* sess)
         record_mode = 0;
     }
 
-        threadcfg.sdcard_exist = 0;
-        record_mode = 0;
-
     record_normal_speed = threadcfg.record_normal_speed;
     email_alarm = threadcfg.email_alarm;
     sensitivity_index = threadcfg.record_sensitivity;
@@ -1460,21 +1470,7 @@ int start_video_record(struct sess_ctx* sess)
     video_internal_header.flag[0] = SET_ALL_FLAG_CHANGE;
     memcpy(&index_table_15sec_last_time , &starttime , sizeof(struct timeval));
 
-	encoder_shm_addr->width = 1280;
-	encoder_shm_addr->height = 720;
-	encoder_shm_addr->exit = 0;
-
-	encoder_shm_addr->para_changed = 0;
-	encoder_shm_addr->frame_rate = 12;
-	encoder_shm_addr->brightness = 50;
-	encoder_shm_addr->contrast = 50;
-	encoder_shm_addr->saturation = 50;
-	encoder_shm_addr->gain =50;
-	encoder_shm_addr->record_quality = threadcfg.record_quality;
-
-	system("/sdcard/encoder&");
-
-	printf("ready to start monitor\n");
+	printf("ready to start record\n");
 
     while (1)
     {
@@ -1487,7 +1483,9 @@ int start_video_record(struct sess_ctx* sess)
         gettimeofday(&endtime, NULL);
         if (abs(endtime.tv_sec - alive_old_time.tv_sec) >= 3)
         {
+			//printf("before		send\n");
             ret = msgsnd(msqid , &msg, sizeof(vs_ctl_message) - sizeof(long), 0);
+			//printf("after       send\n");
             if (ret == -1)
             {
                 dbg("send daemon message error\n");
@@ -1503,11 +1501,16 @@ int start_video_record(struct sess_ctx* sess)
             memcpy(&alive_old_time, &endtime, sizeof(struct timeval));
         }
 
-//		DataGrab(encoder_shm_addr);
+        packet = get_monitor_queue_packet(sess);
+		if( packet == NULL ){
+			//handle_video_thread();
+			usleep(20*1000);
+			continue;
+		}
+        buffer = packet->date_buf;
+		size = packet->size;
 
-        continue;
-
-        buffer = get_data(&size, &width, &height);
+//		buffer = get_data(&size, &width, &height);
         //mail alarm
         if (email_alarm && mail_alarm_tid)
         {
@@ -1598,7 +1601,8 @@ int start_video_record(struct sess_ctx* sess)
             record_last_state = RECORD_STATE_NORMAL;
             gettimeofday(&endtime , NULL);
             timeuse = (unsigned long long)1000000 * abs(endtime.tv_sec - starttime.tv_sec) + endtime.tv_usec - starttime.tv_usec;
-            if (abs(timeuse) >= usec_between_image)
+            //if (abs(timeuse) >= usec_between_image)
+            if(1)
             {
                 pictures_to_write = 1;
                 memcpy(&starttime , &endtime, sizeof(struct timeval));
@@ -1613,7 +1617,8 @@ int start_video_record(struct sess_ctx* sess)
 
         if (pictures_to_write <= 0)
         {
-            free(buffer);
+//            free(buffer);
+			free_packet( packet );
             usleep(1000);
             continue;
         }
@@ -1731,7 +1736,8 @@ FORCE_CLOSE_FILE:
             else
                 goto FORCE_CLOSE_FILE;
         }
-        free(buffer);
+//        free(buffer);
+        free_packet( packet );
         gettimeofday(&endtime , NULL);
         timeuse = (endtime.tv_sec - prev_write_sound_time.tv_sec) * 1000000UL +
                   endtime.tv_usec - prev_write_sound_time.tv_usec;
@@ -1847,16 +1853,29 @@ int start_data_capture(struct sess_ctx* sess)
 	memset(encoder_shm_addr, 0, ENCODER_SHM_SIZE);
 	encoder_shm_addr->data_main = (char*)((int)encoder_shm_addr + sizeof(encoder_share_mem));
 
-	encoder_shm_addr->width = 1280;
-	encoder_shm_addr->height = 720;
+	if( !strncmp(threadcfg.record_resolution, "qvga", 4)){
+		encoder_shm_addr->width = 352;
+		encoder_shm_addr->height = 288;
+		encoder_shm_addr->frame_rate = 25;
+	}
+	else if( !strncmp(threadcfg.record_resolution, "vga", 4)){
+		encoder_shm_addr->width = 640;
+		encoder_shm_addr->height = 480;
+		encoder_shm_addr->frame_rate = 25;
+	}
+	else{
+		encoder_shm_addr->width = 1280;
+		encoder_shm_addr->height = 720;
+		encoder_shm_addr->frame_rate = 12;
+	}
+		
 	encoder_shm_addr->exit = 0;
 	
 	encoder_shm_addr->para_changed = 0;
-    encoder_shm_addr->frame_rate = 12;
-    encoder_shm_addr->brightness = 50;
-    encoder_shm_addr->contrast = 50;
-    encoder_shm_addr->saturation = 50;
-    encoder_shm_addr->gain =50;
+    encoder_shm_addr->brightness = threadcfg.brightness;
+    encoder_shm_addr->contrast = threadcfg.contrast;
+    encoder_shm_addr->saturation = threadcfg.saturation;
+    encoder_shm_addr->gain =threadcfg.gain;
     encoder_shm_addr->record_quality = threadcfg.record_quality;
 
 	system("/sdcard/encoder&");
@@ -1877,14 +1896,17 @@ int start_data_capture(struct sess_ctx* sess)
 			if(strncmp(threadcfg.resolution, "qvga", 4) == 0){
 				encoder_shm_addr->width = 352;
 				encoder_shm_addr->height = 288;
+				encoder_shm_addr->frame_rate = 25;
 			}
 			else if(strncmp(threadcfg.resolution, "vga", 3) == 0){
 				encoder_shm_addr->width = 640;
 				encoder_shm_addr->height = 480;
+				encoder_shm_addr->frame_rate = 25;
 			}
 			else if(strncmp(threadcfg.resolution, "720p", 4) == 0){
 				encoder_shm_addr->width = 1280;
 				encoder_shm_addr->height = 720;
+				encoder_shm_addr->frame_rate = 12;
 			}
 			encoder_shm_addr->exit = 1;
 			sleep(1);

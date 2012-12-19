@@ -72,20 +72,18 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 
     sound_start_thread();
     sleep(1);
-#if 0
-    if (pthread_create(&tid, NULL, (void *) start_video_record, system_sess) < 0)
-    {
-        free_system_session(system_sess);
-        return -1;
-    }
-#endif
-
     if (pthread_create(&tid, NULL, (void *) start_data_capture, NULL) < 0)
     {
         free_system_session(system_sess);
         return -1;
     }
-	
+
+    if (pthread_create(&tid, NULL, (void *) start_video_record, NULL) < 0)
+    {
+        free_system_session(system_sess);
+        return -1;
+    }
+
     if (pthread_create(&tid, NULL, network_thread, NULL) < 0)
     {
         free_system_session(system_sess);
@@ -1687,7 +1685,6 @@ wlan_udhcpc:
         threadcfg.sdcard_exist = 0;
         printf("open disk error\n");
     }
-	threadcfg.sdcard_exist = 0;
 
     if ((sound_init()) < 0)
     {
