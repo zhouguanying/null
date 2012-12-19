@@ -56,7 +56,7 @@ struct SEND_PACKET_LIST_HEAD_T
 	int total_packet_num; // the packet numbers in current send queue
 	int total_size;		// the size in bytes of total packets
 	int frame_interval_ms;
-    struct timeval last_packet_time;
+	long long last_packet_time;
 	PACKET_QUEUE_STATUS current_state;
 	pthread_mutex_t lock;
 	struct list_head send_packet_list_head;

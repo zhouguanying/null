@@ -157,7 +157,7 @@ int main(int argc, char* argv[])
 	{
 		static int count_t = 0;
 		static int count_last = 0;
-		static unsigned long time_begin, time_current, time_last = 0;
+		static long long time_begin, time_current, time_last = 0;
 		int frame_interval = ( 1000-100 ) / encoder_shm_addr->frame_rate;
 		int ret;
 		char *time;

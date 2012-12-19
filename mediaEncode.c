@@ -87,11 +87,20 @@ int get_encode_video_buffer_valid_size(void)
 
 
 /* for caculate the time */
-unsigned long get_system_time_ms(void)
+long long get_system_time_ms(void)
 {
 	struct timeval now;
+	long long ret;
+	static struct timeval last = {0,0};
+	static struct timeval base = {0,0};
 	gettimeofday(&now, NULL);
-	return now.tv_sec * 1000 + now.tv_usec / 1000;
+	if( abs( now.tv_sec - last.tv_sec ) > 1 ){
+		base.tv_sec += now.tv_sec - last.tv_sec;
+		base.tv_usec += now.tv_usec - last.tv_usec;
+	}
+	last = now;
+	ret = ((long long)now.tv_sec - (long long)base.tv_sec) * 1000 + ((long long)now.tv_usec - (long long)base.tv_usec) / 1000;
+	return ret;
 }
 
 T_VOID ak_rec_cb_printf(T_pCSTR format, ...)

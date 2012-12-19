@@ -36,7 +36,7 @@
 int MediaDestroy();
 int processVideoData(T_U8* dataPtr, int datasize,int32_t timeStamp);
 int processAudioData(T_U8* dataPtr, int datasize);
-unsigned long get_system_time_ms(void);
+long long get_system_time_ms(void);
 int MediaEncodeMain(T_U32 nvbps, int w, int h);
 int get_encode_video_buffer(unsigned char *buffer, int size);
 int write_encode_video_buffer(unsigned char *buffer, int size);

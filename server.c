@@ -840,7 +840,7 @@ int check_monitor_queue_status(void)
 	int count = 0;
 	int ret = MONITOR_STATUS_NEED_NOTHING;
 	SEND_PACKET_LIST_HEAD * send_list;
-    struct timeval current_time;
+	long long current_time;
 
 	if( is_do_update() ){
 		return MONITOR_STATUS_NEED_NOTHING;
@@ -938,9 +938,9 @@ out:
 		exit(-1);
 	}
 	send_list = &sess->send_list;
-	gettimeofday(&current_time,NULL);
-	if(( 1000 * ( current_time.tv_sec - send_list->last_packet_time.tv_sec ) + ( current_time.tv_usec - send_list->last_packet_time.tv_usec ) / 1000 )
-		>= send_list->frame_interval_ms )
+	current_time = get_system_time_ms();
+	//printf("%lld, %lld, time interval = %lld\n",current_time, send_list->last_packet_time, current_time - send_list->last_packet_time);
+	if( current_time - send_list->last_packet_time >= send_list->frame_interval_ms )
 	{
 		if( send_list->total_packet_num >= MAX_SEND_PACKET_NUM ){
 			printf("**************************************the record packet is full, it's strange**************************************\n");
@@ -958,6 +958,7 @@ out:
 			}
 		}
 		send_list->last_packet_time = current_time;
+		//printf("last packet time: %lld\n",  send_list->last_packet_time);
 	}
 	else{
 	}
@@ -1490,7 +1491,7 @@ int start_video_record(struct sess_ctx* system_sess)
     record_last_state = RECORD_STATE_FAST;
 
 	sess->send_list.frame_interval_ms = 1000 / threadcfg.record_normal_speed;
-	gettimeofday(&sess->send_list.last_packet_time, NULL);
+	sess->send_list.last_packet_time = get_system_time_ms();
 	sess->send_list.current_state = PACKET_QUEUE_OVERFLOWED;
 
     msg.msg_type = VS_MESSAGE_ID;
@@ -1834,7 +1835,7 @@ static int DataGrab(encoder_share_mem* encoder)
 {
 	static int count_t = 0;
 	static int count_last = 0;
-    static unsigned long time_begin, time_current;
+    static long long time_begin, time_current;
 	int status;
 
     if (count_t == 0)
