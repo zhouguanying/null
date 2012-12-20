@@ -53,22 +53,6 @@ struct configstruct
     char value[64];
 };
 
-static inline char * gettimestamp()
-{
-    static char timestamp[15];
-    time_t t;
-    struct tm *curtm;
-    if (time(&t) == -1)
-    {
-        printf("get time error\n");
-        exit(0);
-    }
-    curtm = localtime(&t);
-    sprintf(timestamp, "%04d%02d%02d%02d%02d%02d", curtm->tm_year + 1900, curtm->tm_mon + 1,
-            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, curtm->tm_sec);
-    return timestamp;
-}
-
 void start_udt_lib();
 
 int test_video_record_and_monitor(struct sess_ctx* system_sess)
@@ -88,11 +72,18 @@ int test_video_record_and_monitor(struct sess_ctx* system_sess)
 
     sound_start_thread();
     sleep(1);
-    if (pthread_create(&tid, NULL, (void *) start_video_record, system_sess) < 0)
+    if (pthread_create(&tid, NULL, (void *) start_data_capture, NULL) < 0)
     {
         free_system_session(system_sess);
         return -1;
     }
+
+    if (pthread_create(&tid, NULL, (void *) start_video_record, NULL) < 0)
+    {
+        free_system_session(system_sess);
+        return -1;
+    }
+
     if (pthread_create(&tid, NULL, network_thread, NULL) < 0)
     {
         free_system_session(system_sess);
@@ -511,6 +502,7 @@ int get_cam_id(unsigned int *id)
 #define HID_SET_PSWD                   5
 #define HID_SET_SYS_TIME               6
 #define HID_GET_WIFI_RESULT           7
+#define HID_SET_DEVICE               8
 
 //#define HID_FAILE                       4
 
@@ -699,6 +691,8 @@ int main()
     char *ip = NULL;
     char *mask = NULL;
 
+	system("hwclock -s");
+
     if (open_usbdet() != 0)
     {
         printf("open usb detect error\n");
@@ -848,6 +842,9 @@ open_hid:
                     sprintf(p , "cam_id=%x\n", threadcfg.cam_id);
                     data_len += strlen(p);
                     p += strlen(p);
+                    sprintf(p , MODEL_NAME);
+                    data_len += strlen(p);
+                    p += strlen(p);
                     s = get_clean_video_cfg(&cfg_len);
                     if (!s)
                     {
@@ -889,10 +886,16 @@ open_hid:
                 case HID_READ_SEARCH_WIFI:
                     printf("HID_READ_SEARCH_WIFI\n");
                     close(hid_fd);
+#ifndef IPED_98
                     system("switch host");
                     sleep(1);
                     system("switch host");
                     sleep(3);
+#else
+					system("insmod /lib/modules/ak98-fs-hcd.ko");
+					system("insmod /lib/modules/8192cu.ko");
+					system("sleep 3");
+#endif
                     do
                     {
                         hid_buf = get_parse_scan_result(& numssid, NULL);
@@ -901,8 +904,10 @@ open_hid:
                     if (hid_buf == NULL)
                         goto hid_fail;
                     free(hid_buf);
+#ifndef IPED_98
                     system("switch gadget");
                     sleep(5);
+#endif
                     if ((hid_fd = open("/dev/hidg0", O_RDWR)) != -1 && set_fl(hid_fd, O_NONBLOCK) != -1)
                         dbg("reopen hid sucess now begin to send data\n");
                     else
@@ -1043,6 +1048,56 @@ open_hid:
                     dbg("time = %s\n", hid_unit_buf + 2);
                     set_system_time(hid_unit_buf + 2);
                     break;
+				case HID_SET_DEVICE:
+					printf("HID_SET_DEVICE:%s\n",hid_unit_buf+2);
+					hid_buf = malloc(4096);
+					fd = fopen(ID_FILE,"wb");
+					if( fd == NULL ){
+						memset( hid_buf, 0, 4096 );
+						strcpy(hid_buf,"open id file error");
+						write(hid_fd , hid_buf, HID_RDWR_UNIT);
+						break;
+					}
+					memset( hid_buf, 0x0a, 4096 );
+					hid_buf[0]='0';
+					hid_buf[1]='x';
+					memcpy(hid_buf+2, hid_unit_buf+2,8);
+					if( fwrite(hid_buf,1,11,fd) != 11 ){
+						printf("write id file error\n");
+						fclose(fd);
+						memset( hid_buf, 0, 4096 );
+						strcpy(hid_buf,"write id file error");
+						write(hid_fd , hid_buf, HID_RDWR_UNIT);
+						break;
+					}
+					fclose(fd);
+					system("sync");
+
+					fd = fopen(MAC_FILE,"wb");
+					if( fd == NULL ){
+						memset( hid_buf, 0, 4096 );
+						strcpy(hid_buf,"open mac file error");
+						write(hid_fd , hid_buf, HID_RDWR_UNIT);
+						break;
+					}
+					memset( hid_buf, 0x0a, 4096 );
+					memcpy(hid_buf, hid_unit_buf+11,17);
+					if( fwrite(hid_buf,1,18,fd) != 18 ){
+						printf("write mac file error\n");
+						fclose(fd);
+						memset( hid_buf, 0, 4096 );
+						strcpy(hid_buf,"write mac file error");
+						write(hid_fd , hid_buf, HID_RDWR_UNIT);
+						break;
+					}
+					fclose(fd);
+					
+					memset( hid_buf, 0, 4096 );
+					strcpy(hid_buf,"ok");
+					write(hid_fd , hid_buf, HID_RDWR_UNIT);
+					free(hid_buf);
+					break;
+
                 default:
                     if (!hid_unit_buf[1])
                         dbg("###########get garbage discard it############\n");
@@ -1071,6 +1126,7 @@ hid_fail:
     sleep(3);
 #else
 	system("insmod /lib/modules/ak98-fs-hcd.ko");
+	system("insmod /lib/modules/8192cu.ko");
 	system("sleep 3");
 #endif
 
@@ -1186,8 +1242,8 @@ read_config:
             goto read_config;
         }
         printf("cfg_v==%s\n", buf);
-#if 1
-        threadcfg.cam_id = 0xcccc6666;
+#if 0
+        threadcfg.cam_id = 0x88888888;
 #else
         if (get_cam_id(&threadcfg.cam_id) < 0)
         {
@@ -1378,7 +1434,7 @@ read_config:
         }
 #else
 		threadcfg.framerate = 12;
-		threadcfg.bitrate = 1000*1000*16;
+		threadcfg.bitrate = 1000*1000*6;
 #endif
 
         init_sleep_time();
@@ -1425,7 +1481,7 @@ read_config:
 
         check_eth0 = 0;
         check_wlan0 = 0;
-#if 1	//don't config the netork, for debug purpose only
+#if 0	//don't config the netork, for debug purpose only
         if (strncmp(threadcfg.inet_mode, "eth_only", strlen("eth_only")) == 0
                 || strncmp(threadcfg.inet_mode, "inteligent", strlen("inteligent")) == 0)
         {
@@ -1631,7 +1687,6 @@ wlan_udhcpc:
         threadcfg.sdcard_exist = 0;
         printf("open disk error\n");
     }
-	threadcfg.sdcard_exist = 0;
 
     if ((sound_init()) < 0)
     {
