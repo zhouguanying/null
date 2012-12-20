@@ -236,6 +236,7 @@ static void circular_write(CBuffer *buffer, char *data)
         if (buffer == capture_buffer){
             printf("capture_buffer overrun\n");
 			sleep(2);
+        }
 
         if (buffer->first + buffer->step == buffer->end)
             buffer->first = buffer->buffer;
