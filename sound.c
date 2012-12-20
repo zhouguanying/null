@@ -57,17 +57,16 @@ static SpeexPreprocessState *echo_pp;
 // circular buffers
 static int                   circular_size;
 static pthread_mutex_t       circular_mutex;
-static CBuffer              *playback_buffer;
 static CBuffer              *capture_buffer;
-static CBuffer              *echo_buffer;
 
 // TODO: playback and capture periods are not unity
 static data_chunk_t *_playback_buffer;
 static data_chunk_t *_echo_buffer;
 static int          _period_bytes_pb;
 static int          _period_frames_pb;
-static char        *_tmp_buf_pb;
+static char        *_tmp_buf_pb = NULL;
 
+#define SAFE_FREE(p) do { if ((p)) free((p)); (p) = NULL; } while(0)
 // playback & capture
 static snd_pcm_t            *playback_handle;
 static snd_pcm_t            *capture_handle;
@@ -236,10 +235,6 @@ static void circular_write(CBuffer *buffer, char *data)
     {
         if (buffer == capture_buffer)
             printf("capture_buffer overrun\n");
-        else if (buffer == playback_buffer)
-            printf("playback_buffer overrun\n");
-        else if (buffer == echo_buffer)
-            printf("echo_buffer overrun\n");
 
         if (buffer->first + buffer->step == buffer->end)
             buffer->first = buffer->buffer;
@@ -310,8 +305,7 @@ start:
                        pcm,
                        &dst_size,
                        1);
-            //circular_write(playback_buffer, pcm);
-            data_chunk_pushback(_playback_buffer, pcm, 320);
+            data_chunk_pushback(_playback_buffer, (unsigned char *)pcm, 320);
         }
         pthread_mutex_unlock(&circular_mutex);
 
@@ -346,10 +340,8 @@ end:
 
     pthread_mutex_lock(&circular_mutex);
     snd_pcm_drop(playback_handle);
-    circular_reset(playback_buffer);
     data_chunk_clear(_playback_buffer);
     data_chunk_clear(_echo_buffer);
-    circular_reset(echo_buffer);
     speex_echo_state_reset(echo_state);
     pthread_mutex_unlock(&circular_mutex);
 
@@ -420,10 +412,9 @@ static void *playback(void *arg)
         if (playback_start)
         {
             pthread_mutex_lock(&circular_mutex);
-            //if (!circular_empty(playback_buffer))
             if (data_chunk_size(_playback_buffer) >= _period_bytes_pb)
             {
-                data_chunk_popfront(_playback_buffer, _tmp_buf_pb, _period_bytes_pb);
+                data_chunk_popfront(_playback_buffer, (unsigned char *)_tmp_buf_pb, _period_bytes_pb);
                 r = snd_pcm_writei(playback_handle,
                                    _tmp_buf_pb,
                                    _period_frames_pb);
@@ -466,9 +457,8 @@ static void *playback(void *arg)
 
                     printf("====> push echo buffer\n");
                     data_chunk_pushback(_echo_buffer,
-                                        _tmp_buf_pb,
+                                        (unsigned char *)_tmp_buf_pb,
                                         _period_bytes_pb);
-                    //circular_write(echo_buffer, playback_buffer->first);
 #if 0
                     printf("echo_buffer len %i, aec_start %i, n %i\n",
                         echo_buffer->start >= echo_buffer->first ?
@@ -564,7 +554,7 @@ static void *aec(void *arg)
             if (!circular_empty(capture_buffer) &&
                 data_chunk_size(_echo_buffer) >= period_bytes)
             {
-                data_chunk_popfront(_echo_buffer, echo_buf, period_bytes);
+                data_chunk_popfront(_echo_buffer, (unsigned char *)echo_buf, period_bytes);
 #if 1
                 speex_echo_cancellation(echo_state,
                     (spx_int16_t *)capture_buffer->first,
@@ -580,7 +570,6 @@ static void *aec(void *arg)
                        period_bytes);
 #endif
                 circular_consume(capture_buffer);
-                //circular_consume(echo_buffer);
                 pthread_mutex_unlock(&circular_mutex);
 
                 amr_encode(handle, &data);
@@ -727,9 +716,7 @@ static snd_pcm_t *handle_init(snd_pcm_stream_t stream)
         period_bytes    = period_frames * 2;
         circular_size   = period_bytes * 1024; // 320k buffer
 
-        playback_buffer = circular_init(circular_size, period_bytes);
         capture_buffer  = circular_init(circular_size, period_bytes);
-        echo_buffer     = circular_init(circular_size, period_bytes);
 
         _playback_buffer = data_chunk_new(circular_size);
         _echo_buffer = data_chunk_new(circular_size);
@@ -737,7 +724,7 @@ static snd_pcm_t *handle_init(snd_pcm_stream_t stream)
     else if (stream == SND_PCM_STREAM_PLAYBACK)
     {
         snd_pcm_hw_params_get_period_size(params, &_period_frames_pb, NULL);
-        printf("playback period frames: %li\n", _period_frames_pb);
+        printf("playback period frames: %i\n", _period_frames_pb);
         _period_bytes_pb = _period_frames_pb * 2;
         _tmp_buf_pb = malloc(_period_bytes_pb);
 
@@ -795,9 +782,11 @@ end:
     if (capture_handle)
         snd_pcm_close(capture_handle);
 
-    circular_free(playback_buffer);
     circular_free(capture_buffer);
-    circular_free(echo_buffer);
+
+    data_chunk_free(_playback_buffer);
+    data_chunk_free(_echo_buffer);
+    SAFE_FREE(_tmp_buf_pb);
 
     speex_echo_state_destroy(echo_state);
 #ifdef SOUND_ENABLE_AEC_PREPROCESS
@@ -927,9 +916,6 @@ void sound_stop_talk()
 
         pthread_mutex_lock(&circular_mutex);
         snd_pcm_drop(playback_handle);
-        circular_reset(playback_buffer);
-        circular_reset(echo_buffer);
-        speex_echo_state_reset(echo_state);
         pthread_mutex_unlock(&circular_mutex);
 
         sound_talking  = 0;
