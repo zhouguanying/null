@@ -691,6 +691,8 @@ int main()
     char *ip = NULL;
     char *mask = NULL;
 
+	system("hwclock -s");
+
     if (open_usbdet() != 0)
     {
         printf("open usb detect error\n");
