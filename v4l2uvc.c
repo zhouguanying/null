@@ -333,27 +333,6 @@ video_disable(struct vdIn *vd)
     return 0;
 }
 
-static char * gettimestamp_ex()
-{
-    static char timestamp[18];
-    time_t t;
-    struct tm *curtm;
-	struct timeval now;
-	int ms;
-
-    if (time(&t) == -1)
-    {
-        printf("get time error\n");
-        exit(0);
-    }
-    curtm = localtime(&t);
-	gettimeofday(&now, NULL);
-	ms = now.tv_usec / 1000;
-    sprintf(timestamp, "%04d%02d%02d%02d%02d%02d%04d", curtm->tm_year + 1900, curtm->tm_mon + 1,
-            curtm->tm_mday, curtm->tm_hour, curtm->tm_min, curtm->tm_sec,ms);
-    return timestamp;
-}
-
 static picture_info_ex_t p_info_ex =
 {
     {0, 0, 0, 1, 0xc},
@@ -367,8 +346,8 @@ int uvcGrab(struct vdIn *vd)
 
     static int count_t = 0;
 	static int count_last = 0;
-    static unsigned long time_begin, time_current, time_last = 0;
-	int frame_interval = ( 1000- 200 ) / threadcfg.framerate;
+    static long long time_begin, time_current, time_last = 0;
+	int frame_interval = ( 1000-100 ) / threadcfg.framerate;
 	int time1;
     if (count_t == 0)
     {
@@ -448,7 +427,6 @@ int uvcGrab(struct vdIn *vd)
 					}
 #endif
 				}
-                time_last = time_current;
 				break;
 			}
 		}
@@ -490,7 +468,7 @@ int uvcGrab(struct vdIn *vd)
 				char* buffer;
 				int size;
 				if( -1 != get_temp_buffer_data(&buffer,&size) ){
-					//printf("get a frame,count = %d, size=%d\n",count_t, size);
+					printf("get a frame,count = %d, size=%d\n",count_t, size);
 					memcpy(buffer, &p_info_ex , sizeof(picture_info_ex_t));
 					if( write_monitor_packet_queue(buffer,size) == 0 ){
 						count_t++;
