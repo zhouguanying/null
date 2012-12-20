@@ -473,7 +473,7 @@ static void *playback(void *arg)
 
                 pthread_mutex_unlock(&circular_mutex);
                 if (sleep_start)
-                    usleep(100000); // crucial
+                    usleep(70 * 1000); // crucial
                 else
                     usleep(10);
             }
@@ -890,7 +890,7 @@ int sound_start_talk(struct sess_ctx *sess)
 {
     if (sound_talking)
         return -1;
-    if (session_number > 1)
+    if (session_number > 2)
         return -2;
 
     snd_pcm_prepare(playback_handle);
