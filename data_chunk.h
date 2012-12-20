@@ -19,6 +19,7 @@ long data_chunk_popfront(data_chunk_t *p,
 long inline data_chunk_size(data_chunk_t *p);
 long inline data_chunk_freespace(data_chunk_t *p);
 void data_chunk_clear(data_chunk_t *p);
+long data_chunk_copy(data_chunk_t *dst, data_chunk_t *src, long size);
 
 #define FRAME_SIZE (64*1024)
 #define FRAME_QUEUE_LEN 2
