@@ -48,6 +48,7 @@ static void sig_handler_encoder(int signum)
 		printf("encoder got a SIGINT or SIGIO or SIGSEGV: %d,exit\n", signum);
 		if( vd )
 			close_v4l2(vd);
+		system("touch /tmp/encoder_exited");
 		exit(-1);
 	}
     else if (signum == SIGPIPE)
@@ -168,6 +169,7 @@ int main(int argc, char* argv[])
 			shmdt(encoder_shm_addr);
 			close_video_device();
 			printf("encoder exit for main process's cmd\n");
+			system("touch /tmp/encoder_exited");
 			exit(0);
 		}
 

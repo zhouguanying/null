@@ -1973,11 +1973,21 @@ int start_data_capture(struct sess_ctx* sess)
 				encoder_shm_addr->height = 720;
 				encoder_shm_addr->frame_rate = 12;
 			}
+			system("rm /tmp/encoder_exited");
 			encoder_shm_addr->exit = 1;
-			sleep(1);
-			encoder_shm_addr->exit = 0;
+			i = 100;
+			while( i-- ){
+				struct stat st;
+				if (stat("/tmp/encoder_exited" , &st) == 0){
+					break;
+				}
+				printf("wait encoder exit\n");
+				usleep(100*1000);
+			}
+			sleep(2);
 			printf("restart the encoder process\n");
 			system("/sdcard/encoder&");
+			usleep(500*1000);
 			force_i_frame = 1;
 		}
 
