@@ -212,7 +212,7 @@ init_v4l2(struct vdIn *vd)
     vd->fmt.fmt.pix.height = vd->height;
     vd->fmt.fmt.pix.pixelformat = vd->formatIn;
 #if defined IPED_98
-    vd->fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
+    vd->fmt.fmt.pix.field = V4L2_FIELD_NONE;//V4L2_FIELD_INTERLACED;
 #else
     vd->fmt.fmt.pix.field = V4L2_FIELD_ANY;
 #endif
@@ -858,7 +858,7 @@ static int init_device(struct vdIn *vd)
     fmt.fmt.pix.width       = vd->width;
     fmt.fmt.pix.height      = vd->height;
     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
-    fmt.fmt.pix.field       = V4L2_FIELD_INTERLACED;
+    fmt.fmt.pix.field       = V4L2_FIELD_NONE;//V4L2_FIELD_INTERLACED;
     dbg("xioctl(camera, VIDIOC_S_FMT, &fmt)!\n");
 
     if (-1 == xioctl(camera, VIDIOC_S_FMT, &fmt))
@@ -874,6 +874,7 @@ static int init_device(struct vdIn *vd)
   	min = fmt.fmt.pix.bytesperline * fmt.fmt.pix.height;
     printf("fmt.fmt.pix.bytesperline = %d\n", fmt.fmt.pix.bytesperline);
 
+#if 0
 	/*set parm*/
 	CLEAR(parm);
 	parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -882,6 +883,7 @@ static int init_device(struct vdIn *vd)
 	parm.parm.capture.capturemode = 0; 
 	if (-1 == xioctl(camera, VIDIOC_S_PARM, &parm))
 		printf("xioctl(fd, VIDIOC_S_PARM, &parm) failed\n");
+#endif
 
 #if 0
 	/*set control parm*/		
@@ -913,6 +915,8 @@ static void uninit_device(struct vdIn *vd)
         vd->mem[i] = NULL;
     }
 	akuio_unlock(lock);
+	akuio_cleanup(lock);
+	akuio_pmem_fini();
 }
 
 int close_video_device()
