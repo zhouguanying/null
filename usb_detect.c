@@ -30,6 +30,8 @@ int open_usbdet(void)
     else
     {
         fcntl(fd , F_SETFD , 1); //close on exec
+        ioctl(fd, _IOW(DEV_MAGIC,VBUS,int), 0);		//set vbus to 0 at first
+        usleep(200*1000);
         return    0;
     }
 }
@@ -51,11 +53,9 @@ int ioctl_usbdet_read(void)
     return    ret;
 }
 
-int ioctl_usbdet_led(int led)
+int ioctl_reset_read(void)
 {
     int    ret;
-
-	return 0;
 
     if (-1 == fd)
     {
@@ -65,8 +65,24 @@ int ioctl_usbdet_led(int led)
         }
     }
 
-    ret = ioctl(fd, IOCTL_USBDET_LED_DRIVE, led);
+    ret = ioctl(fd, _IOR(DEV_MAGIC,REST,int), NULL);
 
+    return    ret;
+}
+
+int ioctl_usbdet_led(int led)
+{
+    int    ret;
+
+    if (-1 == fd)
+    {
+        if (open_usbdet())
+        {
+            return -1;
+        }
+    }
+
+    ret = ioctl(fd, _IOW(DEV_MAGIC,LEDG,int), led);
     return    ret;
 }
 

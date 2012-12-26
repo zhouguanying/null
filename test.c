@@ -175,21 +175,37 @@ int do_update()
 }
 
 int usb_state_monitor()
+{
+	int reset_count = 0;
+	while (1)
 	{
-		while (1)
+		if (is_do_update())
+			return 0;
+		if (ioctl_usbdet_read())
 		{
 			if (is_do_update())
 				return 0;
-			if (ioctl_usbdet_read())
-			{
-				if (is_do_update())
-					return 0;
-				system("reboot &");
+			system("reboot &");
+			exit(0);
+		}
+		if( ioctl_reset_read() ){
+			reset_count++;
+			if( reset_count >= 3 ){
+				while( ioctl_reset_read() ){
+					sleep(1);
+				}
+				printf("ready to reset the system config\n");
+				system("rm /data/video.cfg");
+				system("reboot");
 				exit(0);
 			}
-			sleep(1);
 		}
+		else{
+			reset_count = 0;
+		}
+		sleep(1);
 	}
+}
 
 
 static int set_fl(int fd, int flags)
