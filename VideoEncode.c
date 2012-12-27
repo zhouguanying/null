@@ -253,7 +253,7 @@ int main(int argc, char* argv[])
 				if( status != ENCODER_FRAME_TYPE_NONE && ( time_current - time_last >= frame_interval ) ){
 					time_last = time_current;
 					if( status == ENCODER_FRAME_TYPE_I ){
-						printf("after %d p frame, we need an I frame for some reasons\n", count_t);
+						//printf("after %d p frame, we need an I frame for some reasons\n", count_t);
 						encode_need_i_frame();
 						count_t = count_last = 0;
 						time_begin = time_current = get_system_time_ms();
@@ -275,7 +275,7 @@ again:
 						}
 
 						if( -1 != get_temp_buffer_data(&buffer,&size) ){
-							printf("get a %d frame,count = %d, size=%d\n",encoder_shm_addr->next_frame_type, count_t, size);
+							//printf("get a %d frame,count = %d, size=%d\n",encoder_shm_addr->next_frame_type, count_t, size);
 							memcpy(buffer, &p_info_ex , sizeof(picture_info_ex_t));
 							memcpy(encoder_shm_addr->data_encoder, buffer, size);
 							encoder_shm_addr->data_size = size;

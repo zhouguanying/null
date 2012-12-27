@@ -39,6 +39,7 @@
 #include "log_dbg.h"
 #include "mediaEncode.h"
 #include "akjpeg.h"
+#include "ipcam_timer.h"
 
 #define PID_FILE    "/var/run/v2ipd.pid"
 #define LOG_FILE    "/tmp/v2ipd.log"
@@ -1234,6 +1235,8 @@ static nand_record_file_internal_header audio_internal_header =
     {0, 2, 0, 0},
 };
 
+static unsigned char _audio_header[5] = {0, 0, 0, 1, 0xb};
+
 #define COMPARE_STEP  3
 #define VGA_LV1   200
 #define VGA_LV2   600
@@ -1339,14 +1342,16 @@ static inline void write_syn_sound(int *need_video_internal_head)
     if (buf)
     {
         i++;
-        if (!(i % 60))
-            dbg("get sound data size == %d\n", size);
-        ret = nand_write((char *)&audio_internal_header, sizeof(audio_internal_header));
+        ret = nand_write((char *)&_audio_header, sizeof(_audio_header));
         if (ret == 0)
         {
             ret = nand_write(buf, size);
             if (ret == 0)
+            {
+                if (!(i % 60))
+                    dbg("write sound data size == %d\n", size);
                 *need_video_internal_head = 1;
+            }
         }
         free(buf);
     }
@@ -1542,7 +1547,11 @@ int start_video_record(struct sess_ctx* system_sess)
     video_internal_header.flag[0] = SET_ALL_FLAG_CHANGE;
     memcpy(&index_table_15sec_last_time , &starttime , sizeof(struct timeval));
 
-	printf("ready to start record\n");
+	printf("ready to start record, mode %d, sdcard exsit %d\n", record_mode, threadcfg.sdcard_exist);
+
+    ipcam_timer_t *sound_timer = ipcam_timer_create(1000);      // 1    second
+    ipcam_timer_t *index_timer = ipcam_timer_create(18 * 1000); // 15   seconds
+    ipcam_timer_t *alive_timer = ipcam_timer_create(3 * 1000);  // 3    seconds
 
     while (1)
     {
@@ -1552,12 +1561,10 @@ int start_video_record(struct sess_ctx* system_sess)
             goto __out;
         }
 
-        gettimeofday(&endtime, NULL);
-        if (abs(endtime.tv_sec - alive_old_time.tv_sec) >= 3)
+        //gettimeofday(&endtime, NULL);
+        if (ipcam_timer_timeout(alive_timer))
         {
-			//printf("before		send\n");
             ret = msgsnd(msqid , &msg, sizeof(vs_ctl_message) - sizeof(long), 0);
-			//printf("after       send\n");
             if (ret == -1)
             {
                 dbg("send daemon message error\n");
@@ -1570,7 +1577,6 @@ int start_video_record(struct sess_ctx* system_sess)
                 system("reboot &");
                 exit(0);
             }
-            memcpy(&alive_old_time, &endtime, sizeof(struct timeval));
         }
 
         packet = get_monitor_queue_packet(sess);
@@ -1582,7 +1588,6 @@ int start_video_record(struct sess_ctx* system_sess)
         buffer = packet->date_buf;
 		size = packet->size;
 
-//		buffer = get_data(&size, &width, &height);
         //mail alarm
         if (email_alarm && mail_alarm_tid)
         {
@@ -1640,15 +1645,14 @@ int start_video_record(struct sess_ctx* system_sess)
 
         if (threadcfg.sdcard_exist)
         {
-            gettimeofday(&endtime, NULL);
-            if (abs(endtime.tv_sec - index_table_15sec_last_time.tv_sec) >= 15)
+            // every 15 seconds , record a index postion to index table
+            if (ipcam_timer_timeout(index_timer))
             {
                 table_item.location = nand_get_position();
                 if (*record_15sec_table_size + *attr_table_size + sizeof(index_table_item_t) + 8 <= INDEX_TABLE_SIZE)
                 {
                     memcpy(record_15sec_pos, &table_item , sizeof(index_table_item_t));
                     (*record_15sec_table_size) += sizeof(index_table_item_t);
-                    memcpy(&index_table_15sec_last_time , &endtime, sizeof(struct timeval));
                     record_15sec_pos += sizeof(index_table_item_t);
                 }
                 else
@@ -1662,25 +1666,11 @@ int start_video_record(struct sess_ctx* system_sess)
             pictures_to_write = 0;
             break;
         case 1:
-        {
-		}
         case 2:
-		{
-		}
         case 3:
         {
-            usec_between_image = (unsigned long long) 1000000 / record_normal_speed;
             record_last_state = RECORD_STATE_NORMAL;
-            gettimeofday(&endtime , NULL);
-            timeuse = (unsigned long long)1000000 * abs(endtime.tv_sec - starttime.tv_sec) + endtime.tv_usec - starttime.tv_usec;
-            //if (abs(timeuse) >= usec_between_image)
-            if(1)
-            {
-                pictures_to_write = 1;
-                memcpy(&starttime , &endtime, sizeof(struct timeval));
-            }
-            else
-                pictures_to_write = 0;
+            pictures_to_write = 1;
             break;
         }
         default:
@@ -1696,56 +1686,6 @@ int start_video_record(struct sess_ctx* system_sess)
         }
 
         pictures_to_write --;
-
-        if (timestamp_change || frameratechange || prev_width != width || prev_height != height)
-        {
-            if (prev_width != width || prev_height != height)
-            {
-                init_sensitivity_diff_size(width,  height);
-                set_ignore_count(6);
-            }
-            internal_head_for_sound = 0;
-            need_write_internal_head = 1;
-            timestamp_change = 0;
-            frameratechange = 0;
-            prev_width = width;
-            prev_height = height;
-        }
-        if (internal_head_for_sound)
-            need_write_internal_head = 1;
-        if (need_write_internal_head)
-        {
-            if (threadcfg.sdcard_exist)
-            {
-                timestamp = gettimestamp();
-                sprintf(swidth, "%04d", width);
-                sprintf(sheight, "%04d", height);
-                sprintf(FrameRateUs, "%08llu", usec_between_image);
-                memcpy(video_internal_header.StartTimeStamp, timestamp, sizeof(video_internal_header.StartTimeStamp));
-                memcpy(video_internal_header.FrameRateUs, FrameRateUs, sizeof(video_internal_header.FrameRateUs));
-                memcpy(video_internal_header.FrameHeight, sheight, sizeof(video_internal_header.FrameHeight));
-                memcpy(video_internal_header.FrameWidth, swidth, sizeof(video_internal_header.FrameWidth));
-
-                table_item.location = nand_get_position();
-                if (*record_15sec_table_size + *attr_table_size + sizeof(index_table_item_t) + 8 <= INDEX_TABLE_SIZE)
-                {
-                    if (nand_write((char *)&video_internal_header, sizeof(video_internal_header)) == 0 && !internal_head_for_sound)
-                    {
-                        memcpy(attr_pos, &table_item , sizeof(index_table_item_t));
-                        (*attr_table_size) += sizeof(index_table_item_t);
-                        attr_pos += sizeof(index_table_item_t);
-                    }
-                }
-                else
-                {
-                    need_write_internal_head = 0;
-                    internal_head_for_sound = 0;
-                    goto FORCE_CLOSE_FILE;
-                }
-            }
-            need_write_internal_head = 0;
-            internal_head_for_sound = 0;
-        }
 retry:
         if (threadcfg.sdcard_exist)
         {
@@ -1762,8 +1702,12 @@ retry:
             {
                 i++;
                 usleep(1);
-                if (i % 1000 == 0)
-                    dbg("write pictures: %d\n", i);
+                char ts[15] = {0};
+                memcpy(ts, buffer + 5, 14);
+                if (i % 100 == 0)
+                {
+                    dbg("write pictures: %d ts %s\n", i, ts);
+                }
             }
             else if (ret == VS_MESSAGE_NEED_START_HEADER)
             {
@@ -1774,6 +1718,7 @@ retry:
                 memcpy(record_header->FrameWidth, swidth, 4);
                 memcpy(record_header->FrameHeight, sheight, 4);
                 memcpy(record_header->FrameRateUs, FrameRateUs, 8);
+				strcpy(record_header->device_model, DEVICE_MODEL);
                 nand_write_start_header(record_header);
                 goto retry;
             }
@@ -1807,19 +1752,13 @@ FORCE_CLOSE_FILE:
             }
             else
                 goto FORCE_CLOSE_FILE;
+            if (ipcam_timer_timeout(sound_timer))
+            {
+                write_syn_sound(&internal_head_for_sound);
+            }
         }
-//        free(buffer);
+
         free_packet( packet );
-        gettimeofday(&endtime , NULL);
-        timeuse = (endtime.tv_sec - prev_write_sound_time.tv_sec) * 1000000UL +
-                  endtime.tv_usec - prev_write_sound_time.tv_usec;
-        if (timeuse >= 1000000ULL)
-        {
-            write_syn_sound(&internal_head_for_sound);
-            memcpy(&prev_write_sound_time , &endtime  , sizeof(endtime));
-            timestamp = gettimestamp();
-            memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
-        }
     }
 
 __out:
@@ -1828,6 +1767,10 @@ __out:
         ret = msgsnd(msqid , &msg, sizeof(vs_ctl_message) - sizeof(long), 0);
         sleep(3);
     }
+
+    ipcam_timer_destroy(sound_timer);
+    ipcam_timer_destroy(index_timer);
+    ipcam_timer_destroy(alive_timer);
     return 0;
 }
 
@@ -1993,5 +1936,4 @@ __out:
     }
     return 0;
 }
-
 

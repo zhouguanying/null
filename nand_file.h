@@ -48,6 +48,7 @@
 #define SET_ALL_FLAG_CHANGE  ((1<<FLAG0_TS_CHANGED_BIT)|(1<<FLAG0_FR_CHANGED_BIT)|(1<<FLAG0_FW_CHANGED_BIT)|(1<<FLAG0_FH_CHANGED_BIT))
 
 
+#define DEVICE_MODEL "model:ip2001"
 
 #pragma pack(1)
 typedef struct __nand_record_file_internal_header
@@ -75,6 +76,7 @@ typedef struct nand_record_file_header
     char FrameRateUs[8];
     char FrameWidth[4];
     char FrameHeight[4];
+	char device_model[32];
 } __attribute__((packed)) nand_record_file_header;
 #pragma pack()
 
