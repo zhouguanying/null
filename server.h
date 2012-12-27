@@ -221,7 +221,11 @@ SEND_PACKET* get_monitor_queue_packet(struct sess_ctx* sess);
 char * gettimestamp_ex(void);
 char * gettimestamp(void);
 
-void encoder_para_changed(void);
+void encoder_para_changed_brightness(int value);
+void encoder_para_changed_contrast(int value);
+void encoder_para_changed_quality(int value);
+void encoder_para_changed_saturation(int value);
+
 
 #ifdef __cplusplus
 }

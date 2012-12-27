@@ -1357,13 +1357,27 @@ static inline void write_syn_sound(int *need_video_internal_head)
     }
 }
 
-void encoder_para_changed()
+void encoder_para_changed_brightness(int value)
 {
+	encoder_shm_addr->brightness = value;
 	encoder_shm_addr->para_changed = 1;
-	encoder_shm_addr->brightness = threadcfg.brightness;
-	encoder_shm_addr->contrast = threadcfg.contrast;
-	encoder_shm_addr->saturation = threadcfg.saturation;
-	encoder_shm_addr->record_quality = threadcfg.record_quality;
+}
+
+void encoder_para_changed_contrast(int value)
+{
+	encoder_shm_addr->contrast = value;
+	encoder_shm_addr->para_changed = 1;
+}
+
+void encoder_para_changed_quality(int value)
+{
+	encoder_shm_addr->record_quality = value;
+	encoder_shm_addr->para_changed = 1;
+}
+void encoder_para_changed_saturation(int value)
+{
+	encoder_shm_addr->saturation = value;
+	encoder_shm_addr->para_changed = 1;
 }
 
 int snd_soft_restart();
@@ -1838,6 +1852,7 @@ again:
 int start_data_capture(struct sess_ctx* sess)
 {
 	int i;
+	int r_width,r_height,r_framerate;
 	
     for (i = 1; i <= _NSIG; i++)
     {
@@ -1876,6 +1891,9 @@ int start_data_capture(struct sess_ctx* sess)
 		encoder_shm_addr->height = 720;
 		encoder_shm_addr->frame_rate = 12;
 	}
+	r_width = encoder_shm_addr->width;
+	r_height = encoder_shm_addr->height;
+	r_framerate = encoder_shm_addr->frame_rate;
 		
 	encoder_shm_addr->exit = 0;
 	
@@ -1916,6 +1934,7 @@ int start_data_capture(struct sess_ctx* sess)
 				encoder_shm_addr->height = 720;
 				encoder_shm_addr->frame_rate = 12;
 			}
+restart_encoder:
 			system("rm /tmp/encoder_exited");
 			encoder_shm_addr->exit = 1;
 			i = 100;
@@ -1932,6 +1951,29 @@ int start_data_capture(struct sess_ctx* sess)
 			system("/sdcard/encoder&");
 			usleep(500*1000);
 			force_i_frame = 1;
+		}
+
+		if( session_number == 1 ){
+			if( encoder_shm_addr->brightness != threadcfg.brightness
+				|| encoder_shm_addr->contrast != threadcfg.contrast
+				|| encoder_shm_addr->saturation != threadcfg.saturation
+				|| encoder_shm_addr->gain != threadcfg.gain
+				|| encoder_shm_addr->record_quality != threadcfg.record_quality
+				|| r_width != encoder_shm_addr->width
+				|| r_height != encoder_shm_addr->height )
+			{
+				printf("--------------------------------restore the camera status--------------------------------\n");
+				encoder_shm_addr->brightness = threadcfg.brightness;
+				encoder_shm_addr->contrast = threadcfg.contrast;
+				encoder_shm_addr->saturation = threadcfg.saturation;
+				encoder_shm_addr->gain =threadcfg.gain;
+				encoder_shm_addr->record_quality = threadcfg.record_quality;
+				encoder_shm_addr->width = r_width;
+				encoder_shm_addr->height = r_height;
+				encoder_shm_addr->frame_rate = r_framerate;
+				goto restart_encoder;
+
+			}
 		}
 
 		DataGrab(encoder_shm_addr);

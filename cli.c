@@ -1821,8 +1821,7 @@ static void set_brightness(char *arg)
     if (v4l2_contrl_brightness(vdin_camera, value) == 0)
         threadcfg.brightness = value;
 #else
-	threadcfg.brightness = value;
-	encoder_para_changed();
+	encoder_para_changed_brightness(value);
 #endif
 }
 
@@ -1843,8 +1842,7 @@ static void set_contrast(char *arg)
     if (v4l2_contrl_contrast(vdin_camera, value) == 0)
         threadcfg.contrast = value;
 #else
-	threadcfg.contrast = value;
-	encoder_para_changed();
+	encoder_para_changed_contrast(value);
 #endif
 }
 
@@ -1900,8 +1898,7 @@ static void set_vide_quality(char* arg)
         dbg("error quality\n");
         return;
     }
-	threadcfg.record_quality = value;
-	encoder_para_changed();
+	encoder_para_changed_quality(value);
 	return;
 }
 
