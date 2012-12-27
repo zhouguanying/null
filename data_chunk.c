@@ -118,6 +118,28 @@ long inline data_chunk_freespace(data_chunk_t *p)
         return 0;
 }
 
+long data_chunk_copy(data_chunk_t *dst, data_chunk_t *src, long size)
+{
+    if (size > src->size)
+    {
+        fprintf(stderr, "### size is too lager %ld >> %ld, will be clipped !!!\n",
+                size, src->size);
+        size = src->size;
+    }
+
+    if (src->read_pos + size > src->size)
+    {
+        long s = src->size - src->read_pos;
+        data_chunk_pushback(dst, src->ptr + src->read_pos, s);
+        data_chunk_pushback(dst, src->ptr, size - s);
+    }
+    else 
+        data_chunk_pushback(dst, src->ptr + src->read_pos, size);
+
+    return size;
+}
+
+
 frame_queue_t * 
 frame_queue_new(int size)
 {
@@ -191,3 +213,4 @@ void frame_queue_clear(frame_queue_t *queue)
     queue->i_index = 0;
     queue->o_index = 0;
 }
+
