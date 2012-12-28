@@ -222,34 +222,7 @@ int main(int argc, char* argv[])
 					count_last = count_t;
 					count_last_frame = count_frame;
 				}
-#if 0
-				psize=1280*720*3/2;
-				if( jpeg_buf == NULL ){
-					jpeg_buf = malloc( 1280 * 720 * 3 / 2 + 8192 );
-				}
-				if( count_t % 12 == 0 ){
-					//status = check_monitor_queue_status();
-					status = MONITOR_STATUS_NEED_ANY;
-					if( status == MONITOR_STATUS_NEED_ANY && ( time_current - time_last >= frame_interval )){
-						time_last = time_current;
-						if( akjpeg_encode_yuv420((void *)vd->buf.m.userptr, jpeg_buf+sizeof(picture_info_ex_t), (void *)&psize,vd->width, vd->height,60) != AK_FALSE ){
-							printf("encode an jpeg file, size = %d\n", psize);
-							memcpy(jpeg_buf, &p_info_ex , sizeof(picture_info_ex_t));
-#if 0
-							if( write_monitor_packet_queue(jpeg_buf,psize+sizeof(picture_info_ex_t)) == 0 ){
-								count_t++;
-							}
-							else{
-								printf("so strange, write_monitor_packet_queue error, what happened?????\n");
-							}
-#else
-							count_t++;
-#endif
-						}
-						break;
-					}
-				}
-#endif
+				
 				if( encoder_shm_addr->state == ENCODER_STATE_WAIT_FINISH){
 					status = encoder_shm_addr->next_frame_type;
 				}
