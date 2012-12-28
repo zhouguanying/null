@@ -158,6 +158,8 @@ int main(int argc, char* argv[])
 	{
 		static int count_t = 0;
 		static int count_last = 0;
+		static int count_frame = 0;
+		static int count_last_frame = 0;
 		static long long time_begin, time_current, time_last = 0;
 		int frame_interval = ( 1000-100 ) / encoder_shm_addr->frame_rate;
 		int ret;
@@ -200,6 +202,7 @@ int main(int argc, char* argv[])
 		vd->buf.memory = V4L2_MEMORY_USERPTR;
 		//printf("###############before ioctl VIDEOC_DQBUF#############\n");
 		ret = ioctl(vd->fd, VIDIOC_DQBUF, &vd->buf);
+		count_frame++;
 		if (ret < 0)
 		{
 			log_warning("Unable to dequeue buffer (%d). %s\n", errno, strerror(errno));
@@ -214,9 +217,10 @@ int main(int argc, char* argv[])
 		  	  //printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
 				time_current = get_system_time_ms();
 				if( ( time_current - time_begin ) >= 10 * 1000 ){
-					printf("encode speed = %d\n", ( count_t - count_last )/10 );
+					printf("encode speed = %d, frame_rate=%d\n", ( count_t - count_last )/10, (count_frame-count_last_frame)/10);
 					time_begin = time_current;
 					count_last = count_t;
+					count_last_frame = count_frame;
 				}
 #if 0
 				psize=1280*720*3/2;
