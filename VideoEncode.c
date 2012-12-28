@@ -252,13 +252,38 @@ int main(int argc, char* argv[])
 				else{
 					status = ENCODER_FRAME_TYPE_NONE;
 				}
-				if( status != ENCODER_FRAME_TYPE_NONE && ( time_current - time_last >= frame_interval ) ){
+
+				if( status == ENCODER_FRAME_TYPE_JPEG ){
+					int psize = 1280*720*3/2;
+					time_last = time_current;
+					if( jpeg_buf == NULL ){
+						jpeg_buf = malloc( 1280 * 720 * 3 / 2 + 8192 );
+					}
+					if( akjpeg_encode_yuv420((void *)vd->buf.m.userptr, jpeg_buf+sizeof(picture_info_ex_t), (void *)&psize,
+							encoder_shm_addr->width, encoder_shm_addr->height,60) != AK_FALSE )
+					{
+						printf("encode a jpeg file, size = %d\n", psize);
+						if( psize > ENCODER_SHM_SIZE - sizeof(encoder_share_mem)){
+							printf("***************************jpeg size is too large***************************\n");
+							encoder_shm_addr->data_size = 0;
+							encoder_shm_addr->state = ENCODER_STATE_FINISHED;
+						}
+						else{
+							memcpy(jpeg_buf, &p_info_ex , sizeof(picture_info_ex_t));
+							memcpy(encoder_shm_addr->data_encoder, jpeg_buf, psize + sizeof(picture_info_ex_t));
+							count_t++;
+							encoder_shm_addr->data_size = psize;
+							encoder_shm_addr->state = ENCODER_STATE_FINISHED;
+						}
+					}
+				}
+				else if( status != ENCODER_FRAME_TYPE_NONE && ( time_current - time_last >= frame_interval ) ){
 					time_last = time_current;
 					if( status == ENCODER_FRAME_TYPE_I ){
 						//printf("after %d p frame, we need an I frame for some reasons\n", count_t);
 						encode_need_i_frame();
-						count_t = count_last = 0;
-						time_begin = time_current = get_system_time_ms();
+						//count_t = count_last = 0;
+						//time_begin = time_current = get_system_time_ms();
 					}
 		
 again:
@@ -277,7 +302,11 @@ again:
 						}
 
 						if( -1 != get_temp_buffer_data(&buffer,&size) ){
-							//printf("get a %d frame,count = %d, size=%d\n",encoder_shm_addr->next_frame_type, count_t, size);
+							if( encoder_shm_addr->next_frame_type == ENCODER_FRAME_TYPE_I )
+								printf("*******************************get an I frame,count = %d, size=%d\n",count_t, size);
+							else 
+								printf("get a %d frame,count = %d, size=%d\n",encoder_shm_addr->next_frame_type, count_t, size);
+								
 							memcpy(buffer, &p_info_ex , sizeof(picture_info_ex_t));
 							memcpy(encoder_shm_addr->data_encoder, buffer, size);
 							encoder_shm_addr->data_size = size;

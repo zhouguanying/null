@@ -89,6 +89,8 @@ vs_share_mem* v2ipd_share_mem;
 
 int change_video_format = 0;
 static int force_i_frame = 0;
+static int record_need_i_frame = 0;
+static struct sess_ctx* record_session = NULL;
 
 static void send_alive(void)
 {
@@ -842,6 +844,8 @@ int check_monitor_queue_status(void)
 	int ret = MONITOR_STATUS_NEED_NOTHING;
 	SEND_PACKET_LIST_HEAD * send_list;
 	long long current_time;
+	int need_jpeg = 0;
+	static int prev_is_jpeg = 0;
 
 	if( is_do_update() ){
 		return MONITOR_STATUS_NEED_NOTHING;
@@ -852,6 +856,9 @@ int check_monitor_queue_status(void)
 	sess = global_ctx_running_list;
 	while( sess != NULL ){
 		if( sess->session_type == SESSION_TYPE_MONITOR ){
+			if( !sess->sc->video_socket_is_lan ){	//if having a www session, we use jpeg instead of I frame for recording
+				need_jpeg = 1;
+			}
 			count++;
 		}
 		sess = sess->next;
@@ -926,6 +933,13 @@ int check_monitor_queue_status(void)
 		}
 	}
 out:
+	if( force_i_frame == 1 ){	// if some sessions need I frame definitly, give it I frame
+		force_i_frame = 0;
+		ret = MONITOR_STATUS_NEED_I_FRAME;
+		pthread_mutex_unlock(&global_ctx_lock);
+		return ret;
+	}
+	
 	// now check for record queue
 	sess = global_ctx_running_list;
 	while( sess != NULL ){
@@ -940,7 +954,7 @@ out:
 	}
 	send_list = &sess->send_list;
 	current_time = get_system_time_ms();
-	//printf("%lld, %lld, time interval = %lld\n",current_time, send_list->last_packet_time, current_time - send_list->last_packet_time);
+	//printf("frame_interval_ms=%d,%lld, %lld, time interval = %lld\n",send_list->frame_interval_ms,current_time, send_list->last_packet_time, current_time - send_list->last_packet_time);
 	if( current_time - send_list->last_packet_time >= send_list->frame_interval_ms )
 	{
 		if( send_list->total_packet_num >= MAX_SEND_PACKET_NUM ){
@@ -948,17 +962,39 @@ out:
 			sleep(100);
 			exit(-1);
 		}
-		if( send_list->current_state == PACKET_QUEUE_OVERFLOWED ){
-			send_list->current_state = PACKET_QUEUE_RECORD_WAIT_I_FRAME;
-			ret = MONITOR_STATUS_NEED_I_FRAME;
+		if( need_jpeg == 0 ){
+			if( prev_is_jpeg ){		//if we came back from www monitor, we need I frame for recording
+				prev_is_jpeg = 0;
+				record_need_i_frame = 1;
+			}
+			if( send_list->current_state == PACKET_QUEUE_OVERFLOWED ){
+				send_list->current_state = PACKET_QUEUE_RECORD_WAIT_I_FRAME;
+				ret = MONITOR_STATUS_NEED_I_FRAME;
+			}
+			else{
+				send_list->current_state = PACKET_QUEUE_RECORD_WAIT_ANY_FRAME;
+				if( ret == MONITOR_STATUS_NEED_NOTHING ){
+					ret = MONITOR_STATUS_NEED_ANY;
+				}
+			}
+			if( record_need_i_frame ){
+				record_need_i_frame = 0;
+				send_list->current_state = PACKET_QUEUE_RECORD_WAIT_I_FRAME;
+				ret = MONITOR_STATUS_NEED_I_FRAME;
+			}
+			send_list->last_packet_time = current_time;
 		}
 		else{
-			send_list->current_state = PACKET_QUEUE_RECORD_WAIT_ANY_FRAME;
-			if( ret == MONITOR_STATUS_NEED_NOTHING ){
-				ret = MONITOR_STATUS_NEED_ANY;
+			prev_is_jpeg = 1;
+			if( ret == MONITOR_STATUS_NEED_I_FRAME ){
+				// if some session need I frame, let it be.
+			}
+			else{
+				send_list->current_state = PACKET_QUEUE_RECORD_WAIT_JPEG;
+				ret = MONITOR_STATUS_NEED_JPEG;
+				send_list->last_packet_time = current_time;
 			}
 		}
-		send_list->last_packet_time = current_time;
 		//printf("last packet time: %lld\n",  send_list->last_packet_time);
 	}
 	else{
@@ -982,6 +1018,9 @@ int write_monitor_packet_queue(char* buf, int size)
 	pthread_mutex_lock(&global_ctx_lock);//by chf: because we are writing into all monitor queue, so we use global lock instead of private lock
 	while( sess != NULL ){
 		if( sess->session_type == SESSION_TYPE_MONITOR ){
+			if( record_session->send_list.current_state == PACKET_QUEUE_RECORD_WAIT_JPEG ){
+				goto next;
+			}
 			if( sess->send_list.total_packet_num < MAX_SEND_PACKET_NUM ){
 				if( sess->send_list.current_state == PACKET_QUEUE_NORMAL ){
 					SEND_PACKET* packet = malloc(sizeof(SEND_PACKET));
@@ -1018,7 +1057,8 @@ int write_monitor_packet_queue(char* buf, int size)
 				exit(-1);
 			}
 			if( sess->send_list.current_state == PACKET_QUEUE_RECORD_WAIT_I_FRAME 
-				|| sess->send_list.current_state == PACKET_QUEUE_RECORD_WAIT_ANY_FRAME )
+				|| sess->send_list.current_state == PACKET_QUEUE_RECORD_WAIT_ANY_FRAME
+				|| sess->send_list.current_state == PACKET_QUEUE_RECORD_WAIT_JPEG )
 			{
 				SEND_PACKET* packet = malloc(sizeof(SEND_PACKET));
 				if( packet == NULL ){
@@ -1041,6 +1081,7 @@ int write_monitor_packet_queue(char* buf, int size)
 				sess->send_list.current_state = PACKET_QUEUE_OVERFLOWED;
 			}
 		}
+next:
 		sess = sess->next;
 	}
 
@@ -1384,7 +1425,6 @@ int snd_soft_restart();
 struct vdIn * init_camera(void);
 
 #define NO_RECORD_FILE   "/data/norecord"
-static struct sess_ctx* record_session = NULL;
 
 int start_video_record(struct sess_ctx* system_sess)
 {
@@ -1736,6 +1776,7 @@ retry:
                 memcpy(record_header->FrameRateUs, FrameRateUs, 8);
 				strcpy(record_header->device_model, DEVICE_MODEL);
                 nand_write_start_header(record_header);
+				record_need_i_frame = 1;
                 goto retry;
             }
 
@@ -1803,9 +1844,12 @@ static int DataGrab(encoder_share_mem* encoder)
     }
 
 again:
-	if( force_i_frame ){
-		encoder->force_I_frame = 1;
-		force_i_frame = 0;
+	if( force_i_frame ){	//force_i_frame means a session need i frame to start session. so it's the most important.
+		if( !encoder->force_I_frame )
+			encoder->force_I_frame = 1;
+		if( encoder->state != ENCODER_STATE_WAITCMD ){
+			force_i_frame = 0;
+		}
 	}
 
 	switch( encoder->state ){
@@ -1838,6 +1882,9 @@ again:
 				printf("encoder error\n");
 				encoder->state = ENCODER_STATE_WAITCMD;
 				break;
+			}
+			if( encoder_shm_addr->next_frame_type == ENCODER_FRAME_TYPE_I ){
+				force_i_frame = 0;	// to avoid encode continuous 2 I frame
 			}
 			if( write_monitor_packet_queue(encoder->data_main,encoder->data_size) == 0 ){
 				count_t++;
@@ -1981,8 +2028,8 @@ restart_encoder:
 			}
 		}
 		else{	// for multi session, we have to limit something
-			if( threadcfg.record_normal_duration > 4 ){
-				record_session->send_list.frame_interval_ms = 1000 / 4;
+			if( threadcfg.record_normal_duration >= 3 ){
+				record_session->send_list.frame_interval_ms = 1000 / 3;
 			}
 		}
 

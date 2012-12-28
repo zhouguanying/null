@@ -465,7 +465,8 @@ retry:
 	if( count % 100 == 0 || need_i_frame ){
 		video_enc_io_param.mode = 0;
 		need_i_frame = 0;
-		//printf("qp=%d\n",video_enc_io_param.QP);
+		count = 0;
+		printf("qp=%d\n",video_enc_io_param.QP);
 	}
 	else{
 		video_enc_io_param.mode = 1;
