@@ -1384,6 +1384,7 @@ int snd_soft_restart();
 struct vdIn * init_camera(void);
 
 #define NO_RECORD_FILE   "/data/norecord"
+static struct sess_ctx* record_session = NULL;
 
 int start_video_record(struct sess_ctx* system_sess)
 {
@@ -1444,6 +1445,7 @@ int start_video_record(struct sess_ctx* system_sess)
 		printf("can not create record session\n");
 		exit(0);
 	}
+	record_session = sess;
 
 	sess->session_type = SESSION_TYPE_RECORD;
 	init_monitor_packet_queue(sess);
@@ -1954,7 +1956,7 @@ restart_encoder:
 		}
 
 		if( session_number == 1 ){
-			if( encoder_shm_addr->brightness != threadcfg.brightness
+			if(    encoder_shm_addr->brightness != threadcfg.brightness
 				|| encoder_shm_addr->contrast != threadcfg.contrast
 				|| encoder_shm_addr->saturation != threadcfg.saturation
 				|| encoder_shm_addr->gain != threadcfg.gain
@@ -1973,6 +1975,14 @@ restart_encoder:
 				encoder_shm_addr->frame_rate = r_framerate;
 				goto restart_encoder;
 
+			}
+			if( record_session ){		//restore the default record speed
+				record_session->send_list.frame_interval_ms = 1000 / threadcfg.record_normal_speed;
+			}
+		}
+		else{	// for multi session, we have to limit something
+			if( threadcfg.record_normal_duration > 4 ){
+				record_session->send_list.frame_interval_ms = 1000 / 4;
 			}
 		}
 
