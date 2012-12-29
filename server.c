@@ -1876,7 +1876,7 @@ again:
 			usleep(10*1000);
 			break;
 		case ENCODER_STATE_WAIT_FINISH:	// wait encoder to finish the cmd
-			usleep(5*1000);
+			usleep(1*1000);
 			break;
 		case ENCODER_STATE_FINISHED:	//encoder finished 
 			if( encoder->data_size == 0 || encoder->data_size > ENCODER_SHM_SIZE - sizeof(encoder_share_mem)){

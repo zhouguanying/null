@@ -299,7 +299,7 @@ again:
 					}
 				}
 				else{
-					usleep(5*1000); //by chf: sleep a little, for next frame arrive 
+					usleep(1*1000); //by chf: sleep a little, for next frame arrive 
 				}
 				//printf("####### get capture :size %u framesize %u pointer %p\n",
 									//vd->buf.bytesused, vd->framesizeIn, vd->mem[vd->buf.index]);
