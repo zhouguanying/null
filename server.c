@@ -1187,6 +1187,7 @@ int start_video_monitor(struct sess_ctx* sess)
     pthread_mutex_lock(&global_ctx_lock);
 	encode_need_i_frame();
 	force_i_frame = 1;
+	sess->send_list.current_state = PACKET_QUEUE_NORMAL;
     pthread_mutex_unlock(&global_ctx_lock);
 
     attempts = 0;
