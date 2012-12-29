@@ -249,7 +249,7 @@ int main(int argc, char* argv[])
 							memcpy(jpeg_buf, &p_info_ex , sizeof(picture_info_ex_t));
 							memcpy(encoder_shm_addr->data_encoder, jpeg_buf, psize + sizeof(picture_info_ex_t));
 							count_t++;
-							encoder_shm_addr->data_size = psize;
+							encoder_shm_addr->data_size = psize + sizeof(picture_info_ex_t);
 							encoder_shm_addr->state = ENCODER_STATE_FINISHED;
 						}
 					}
