@@ -157,12 +157,15 @@ struct threadconfig
     char     record_resolution[64];
     char     original_resolution[64];
     volatile int record_sensitivity;
+	volatile int record_exposure;
 	volatile int record_quality;
     volatile int record_normal_speed;
     volatile int record_normal_duration;
     volatile int record_slow_speed;
     volatile int record_fast_speed;
     volatile int record_fast_duration;
+	volatile int alarm_week;
+	char     alarm_time[16]; 
     volatile int email_alarm;
     char     mailbox[64];
     volatile int sound_duplex;

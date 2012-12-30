@@ -77,6 +77,7 @@ typedef struct
     int contrast;
     int saturation;
     int gain;
+	int exposure;
 	int record_quality;
 
 	int state;	//0: wait for cmd, only main can write; 1: need a frame, only encoder can write; 2: encoder finished, main can write 			

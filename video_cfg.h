@@ -8,7 +8,7 @@
 #define PASSWORD_SET                    "PSWD_SET"
 #define PASSWORD_PART_ARG                "PSWD="
 
-#define CURR_VIDEO_CFG_VERSION        "1.0.4"
+#define CURR_VIDEO_CFG_VERSION        "1.0.5"
 
 #define APP_VERSION                     "version=6.0.5\n"
 #define MODEL_NAME						"model=IP2001\n"
@@ -32,6 +32,7 @@
 #define CFG_VOLUME                         "volume"
 #define CFG_RECORD_MODE                 "r_mode"
 #define CFG_RECORD_RESOLUTION             "r_reso"
+#define CFG_RECORD_EXPOSURE				"r_exp"
 #define CFG_RECORD_NORMAL_SPEED         "r_nor_speed"
 #define CFG_RECORD_NORMAL_DURATION     "r_nor_duration"
 #define CFG_RECORD_SENSITIVITY             "r_sensitivity"
@@ -39,6 +40,8 @@
 #define CFG_RECORD_SLOW_SPEED         "r_slow_speed"
 #define CFG_RECORD_FAST_SPEED             "r_fast_speed"
 #define CFG_RECORD_FAST_DURATION         "r_fast_duration"
+#define CFG_ALARM_WEEK					"alarm_week"
+#define CFG_ALARM_TIME					"alarm_time"
 #define CFG_EMAIL_ALARM                 "email_alarm"
 #define CFG_MAILBOX                         "mailbox"
 #define CFG_MAILSENDER                     "mailsender"

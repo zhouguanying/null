@@ -154,6 +154,8 @@ int main(int argc, char* argv[])
 	}
 	clear_encode_temp_buffer();
 
+	v4l2_contrl_exposure(vd, encoder_shm_addr->exposure);
+
 	while(1)
 	{
 		static int count_t = 0;

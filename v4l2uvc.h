@@ -56,6 +56,7 @@ int v4l2SetControl(struct vdIn *vd, int control, int value);
 int v4l2ResetControl(struct vdIn *vd, int control);
 int v4l2_contrl_brightness(struct vdIn *vd, int brightness);
 int v4l2_contrl_contrast(struct vdIn *vd, int contrast);
+int v4l2_contrl_exposure(struct vdIn *vd, int exposure);
 void start_monitor_capture(void);
 void stop_monitor_capture(void);
 int close_video_device(void);

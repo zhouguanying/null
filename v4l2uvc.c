@@ -723,6 +723,27 @@ int v4l2_contrl_contrast(struct vdIn *vd, int contrast)
     return 0;
 }
 
+int v4l2_contrl_exposure(struct vdIn *vd, int exposure)
+{
+    struct v4l2_control control_s;
+    int err;
+
+	printf("set exposure\n");
+    if (exposure < 0 || exposure > 24)
+        exposure = 16;
+
+    control_s.id = V4L2_CID_EXPOSURE;
+    control_s.value = exposure;
+    if ((err = xioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
+    {
+        fprintf(stderr, "ioctl set control error\n");
+        return -1;
+    }
+    printf("set exposure sucess\n");
+    return 0;
+}
+
+
 extern struct vdIn *vdin_camera;
 void restart_v4l2(int width , int height)
 {

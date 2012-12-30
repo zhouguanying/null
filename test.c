@@ -1393,6 +1393,11 @@ read_config:
             threadcfg.record_quality = 60;
         printf("record_quality = %d\n", threadcfg.record_quality);
 		
+        extract_value(conf_p, lines, CFG_RECORD_EXPOSURE, 0, (void *)&threadcfg.record_exposure);
+        if (threadcfg.record_exposure< 0 || threadcfg.record_exposure > 24)
+            threadcfg.record_exposure = 16;
+        printf("record_exposure = %d\n", threadcfg.record_exposure);
+		
         extract_value(conf_p, lines, CFG_RECORD_SLOW_SPEED, 0, (void *)&threadcfg.record_slow_speed);
         printf("record_slow_speed = %d\n", threadcfg.record_slow_speed);
 

@@ -1952,6 +1952,7 @@ int start_data_capture(struct sess_ctx* sess)
     encoder_shm_addr->contrast = threadcfg.contrast;
     encoder_shm_addr->saturation = threadcfg.saturation;
     encoder_shm_addr->gain =threadcfg.gain;
+	encoder_shm_addr->exposure = threadcfg.record_exposure;
     encoder_shm_addr->record_quality = threadcfg.record_quality;
 
 	system("/sdcard/encoder&");
