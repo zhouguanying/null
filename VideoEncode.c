@@ -282,9 +282,9 @@ again:
 
 						if( -1 != get_temp_buffer_data(&buffer,&size) ){
 							if( encoder_shm_addr->next_frame_type == ENCODER_FRAME_TYPE_I )
-								printf("*******************************get an I frame,count = %d, size=%d\n",count_t, size);
+								printf("*******************************get an I frame,count = %d, ts=%s, size=%d\n",count_t, p_info_ex.TimeStamp, size);
 							else 
-								printf("get a %d frame,count = %d, size=%d\n",encoder_shm_addr->next_frame_type, count_t, size);
+								printf("get a %d frame,count = %d, ts=%s, size=%d\n",encoder_shm_addr->next_frame_type, count_t, p_info_ex.TimeStamp, size);
 								
 							memcpy(buffer, &p_info_ex , sizeof(picture_info_ex_t));
 							memcpy(encoder_shm_addr->data_encoder, buffer, size);

@@ -1955,7 +1955,8 @@ int start_data_capture(struct sess_ctx* sess)
 	encoder_shm_addr->exposure = threadcfg.record_exposure;
     encoder_shm_addr->record_quality = threadcfg.record_quality;
 
-	system("/sdcard/encoder&");
+	system("pwd");
+	system("./encoder&");
 
 	printf("************************************ready to start capture************************************\n");
 
@@ -1999,7 +2000,7 @@ restart_encoder:
 			}
 			sleep(2);
 			printf("restart the encoder process\n");
-			system("/sdcard/encoder&");
+			system("./encoder&");
 			usleep(500*1000);
 			force_i_frame = 1;
 		}
