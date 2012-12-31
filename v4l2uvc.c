@@ -794,7 +794,7 @@ static int init_userp(struct vdIn *vd, unsigned int buffer_size)
 	lock = akuio_lock_block_compatible(0);
 	for (n_buffers = 0; n_buffers < NB_BUFFER; ++n_buffers) {
 	    vd->mem[n_buffers] = akuio_alloc_pmem(buffer_size);
-
+		memset( vd->mem[n_buffers], 0, buffer_size );
 		if (!vd->mem[n_buffers]) {
       		log_warning("##### Out of memory\n");
             return -1;
