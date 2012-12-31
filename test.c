@@ -748,6 +748,8 @@ int main()
 //		system("echo /dev/mmcblk0p1 > /sys/devices/platform/ak98_udc/gadget/lun0/file && sleep 2");
 		system("gadgetd &");
 
+		sleep(5);
+
 #endif
         /*check the configure file if it is the newest one*/
         fd = fopen(RECORD_PAR_FILE, "r");
@@ -1502,7 +1504,7 @@ read_config:
 
         check_eth0 = 0;
         check_wlan0 = 0;
-#if 0	//don't config the netork, for debug purpose only
+#if 1	//don't config the netork, for debug purpose only
         if (strncmp(threadcfg.inet_mode, "eth_only", strlen("eth_only")) == 0
                 || strncmp(threadcfg.inet_mode, "inteligent", strlen("inteligent")) == 0)
         {
