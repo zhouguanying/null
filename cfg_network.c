@@ -879,7 +879,7 @@ void cfg_network()
                 || strncmp(threadcfg.inet_mode, "inteligent", strlen("inteligent")) == 0)
         {
             memset(buf, 0, 512);
-            sprintf(buf, "udhcpc -i %s -nq&", inet_eth_device);
+            sprintf(buf, "udhcpc -V \"MSFT 5.0\" -i %s -nq&", inet_eth_device);
             system(buf);
         }
 
@@ -887,7 +887,7 @@ void cfg_network()
                 || strncmp(threadcfg.inet_mode, "inteligent", strlen("inteligent")) == 0)
         {
             memset(buf, 0, 512);
-            sprintf(buf, "udhcpc -i %s -nq&", inet_wlan_device);
+            sprintf(buf, "udhcpc -V \"MSFT 5.0\" -i %s -nq&", inet_wlan_device);
             system(buf);
         }
     }

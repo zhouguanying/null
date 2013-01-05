@@ -1517,7 +1517,7 @@ read_config:
             {
 eth_dhcp:
                 memset(buf, 0, 512);
-                sprintf(buf, "udhcpc -i %s &", inet_eth_device);
+                sprintf(buf, "udhcpc -V \"MSFT 5.0\" -i %s &", inet_eth_device);
                 system(buf);
                 if (ping_eth > 0)
                     sleep(5);
@@ -1619,7 +1619,7 @@ eth_dhcp:
                 {
 wlan_udhcpc:
                     memset(buf, 0, 512);
-                    sprintf(buf, "udhcpc -i %s &", inet_wlan_device);
+                    sprintf(buf, "udhcpc -V \"MSFT 5.0\" -i %s &", inet_wlan_device);
                     system(buf);
                     sleep(5);
                     memset(inet_wlan_gateway, 0, sizeof(inet_wlan_gateway));
