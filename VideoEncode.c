@@ -155,6 +155,8 @@ int main(int argc, char* argv[])
 	clear_encode_temp_buffer();
 
 	v4l2_contrl_exposure(vd, encoder_shm_addr->exposure);
+	v4l2_contrl_brightness(vd, threadcfg.brightness);
+	v4l2_contrl_contrast(vd, threadcfg.contrast);
 
 	while(1)
 	{
