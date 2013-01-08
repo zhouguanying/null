@@ -1920,8 +1920,10 @@ again:
 			break;
 		case ENCODER_STATE_FINISHED:	//encoder finished 
 			if( encoder->data_size == 0 || encoder->data_size > ENCODER_SHM_SIZE - sizeof(encoder_share_mem)){
-				printf("encoder error\n");
-				encoder->state = ENCODER_STATE_WAITCMD;
+				printf("*************************encoder error*************************\n");
+				system("reboot\n");
+				exit(-1);
+//				encoder->state = ENCODER_STATE_WAITCMD;
 				break;
 			}
 			if( encoder_shm_addr->next_frame_type == ENCODER_FRAME_TYPE_I ){
