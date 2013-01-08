@@ -221,7 +221,7 @@ int main(int argc, char* argv[])
 		  	  //printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
 				time_current = get_system_time_ms();
 				if( ( time_current - time_begin ) >= 10 * 1000 ){
-					printf("encode speed = %d, frame_rate=%d\n", ( count_t - count_last )/10, (count_frame-count_last_frame)/10);
+					printf("=========================================================== encode speed = %d, frame_rate=%d\n", ( count_t - count_last )/10, (count_frame-count_last_frame)/10);
 					time_begin = time_current;
 					count_last = count_t;
 					count_last_frame = count_frame;

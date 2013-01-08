@@ -876,15 +876,55 @@ int check_monitor_queue_status(void)
 			}
 			sess = sess->next;
 		}
-		sess->send_list.current_state = PACKET_QUEUE_NORMAL;
-		if( sess->send_list.total_packet_num < MAX_SEND_PACKET_NUM ){
-			ret = MONITOR_STATUS_NEED_ANY;
-			goto out;
+		if( need_jpeg ){ // for www monitor, record only need jpeg, so don't care of overflow
+			sess->send_list.current_state = PACKET_QUEUE_NORMAL;
+			if( sess->send_list.total_packet_num < MAX_SEND_PACKET_NUM ){
+				ret = MONITOR_STATUS_NEED_ANY;
+				goto out;
+			}
+			else{
+				printf("packet queue is full now, total %d packets\n", sess->send_list.total_packet_num );
+				ret = MONITOR_STATUS_NEED_NOTHING;
+				goto out;
+			}
 		}
 		else{
-			printf("packet queue is full now, total %d packets\n", sess->send_list.total_packet_num );
-			ret = MONITOR_STATUS_NEED_NOTHING;
-			goto out;
+			int need_nothing = 0;
+			int need_i_frame = 0;
+			int need_any_frame = 0;
+			
+			send_list = &sess->send_list;
+			if( send_list->current_state == PACKET_QUEUE_NORMAL ){
+				if( send_list->total_packet_num < MAX_SEND_PACKET_NUM ){
+					need_any_frame = 1;
+				}
+				else{
+					need_nothing = 1;
+					send_list->current_state = PACKET_QUEUE_OVERFLOWED;
+				}
+			}
+			else if( send_list->current_state == PACKET_QUEUE_OVERFLOWED ){
+				if( send_list->total_packet_num == 0 ){
+					need_i_frame = 1;
+					send_list->current_state = PACKET_QUEUE_NORMAL;
+				}
+				else{
+					need_nothing = 1;
+				}
+			}
+			else{
+				printf("it's strange finding queue state = downflow\n");
+				need_nothing = 1;
+			}
+			if( need_i_frame ){
+				ret = MONITOR_STATUS_NEED_I_FRAME;
+			}
+			else if( need_any_frame ){
+				ret = MONITOR_STATUS_NEED_ANY;
+			}
+			else {
+				ret = MONITOR_STATUS_NEED_NOTHING;
+			}
 		}
 	}
 	else{
