@@ -241,7 +241,7 @@ int main(int argc, char* argv[])
 						jpeg_buf = malloc( 1280 * 720 * 3 / 2 + 8192 );
 					}
 					if( akjpeg_encode_yuv420((void *)vd->buf.m.userptr, jpeg_buf+sizeof(picture_info_ex_t), (void *)&psize,
-							encoder_shm_addr->width, encoder_shm_addr->height,60) != AK_FALSE )
+							encoder_shm_addr->width, encoder_shm_addr->height,50) != AK_FALSE )
 					{
 						printf("encode a jpeg file, size = %d\n", psize);
 						if( psize > ENCODER_SHM_SIZE - sizeof(encoder_share_mem)){
