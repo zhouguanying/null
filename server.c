@@ -981,6 +981,11 @@ out:
 	}
 	
 	// now check for record queue
+	if( !threadcfg.sdcard_exist ){
+		pthread_mutex_unlock(&global_ctx_lock);
+		return ret;
+	}
+	
 	sess = global_ctx_running_list;
 	while( sess != NULL ){
 		if( sess->session_type == SESSION_TYPE_RECORD){
@@ -1919,6 +1924,10 @@ again:
 		}
 	}
 
+	if( !threadcfg.sdcard_exist ){
+		do_capture_alive();
+	}
+
 	switch( encoder->state ){
 		case ENCODER_STATE_WAITCMD:	// wait for main process to write a cmd
 			status = check_monitor_queue_status();
@@ -1939,7 +1948,7 @@ again:
 			else{
 				encoder->next_frame_type = ENCODER_FRAME_TYPE_NONE;
 			}
-			usleep(10*1000);
+			usleep(5*1000);
 			break;
 		case ENCODER_STATE_WAIT_FINISH:	// wait encoder to finish the cmd
 			usleep(1*1000);
@@ -2112,7 +2121,7 @@ restart_encoder:
 __out:
     while (is_do_update())
     {
-        //ret = msgsnd(msqid , &msg, sizeof(vs_ctl_message) - sizeof(long), 0);
+        do_capture_alive();
         sleep(3);
     }
     return 0;
