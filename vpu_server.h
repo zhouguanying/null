@@ -33,6 +33,7 @@
 #define 	VS_MESSAGE_UPDATE_SYSTEM_TIME	22
 #define 	VS_MESSAGE_DEBUG					23
 #define 	VS_MESSAGE_CLOSE_RECORD_FILE	24
+#define 	VS_MESSAGE_DO_CAPTURE_ALIVE			25
 
 #define KERNAL_UPDATE_FILE       "/tmp/kernel.update"
 #define SYSTEM_UPDATE_FILE        "/tmp/system.update"

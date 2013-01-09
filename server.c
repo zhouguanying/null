@@ -1467,6 +1467,32 @@ struct vdIn * init_camera(void);
 
 #define NO_RECORD_FILE   "/data/norecord"
 
+static void do_capture_alive()
+{
+    int ret;
+    vs_ctl_message msg;
+    static struct timeval old = {0,0};
+    struct timeval now;
+	
+	gettimeofday(&now, 0);
+	if( now.tv_sec - old.tv_sec < 3 ){
+		if( now.tv_sec < old.tv_sec ){
+			old = now;
+		}
+		return;
+	}
+	old = now;
+    msg.msg_type = VS_MESSAGE_ID;
+    msg.msg[0] = VS_MESSAGE_DO_CAPTURE_ALIVE;
+    msg.msg[1] = 0;
+    ret = msgsnd(msqid , &msg, sizeof(vs_ctl_message) - sizeof(long), 0);
+    if (ret == -1)
+    {
+        system("reboot &");
+        exit(0);
+    }
+}
+
 int start_video_record(struct sess_ctx* system_sess)
 {
     int ret;
@@ -1919,6 +1945,7 @@ again:
 			usleep(1*1000);
 			break;
 		case ENCODER_STATE_FINISHED:	//encoder finished 
+			do_capture_alive();
 			if( encoder->data_size == 0 || encoder->data_size > ENCODER_SHM_SIZE - sizeof(encoder_share_mem)){
 				printf("*************************encoder error*************************\n");
 				system("reboot\n");
