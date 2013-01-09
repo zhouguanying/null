@@ -479,6 +479,12 @@ retry:
 	encode_temp_buf_size = 32;
 	encode_temp_buf_size += encode_size;
 	count++;
+	if( encode_size == 0 ){
+		printf("encoder hardware error, should reboot the system\n");
+		sleep(5);
+		system("reboot");
+		exit(-1);
+	}
 	return encode_temp_buf_size;
 }
 
