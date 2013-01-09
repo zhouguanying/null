@@ -439,6 +439,7 @@ void* playback_thread(void * arg)
     unsigned int reserve_seek;
     int socket;
     int end_wait_time;
+	int pause_count = 0;
 //    struct timeval old_send_time , currtime;
 //    unsigned long long timeuse;
 //    unsigned int snd_size;
@@ -596,6 +597,7 @@ no_table:
         {
         case PLAYBACK_STATUS_RUNNING:
         {
+			pause_count = 0;
             size = record_file_read(
                        file, (unsigned char *) buf, PLAYBACK_SECTOR_NUM_ONE_READ);
             if (size <= 0)
@@ -636,6 +638,7 @@ no_table:
             break;
         case PLAYBACK_STATUS_SEEK:
 __SEEK__:
+			pause_count = 0;
             dbg("playback seek , pb->seek=%d\n", pb->seek);
             playback_set_status(pb, PLAYBACK_STATUS_RUNNING);
             reserve_seek = file->cur_sector * 512;
@@ -822,6 +825,10 @@ __SEEK__:
 __seek_out:
             break;
         case PLAYBACK_STATUS_PAUSED:
+			pause_count++;
+			if( pause_count >= 6000 ){	//delay 600 seconds
+				running = 0;
+			}
         default:
             usleep(100000);
             break;
