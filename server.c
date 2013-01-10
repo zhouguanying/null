@@ -40,6 +40,7 @@
 #include "mediaEncode.h"
 #include "akjpeg.h"
 #include "ipcam_timer.h"
+#include "stun.h"
 
 #define PID_FILE    "/var/run/v2ipd.pid"
 #define LOG_FILE    "/tmp/v2ipd.log"
@@ -415,6 +416,9 @@ static void sig_handler(int signum)
 	}
     else if (signum == SIGPIPE)
         printf("SIGPIPE\n");
+	else if ( signum == SIGCHLD ){
+		camera_sigchld(signum);
+	}
 	else{
 		printf("signal = %d\n", signum );
 	}
@@ -578,6 +582,16 @@ void take_sess_down(struct sess_ctx *sess)
     }
     else
         pthread_mutex_unlock(&sess->sesslock);
+}
+
+int get_session_number()
+{
+	return session_number;
+}
+
+char* get_version()
+{
+	return CAMERA_VERSION;
 }
 
 #define UPDATE_FILE_HEAD_SIZE   11
@@ -1955,7 +1969,7 @@ again:
 			break;
 		case ENCODER_STATE_FINISHED:	//encoder finished 
 			do_capture_alive();
-			if( encoder->data_size == 0 || encoder->data_size > ENCODER_SHM_SIZE - sizeof(encoder_share_mem)){
+			if( encoder->data_size > ENCODER_SHM_SIZE - sizeof(encoder_share_mem)){
 				printf("*************************encoder error*************************, data size=%d\n", encoder->data_size);
 				system("reboot\n");
 				exit(-1);

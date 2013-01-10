@@ -450,7 +450,7 @@ void encode_need_i_frame()
 	need_i_frame = 1;
 }
 
-#define QP_BEST 3
+#define QP_BEST 4
 #define QP_WORST 15
 #define QUALITY_BEST 100
 #define QUALITY_WORST 0

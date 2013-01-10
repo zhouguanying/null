@@ -188,6 +188,8 @@ void  add_sess(struct sess_ctx *sess);
 void  del_sess(struct sess_ctx *sess);
 void take_sess_up(struct sess_ctx *sess);
 void take_sess_down(struct sess_ctx *sess);
+int get_session_number(void);
+char* get_version();
 
 int start_video_monitor(struct sess_ctx* sess);
 int start_video_record(struct sess_ctx* sess);
