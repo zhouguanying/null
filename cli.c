@@ -729,8 +729,8 @@ static char *set_transport_type(struct sess_ctx *sess , char *arg , int *rsp_len
         close_socket_container(sc);
         return NULL;
     }
-    r = malloc(12);
-	memset(r,0,12);
+    r = malloc(16);
+	memset(r,0,16);
     if (!r)
     {
         g_cli_ctx->arg = NULL;
@@ -810,7 +810,9 @@ static char *set_transport_type(struct sess_ctx *sess , char *arg , int *rsp_len
 	r[9] = 'e';
 	r[10] = 'g';
 	r[11] = '4';
-    *rsp_len = 12;
+	r[12] = ':'; 
+    r[13] = (char)threadcfg.record_quality;
+    *rsp_len = 14;
 #else
 	r[3] = (char)threadcfg.brightness;
 	r[4] = (char)threadcfg.contrast;
@@ -1662,6 +1664,19 @@ static char *GetConfig(char *arg , int *rsp_len)
 int set_raw_config_value(char *buffer);
 extern char force_close_file ;
 
+static void *save_parameters(char *arg)
+{
+
+}
+
+static char* restore_parameters(char *arg)
+{
+	char buf[100];
+	memset(buf, 0, 100);
+	sprintf(buf,"%s:%d:%d:%d", "720p", 100, 100, 100);
+	return strdup(buf);
+}
+
 static char *SetConfig(char *arg)
 {
     char ConfigType;
@@ -2480,6 +2495,10 @@ static char *do_cli_cmd(void *sess,
         set_vide_format(param);
     else if (strncmp(cmd, "set_video_quality", 17) == 0)
         set_vide_quality(param);
+    else if (strncmp(cmd, "save_parameters", 15) == 0)
+        save_parameters(param);
+    else if (strncmp(cmd, "restore_parameters", 18) == 0)
+        resp = restore_parameters(param);
     else
         dbg("unrecognized command: %s\n", cmd);
 
