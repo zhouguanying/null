@@ -31,6 +31,7 @@
 #include "amixer.h"
 #include "vpu_server.h"
 #include "video_cfg.h"
+#include "cli.h"
 
 #include "stun.h"
 #include "cfg_network.h"
@@ -47,11 +48,6 @@
 
 char* test_jpeg_file = "/720_480.jpg";
 extern int msqid;
-struct configstruct
-{
-    char name[64];
-    char value[64];
-};
 
 void start_udt_lib();
 
@@ -229,80 +225,6 @@ static int set_fl(int fd, int flags)
 
     return 0;
 
-}
-
-static int extract_value(struct configstruct *allconfig, int elements, char *name, int is_string, void *dst)
-{
-    int i;
-    char *strp;
-    int * intp;
-    for (i = 0; i < elements; i++)
-    {
-        if (strncmp(allconfig[i].name, name, strlen(name)) == 0)
-        {
-            if (is_string)
-            {
-                strp = (char *)dst;
-                memcpy(strp, allconfig[i].value, 64);
-            }
-            else
-            {
-                intp = (int *)dst;
-                *intp = atoi(allconfig[i].value);
-            }
-            return 0;
-        }
-    }
-    return -1;
-}
-
-static int set_value(struct configstruct *allconfig, int elements, char *name, int is_string, void *value)
-{
-    int i;
-    for (i = 0; i < elements; i++)
-    {
-        if (strncmp(allconfig[i].name, name, strlen(name)) == 0)
-        {
-            if (is_string)
-            {
-                memcpy(allconfig[i].value, value, 64);
-            }
-            else
-            {
-                memset(allconfig[i].value, 0, 64);
-                sprintf(allconfig[i].value, "%d", *(int*)value);
-            }
-            return 0;
-        }
-    }
-    return -1;
-}
-
-static int write_config_value(struct configstruct *allconfig, int elements)
-{
-    FILE*fp;
-    int i;
-    int len;
-    char buf[512];
-    fp = fopen(RECORD_PAR_FILE, "w");
-    if (!fp)
-    {
-        printf("write configure file error , something wrong\n");
-        return -1;
-    }
-    for (i = 0; i < elements; i++)
-    {
-        memset(buf, 0, 512);
-        sprintf(buf, "%s=%s\n", allconfig[i].name, allconfig[i].value);
-        len = strlen(buf);
-        if (len != fwrite(buf, 1, len, fp))
-        {
-            printf("write config file error\n");
-        }
-    }
-    fflush(fp);
-    fclose(fp);
-    return 0;
 }
 
 static inline void vs_msg_update_system_time()

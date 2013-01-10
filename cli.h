@@ -58,10 +58,22 @@ struct cli_sess_ctx
 
 extern struct cli_sess_ctx *g_cli_ctx;
 
+struct configstruct
+{
+    char name[64];
+    char value[64];
+};
+
 struct cli_sess_ctx * start_cli(void* arg);
 int cli_deinit(struct cli_sess_ctx *sess);
 int start_vid(struct sess_ctx *sess, char *arg);
 int get_sdcard_size();
+
+int extract_value(struct configstruct *allconfig, int elements, char *name, int is_string, void *dst);
+int set_value(struct configstruct *allconfig, int elements, char *name, int is_string, void *value);
+//****user should free the returned pointer
+struct configstruct * extract_config_file(int* element_numbers);
+int write_config_value(struct configstruct *allconfig, int elements);
 
 #ifdef __cplusplus
 }

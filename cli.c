@@ -1808,6 +1808,9 @@ static void set_brightness(char *arg)
 {
     char buf[32];
     int value;
+	struct configstruct *allconfig;
+	int elements;
+	
     if (!arg)
         return;
     memset(buf, 0, 32);
@@ -1817,12 +1820,14 @@ static void set_brightness(char *arg)
         dbg("error brightness\n");
         return;
     }
-#ifdef ENCODER_IN_ONE_PROCESS
-    if (v4l2_contrl_brightness(vdin_camera, value) == 0)
-        threadcfg.brightness = value;
-#else
-	encoder_para_changed_brightness(value);
+#if 0
+	allconfig = extract_config_file(&elements);
+	set_value(allconfig,elements,CFG_BRIGHTNESS,0,&value);
+	write_config_value(allconfig,elements);
+	free(allconfig);
 #endif
+
+	encoder_para_changed_brightness(value);
 }
 
 static void set_contrast(char *arg)
@@ -2802,4 +2807,134 @@ struct cli_sess_ctx *start_cli(void *arg)
 
     return cli_ctx;
 }
+
+int extract_value(struct configstruct *allconfig, int elements, char *name, int is_string, void *dst)
+{
+    int i;
+    char *strp;
+    int * intp;
+    for (i = 0; i < elements; i++)
+    {
+        if (strncmp(allconfig[i].name, name, strlen(name)) == 0)
+        {
+            if (is_string)
+            {
+                strp = (char *)dst;
+                memcpy(strp, allconfig[i].value, 64);
+            }
+            else
+            {
+                intp = (int *)dst;
+                *intp = atoi(allconfig[i].value);
+            }
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int set_value(struct configstruct *allconfig, int elements, char *name, int is_string, void *value)
+{
+    int i;
+    for (i = 0; i < elements; i++)
+    {
+        if (strncmp(allconfig[i].name, name, strlen(name)) == 0)
+        {
+        	printf("find element\n");
+            if (is_string)
+            {
+                memcpy(allconfig[i].value, value, 64);
+            }
+            else
+            {
+                memset(allconfig[i].value, 0, 64);
+                sprintf(allconfig[i].value, "%d", *(int*)value);
+            }
+            return 0;
+        }
+    }
+    return -1;
+}
+
+struct configstruct * extract_config_file(int* element_numbers)
+{
+	int lines;
+    FILE*fd;
+    char buf[512];
+    struct configstruct *conf_p;
+	
+	printf("try to read config file\n");
+    fd = fopen(RECORD_PAR_FILE, "r");
+    if (fd == NULL)
+    {
+		printf("open video.cfg error\n");
+		system("reboot");
+	}
+	conf_p = (struct configstruct *)calloc(100, sizeof(struct configstruct));
+	if (!conf_p)
+	{
+		printf("unable to calloc 100 configstruct \n");
+		system("reboot");
+	}
+	memset(conf_p, 0, 100 * sizeof(struct configstruct));
+	lines = 0;
+	memset(buf, 0, 512);
+	while (fgets(buf, 512, fd) != NULL)
+	{
+		char *sp = buf;
+		char *dp = conf_p[lines].name;
+		while (*sp == ' ' || *sp == '\t')sp++;
+		while (*sp != '=')
+		{
+			*dp = *sp;
+			dp++;
+			sp++;
+		}
+		sp++;
+		while (*sp && (*sp == ' ' || *sp == '\t'))sp++;
+		dp = conf_p[lines].value;
+		while (*sp && *sp != '\n')
+		{
+			*dp = *sp;
+			dp++;
+			sp++;
+		}
+		printf("name==%s , value=%s\n", conf_p[lines].name, conf_p[lines].value);
+		lines++;
+		memset(buf, 0, 512);
+	}
+
+	*element_numbers = lines;
+	
+	fclose(fd);
+	return conf_p;
+}
+
+int write_config_value(struct configstruct *allconfig, int elements)
+{
+    FILE*fp;
+    int i;
+    int len;
+    char buf[512];
+    fp = fopen(RECORD_PAR_FILE, "w");
+    if (!fp)
+    {
+        printf("write configure file error , something wrong\n");
+        return -1;
+    }
+    for (i = 0; i < elements; i++)
+    {
+        memset(buf, 0, 512);
+        sprintf(buf, "%s=%s\n", allconfig[i].name, allconfig[i].value);
+        len = strlen(buf);
+        if (len != fwrite(buf, 1, len, fp))
+        {
+            printf("write config file error\n");
+        }
+    }
+    fflush(fp);
+    fclose(fp);
+    return 0;
+}
+
 
