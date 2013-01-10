@@ -1956,7 +1956,7 @@ again:
 		case ENCODER_STATE_FINISHED:	//encoder finished 
 			do_capture_alive();
 			if( encoder->data_size == 0 || encoder->data_size > ENCODER_SHM_SIZE - sizeof(encoder_share_mem)){
-				printf("*************************encoder error*************************\n");
+				printf("*************************encoder error*************************, data size=%d\n", encoder->data_size);
 				system("reboot\n");
 				exit(-1);
 //				encoder->state = ENCODER_STATE_WAITCMD;
