@@ -51,6 +51,15 @@ static struct cli_handler cli_cmd_handler;
 static int cli_socket = -1;
 SOCKET_TYPE cli_st;
 
+struct TMP_PARAMETERS
+{
+	char resolution[10];
+	int quality;
+	int brightness;
+	int contrast;
+};
+static struct TMP_PARAMETERS tmp_parameters;
+
 static struct cli_sess_ctx *new_session(void *arg)
 {
     struct cli_sess_ctx *sess = NULL;
@@ -1666,7 +1675,21 @@ extern char force_close_file ;
 
 static void *save_parameters(char *arg)
 {
-
+	struct configstruct *allconfig;
+	int elements;
+	int value;
+	
+	allconfig = extract_config_file(&elements);
+	set_value(allconfig,elements,CFG_BRIGHTNESS, 0, &tmp_parameters.brightness);
+	set_value(allconfig,elements,CFG_CONTRAST, 0, &tmp_parameters.contrast);
+	set_value(allconfig,elements,CFG_RECORD_QUALITY, 0, &tmp_parameters.quality);
+	set_value(allconfig,elements,CFG_RECORD_RESOLUTION, 1, &tmp_parameters.resolution);
+	write_config_value(allconfig,elements);
+	free(allconfig);
+	threadcfg.brightness = tmp_parameters.brightness;
+	threadcfg.contrast = tmp_parameters.contrast;
+	threadcfg.record_quality = tmp_parameters.quality;
+	strcpy((char*)&threadcfg.record_resolution, (char*)&tmp_parameters.resolution);
 }
 
 static char* restore_parameters(char *arg)
@@ -1835,13 +1858,7 @@ static void set_brightness(char *arg)
         dbg("error brightness\n");
         return;
     }
-#if 0
-	allconfig = extract_config_file(&elements);
-	set_value(allconfig,elements,CFG_BRIGHTNESS,0,&value);
-	write_config_value(allconfig,elements);
-	free(allconfig);
-#endif
-
+	tmp_parameters.brightness = value;
 	encoder_para_changed_brightness(value);
 }
 
@@ -1858,12 +1875,8 @@ static void set_contrast(char *arg)
         dbg("error contrast\n");
         return;
     }
-#ifdef ENCODER_IN_ONE_PROCESS
-    if (v4l2_contrl_contrast(vdin_camera, value) == 0)
-        threadcfg.contrast = value;
-#else
+	tmp_parameters.contrast = value;
 	encoder_para_changed_contrast(value);
-#endif
 }
 
 static void set_volume(char *arg)
@@ -1886,23 +1899,21 @@ static void set_vide_format(char* arg)
 		memset(threadcfg.resolution, 0, sizeof(threadcfg.resolution));
 		memcpy(threadcfg.resolution, "qvga", 4);
 		change_video_format = 1;
-		return;
 	}
 	else if( strncmp(arg,"vga",3)== 0 ){
 		memset(threadcfg.resolution, 0, sizeof(threadcfg.resolution));
 		memcpy(threadcfg.resolution, "vga", 3);
 		change_video_format = 1;
-		return;
 	}
 	else if( strncmp(arg,"720p", 4 ) == 0 ){
 		memset(threadcfg.resolution, 0, sizeof(threadcfg.resolution));
 		memcpy(threadcfg.resolution, "720p", 4);
 		change_video_format = 1;
-		return;
 	}
 	else{
 		return;
 	}
+	strcpy((char*)&tmp_parameters.resolution, (char*)&threadcfg.resolution);
 }
 
 static void set_vide_quality(char* arg)
@@ -1918,6 +1929,7 @@ static void set_vide_quality(char* arg)
         dbg("error quality\n");
         return;
     }
+	tmp_parameters.quality = value;
 	encoder_para_changed_quality(value);
 	return;
 }
@@ -2811,6 +2823,11 @@ char *do_cli_cmd_bin(void *sess, char *cmd, int cmd_len, int size, int *rsp_len)
 struct cli_sess_ctx *start_cli(void *arg)
 {
     struct cli_sess_ctx * cli_ctx;
+
+	tmp_parameters.brightness = threadcfg.brightness;
+	tmp_parameters.contrast = threadcfg.contrast;
+	tmp_parameters.quality = threadcfg.record_quality;
+	strcpy((char*)&tmp_parameters.resolution, (char*)&threadcfg.record_resolution);
 
     cli_cmd_handler.cmds        = (char *)cli_cmds;
     cli_cmd_handler.handler     = do_cli_cmd;
