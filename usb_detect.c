@@ -86,6 +86,25 @@ int ioctl_usbdet_led(int led)
     return    ret;
 }
 
+#define REBOOT	0xFF   
+
+int ioctl_reboot_system()
+{
+    int    ret;
+
+    if (-1 == fd)
+    {
+        if (open_usbdet())
+        {
+            return -1;
+        }
+    }
+
+	ret = ioctl(fd, _IOW(DEV_MAGIC,REBOOT,int), 0);
+    return    ret;
+}
+
+
 extern    int    ioctl_usbdet_led(int led);
 extern    int    ioctl_usbdet_read(void);
 

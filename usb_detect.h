@@ -11,5 +11,6 @@ extern int  open_usbdet(void);
 extern void close_usbdet(void);
 extern int  ioctl_usbdet_led(int led);
 extern int  ioctl_usbdet_read(void);
+extern int ioctl_reboot_system(void);
 
 #endif
