@@ -53,7 +53,7 @@ SOCKET_TYPE cli_st;
 
 struct TMP_PARAMETERS
 {
-	char resolution[10];
+	char resolution[64];
 	int quality;
 	int brightness;
 	int contrast;
@@ -1679,7 +1679,7 @@ static void *save_parameters(char *arg)
 	int elements;
 	int value;
 	
-	allconfig = extract_config_file(&elements);
+	allconfig = extract_config_file(RECORD_PAR_FILE, &elements);
 	set_value(allconfig,elements,CFG_BRIGHTNESS, 0, &tmp_parameters.brightness);
 	set_value(allconfig,elements,CFG_CONTRAST, 0, &tmp_parameters.contrast);
 	set_value(allconfig,elements,CFG_RECORD_QUALITY, 0, &tmp_parameters.quality);
@@ -1695,8 +1695,38 @@ static void *save_parameters(char *arg)
 static char* restore_parameters(char *arg)
 {
 	char buf[100];
+	struct configstruct *allconfig;
+	int elements;
+	int value;
+	
 	memset(buf, 0, 100);
-	sprintf(buf,"%s:%d:%d:%d", "720p", 100, 100, 100);
+	memset((char*)&tmp_parameters, 0, sizeof(tmp_parameters));
+	
+	allconfig = extract_config_file(MONITOR_PAR_FILE, &elements);
+	extract_value(allconfig,elements,CFG_BRIGHTNESS, 0, &tmp_parameters.brightness);
+	extract_value(allconfig,elements,CFG_CONTRAST, 0, &tmp_parameters.contrast);
+	extract_value(allconfig,elements,CFG_RECORD_QUALITY, 0, &tmp_parameters.quality);
+	extract_value(allconfig,elements,CFG_RECORD_RESOLUTION, 1, &tmp_parameters.resolution);
+	free(allconfig);
+
+	allconfig = extract_config_file(RECORD_PAR_FILE, &elements);
+	set_value(allconfig,elements,CFG_BRIGHTNESS, 0, &tmp_parameters.brightness);
+	set_value(allconfig,elements,CFG_CONTRAST, 0, &tmp_parameters.contrast);
+	set_value(allconfig,elements,CFG_RECORD_QUALITY, 0, &tmp_parameters.quality);
+	set_value(allconfig,elements,CFG_RECORD_RESOLUTION, 1, &tmp_parameters.resolution);
+	write_config_value(allconfig,elements);
+	free(allconfig);
+
+	threadcfg.brightness = tmp_parameters.brightness;
+	threadcfg.contrast = tmp_parameters.contrast;
+	threadcfg.record_quality = tmp_parameters.quality;
+	strcpy((char*)&threadcfg.record_resolution, (char*)&tmp_parameters.resolution);
+	
+	encoder_para_changed_brightness(threadcfg.brightness);
+	encoder_para_changed_contrast(threadcfg.contrast);
+	encoder_para_changed_quality(threadcfg.record_quality);
+	change_video_format = 1;
+	sprintf(buf,"%s:%d:%d:%d", threadcfg.record_resolution, threadcfg.record_quality, threadcfg.brightness, threadcfg.contrast);
 	return strdup(buf);
 }
 
@@ -2892,7 +2922,7 @@ int set_value(struct configstruct *allconfig, int elements, char *name, int is_s
     return -1;
 }
 
-struct configstruct * extract_config_file(int* element_numbers)
+struct configstruct * extract_config_file(char* file, int* element_numbers)
 {
 	int lines;
     FILE*fd;
@@ -2900,10 +2930,10 @@ struct configstruct * extract_config_file(int* element_numbers)
     struct configstruct *conf_p;
 	
 	printf("try to read config file\n");
-    fd = fopen(RECORD_PAR_FILE, "r");
+    fd = fopen(file, "r");
     if (fd == NULL)
     {
-		printf("open video.cfg error\n");
+		printf("open %s error\n", file);
 		system("reboot");
 	}
 	conf_p = (struct configstruct *)calloc(100, sizeof(struct configstruct));

@@ -72,7 +72,7 @@ int get_sdcard_size();
 int extract_value(struct configstruct *allconfig, int elements, char *name, int is_string, void *dst);
 int set_value(struct configstruct *allconfig, int elements, char *name, int is_string, void *value);
 //****user should free the returned pointer
-struct configstruct * extract_config_file(int* element_numbers);
+struct configstruct * extract_config_file(char* file, int* element_numbers);
 int write_config_value(struct configstruct *allconfig, int elements);
 
 #ifdef __cplusplus

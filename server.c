@@ -2018,24 +2018,25 @@ int start_data_capture(struct sess_ctx* sess)
 	memset(encoder_shm_addr, 0, ENCODER_SHM_SIZE);
 	encoder_shm_addr->data_main = (char*)((int)encoder_shm_addr + sizeof(encoder_share_mem));
 
+	strcpy((char*)&threadcfg.resolution, (char*)&threadcfg.record_resolution);
 	if( !strncmp(threadcfg.record_resolution, "qvga", 4)){
-		encoder_shm_addr->width = 352;
-		encoder_shm_addr->height = 288;
-		encoder_shm_addr->frame_rate = 25;
+		r_width = 352;
+		r_height = 288;
+		r_framerate = 25;
 	}
 	else if( !strncmp(threadcfg.record_resolution, "vga", 4)){
-		encoder_shm_addr->width = 640;
-		encoder_shm_addr->height = 480;
-		encoder_shm_addr->frame_rate = 25;
+		r_width = 640;
+		r_height = 480;
+		r_framerate = 25;
 	}
 	else{
-		encoder_shm_addr->width = 1280;
-		encoder_shm_addr->height = 720;
-		encoder_shm_addr->frame_rate = 12;
+		r_width = 1280;
+		r_height = 720;
+		r_framerate = 12;
 	}
-	r_width = encoder_shm_addr->width;
-	r_height = encoder_shm_addr->height;
-	r_framerate = encoder_shm_addr->frame_rate;
+	encoder_shm_addr->width = r_width;
+	encoder_shm_addr->height = r_height;
+	encoder_shm_addr->frame_rate = r_framerate;
 		
 	encoder_shm_addr->exit = 0;
 	
@@ -2103,10 +2104,25 @@ restart_encoder:
 				|| encoder_shm_addr->saturation != threadcfg.saturation
 				|| encoder_shm_addr->gain != threadcfg.gain
 				|| encoder_shm_addr->record_quality != threadcfg.record_quality
-				|| r_width != encoder_shm_addr->width
-				|| r_height != encoder_shm_addr->height )
+				|| threadcfg.resolution[0] != threadcfg.record_resolution[0] )
 			{
 				printf("--------------------------------restore the camera status--------------------------------\n");
+				strcpy((char*)&threadcfg.resolution, (char*)threadcfg.record_resolution);
+				if( !strncmp(threadcfg.record_resolution, "qvga", 4)){
+					r_width = 352;
+					r_height = 288;
+					r_framerate = 25;
+				}
+				else if( !strncmp(threadcfg.record_resolution, "vga", 4)){
+					r_width = 640;
+					r_height = 480;
+					r_framerate = 25;
+				}
+				else{
+					r_width = 1280;
+					r_height = 720;
+					r_framerate = 12;
+				}
 				encoder_shm_addr->brightness = threadcfg.brightness;
 				encoder_shm_addr->contrast = threadcfg.contrast;
 				encoder_shm_addr->saturation = threadcfg.saturation;
