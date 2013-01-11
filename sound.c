@@ -806,7 +806,13 @@ void sound_start_thread(void)
     pthread_detach(thread);
     pthread_create(&thread, NULL, playback, NULL);
     pthread_detach(thread);
+
     pthread_create(&thread, NULL, aec, NULL);
+    struct sched_param param;
+    int policy = SCHED_FIFO;
+    param.sched_priority = sched_get_priority_max(policy);
+    pthread_setschedparam(thread, policy, &param);
+
     pthread_detach(thread);
 }
 
