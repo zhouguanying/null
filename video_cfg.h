@@ -10,7 +10,7 @@
 
 #define CURR_VIDEO_CFG_VERSION        "1.0.6"
 
-#define CAMERA_VERSION					"7.0.1HD"
+#define CAMERA_VERSION					"7.0.2HD"
 #define APP_VERSION                     "version="CAMERA_VERSION"\n"
 #define MODEL_NAME						"model=IP2001\n"
 #define UDP_SERVER_ADDR                  "udp.iped.com.cn"

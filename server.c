@@ -586,7 +586,10 @@ void take_sess_down(struct sess_ctx *sess)
 
 int get_session_number()
 {
-	return session_number;
+	if( session_number > 0 ){
+		return session_number-1;
+	}
+	return 0;
 }
 
 char* get_version()

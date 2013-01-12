@@ -30,6 +30,16 @@
 #include "akjpeg.h"
 #include "vpu_server.h"
 
+//#define VIDEO_ENCODER_DEBUG
+#ifdef VIDEO_ENCODER_DEBUG
+#define dbg(fmt, args...)  \
+    do { \
+        printf("%s: " fmt, ## args); \
+    } while (0)
+#else
+#define dbg(fmt, args...)    do {} while (0)
+#endif
+
 static picture_info_ex_t p_info_ex =
 {
     {0, 0, 0, 1, 0xc},
@@ -221,7 +231,7 @@ int main(int argc, char* argv[])
 		  	  //printf("############ try to encode data bytesused %lu buffer index %d\n", vd->buf.bytesused, vd->buf.index);
 				time_current = get_system_time_ms();
 				if( ( time_current - time_begin ) >= 10 * 1000 ){
-					printf("=========================================================== encode speed = %d, frame_rate=%d\n", ( count_t - count_last )/10, (count_frame-count_last_frame)/10);
+					dbg("=========================================================== encode speed = %d, frame_rate=%d\n", ( count_t - count_last )/10, (count_frame-count_last_frame)/10);
 					time_begin = time_current;
 					count_last = count_t;
 					count_last_frame = count_frame;
@@ -284,9 +294,9 @@ again:
 
 						if( -1 != get_temp_buffer_data(&buffer,&size) ){
 							if( encoder_shm_addr->next_frame_type == ENCODER_FRAME_TYPE_I )
-								printf("*******************************get an I frame,count = %d, ts=%s, size=%d\n",count_t, p_info_ex.TimeStamp, size);
+								dbg("*******************************get an I frame,count = %d, ts=%s, size=%d\n",count_t, p_info_ex.TimeStamp, size);
 							else 
-								printf("get a %d frame,count = %d, ts=%s, size=%d\n",encoder_shm_addr->next_frame_type, count_t, p_info_ex.TimeStamp, size);
+								dbg("get a %d frame,count = %d, ts=%s, size=%d\n",encoder_shm_addr->next_frame_type, count_t, p_info_ex.TimeStamp, size);
 								
 							memcpy(buffer, &p_info_ex , sizeof(picture_info_ex_t));
 							memcpy(encoder_shm_addr->data_encoder, buffer, size);
