@@ -1725,6 +1725,8 @@ static char* restore_parameters(char *arg)
 	encoder_para_changed_brightness(threadcfg.brightness);
 	encoder_para_changed_contrast(threadcfg.contrast);
 	encoder_para_changed_quality(threadcfg.record_quality);
+	strcpy((char*)&threadcfg.resolution, (char*)&tmp_parameters.resolution);
+	
 	change_video_format = 1;
 	sprintf(buf,"%s:%d:%d:%d", threadcfg.record_resolution, threadcfg.record_quality, threadcfg.brightness, threadcfg.contrast);
 	return strdup(buf);
