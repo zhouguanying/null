@@ -40,6 +40,8 @@
 #define dbg(fmt, args...)    do {} while (0)
 #endif
 
+#define DAY_NIGHT_CONTRAST_RATIO	( 4 / 5 )
+
 static picture_info_ex_t p_info_ex =
 {
     {0, 0, 0, 1, 0xc},
@@ -167,7 +169,10 @@ int main(int argc, char* argv[])
 
 	v4l2_contrl_exposure(vd, encoder_shm_addr->exposure);
 	v4l2_contrl_brightness(vd, threadcfg.brightness);
-	v4l2_contrl_contrast(vd, threadcfg.contrast);
+	if( encoder_shm_addr->is_night_mode )
+		v4l2_contrl_contrast(vd, threadcfg.contrast * DAY_NIGHT_CONTRAST_RATIO );
+	else
+		v4l2_contrl_contrast(vd, threadcfg.contrast);
 
 	while(1)
 	{
@@ -199,12 +204,19 @@ int main(int argc, char* argv[])
 			}
 			if( threadcfg.contrast != encoder_shm_addr->contrast ){
 				threadcfg.contrast = encoder_shm_addr->contrast;
-				v4l2_contrl_contrast(vd, threadcfg.contrast);
+				if( encoder_shm_addr->is_night_mode )
+					v4l2_contrl_contrast(vd, threadcfg.contrast * DAY_NIGHT_CONTRAST_RATIO );
+				else
+					v4l2_contrl_contrast(vd, threadcfg.contrast);
 			}
 		}
 		if( is_night_mode != encoder_shm_addr->is_night_mode ){
 			is_night_mode = encoder_shm_addr->is_night_mode;
 			v4l2_contrl_daynight_mode(vd, is_night_mode);
+			if( encoder_shm_addr->is_night_mode )
+				v4l2_contrl_contrast(vd, threadcfg.contrast * DAY_NIGHT_CONTRAST_RATIO );
+			else
+				v4l2_contrl_contrast(vd, threadcfg.contrast);
 		}
 		
 		if (count_t == 0)
