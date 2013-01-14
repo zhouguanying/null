@@ -1247,8 +1247,8 @@ read_config:
         extract_value(conf_p, lines, CFG_BITRATE, 0, (void *)&threadcfg.bitrate);
         printf("bitrate = %d\n", threadcfg.bitrate);
 
-        //extract_value(conf_p, lines, CFG_VOLUME, 0,(void *) &threadcfg.volume);
-        threadcfg.volume = 100;
+        extract_value(conf_p, lines, CFG_VOLUME, 0,(void *) &threadcfg.volume);
+        //threadcfg.volume = 100;
         printf("volume = %d\n", threadcfg.volume);
 
         extract_value(conf_p, lines, CFG_BRIGHTNESS, 0, (void *)&threadcfg.brightness);

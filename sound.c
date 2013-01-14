@@ -759,7 +759,7 @@ int sound_init()
     }
 
     speaker_on();
-    alsa_set_mic_volume(70, 1);
+    alsa_set_mic_volume(threadcfg.volume, 1);
     alsa_set_hp_volume(0, 0);
     init_amrdecoder();
     sound_amr_buffer_init();
