@@ -48,7 +48,7 @@ static char* jpeg_buf = NULL;
 static struct vdIn *vd = NULL;
 
 static int encoder_shm_id;
-static encoder_share_mem* encoder_shm_addr;
+static encoder_share_mem* encoder_shm_addr = NULL;
 
 struct vdIn * init_camera(void);
 
@@ -110,6 +110,7 @@ int main(int argc, char* argv[])
 {
 	int width, height;
 	int i;
+	int is_night_mode = 1;
 
 	printf("************************start encoder process************************\n");
 
@@ -200,6 +201,10 @@ int main(int argc, char* argv[])
 				threadcfg.contrast = encoder_shm_addr->contrast;
 				v4l2_contrl_contrast(vd, threadcfg.contrast);
 			}
+		}
+		if( is_night_mode != encoder_shm_addr->is_night_mode ){
+			is_night_mode = encoder_shm_addr->is_night_mode;
+			v4l2_contrl_daynight_mode(vd, is_night_mode);
 		}
 		
 		if (count_t == 0)

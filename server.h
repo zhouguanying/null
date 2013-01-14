@@ -231,6 +231,7 @@ void encoder_para_changed_brightness(int value);
 void encoder_para_changed_contrast(int value);
 void encoder_para_changed_quality(int value);
 void encoder_para_changed_saturation(int value);
+void encoder_set_daynight_mode(int is_night_mode);
 
 
 #ifdef __cplusplus

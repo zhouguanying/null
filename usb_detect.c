@@ -70,6 +70,22 @@ int ioctl_reset_read(void)
     return    ret;
 }
 
+int ioctl_ircut_read(void)
+{
+    int    ret;
+
+    if (-1 == fd)
+    {
+        if (open_usbdet())
+        {
+            return -1;
+        }
+    }
+
+    ret = ioctl(fd, _IOR(DEV_MAGIC,IRCUT,int), NULL);
+    return    ret;
+}
+
 int ioctl_usbdet_led(int led)
 {
     int    ret;

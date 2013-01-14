@@ -743,6 +743,22 @@ int v4l2_contrl_exposure(struct vdIn *vd, int exposure)
     return 0;
 }
 
+int v4l2_contrl_daynight_mode(struct vdIn *vd, int is_night_mode)
+{
+    struct v4l2_control control_s;
+    int err;
+
+	printf("set daynight mode\n");
+    control_s.id = V4L2_CID_COLOR_KILLER;
+    control_s.value = is_night_mode;
+    if ((err = xioctl(vd->fd, VIDIOC_S_CTRL, &control_s)) < 0)
+    {
+        fprintf(stderr, "ioctl set control error\n");
+        return -1;
+    }
+    printf("set daynight mode sucess\n");
+    return 0;
+}
 
 extern struct vdIn *vdin_camera;
 void restart_v4l2(int width , int height)

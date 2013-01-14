@@ -177,6 +177,9 @@ int usb_state_monitor()
 	{
 		if (is_do_update())
 			return 0;
+
+		encoder_set_daynight_mode(ioctl_ircut_read());
+		
 		if (ioctl_usbdet_read())
 		{
 			if (is_do_update())

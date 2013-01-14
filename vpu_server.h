@@ -80,6 +80,7 @@ typedef struct
     int gain;
 	int exposure;
 	int record_quality;
+	int is_night_mode;
 
 	int state;	//0: wait for cmd, only main can write; 1: need a frame, only encoder can write; 2: encoder finished, main can write 			
 	int force_I_frame;	//must output an I frame even encoder is in process

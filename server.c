@@ -1484,6 +1484,12 @@ void encoder_para_changed_saturation(int value)
 	encoder_shm_addr->para_changed = 1;
 }
 
+void encoder_set_daynight_mode(int is_night_mode)
+{
+	if( encoder_shm_addr )
+		encoder_shm_addr->is_night_mode = is_night_mode;
+}
+
 int snd_soft_restart();
 struct vdIn * init_camera(void);
 
