@@ -1647,7 +1647,7 @@ int start_video_record(struct sess_ctx* system_sess)
 	printf("ready to start record, mode %d, sdcard exsit %d\n", record_mode, threadcfg.sdcard_exist);
 
     ipcam_timer_t *sound_timer = ipcam_timer_create(1000);      // 1    second
-    ipcam_timer_t *index_timer = ipcam_timer_create(18 * 1000); // 15   seconds
+    ipcam_timer_t *index_timer = ipcam_timer_create(15 * 1000); // 15   seconds
     ipcam_timer_t *alive_timer = ipcam_timer_create(3 * 1000);  // 3    seconds
 
     while (1)
