@@ -1846,6 +1846,8 @@ FORCE_CLOSE_FILE:
                 timestamp = gettimestamp();
                 memcpy(audio_internal_header.StartTimeStamp , timestamp , sizeof(audio_internal_header.StartTimeStamp));
                 gettimeofday(&prev_write_sound_time , NULL);
+                ipcam_timer_restart(sound_timer);
+                ipcam_timer_restart(index_timer);
                 goto retry;
             }
             else
