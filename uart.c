@@ -22,8 +22,8 @@ static int open_ptz(void)
     }
     else
     {
-        ioctl(fd , 15 , 0);
-        if (ioctl(fd, 16 , 0) < 0)
+        ioctl(fd , 15 , 5);
+        if (ioctl(fd, 16 , 5) < 0)
             printf("contrl ptz speed error");
         else
             printf("contrl ptz sucess");
