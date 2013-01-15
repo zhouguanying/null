@@ -2050,12 +2050,13 @@ int start_data_capture(struct sess_ctx* sess)
 	encoder_shm_addr->exit = 0;
 	
 	encoder_shm_addr->para_changed = 0;
-    encoder_shm_addr->brightness = threadcfg.brightness;
-    encoder_shm_addr->contrast = threadcfg.contrast;
-    encoder_shm_addr->saturation = threadcfg.saturation;
-    encoder_shm_addr->gain =threadcfg.gain;
+	encoder_shm_addr->brightness = threadcfg.brightness;
+	encoder_shm_addr->contrast = threadcfg.contrast;
+	encoder_shm_addr->saturation = threadcfg.saturation;
+	encoder_shm_addr->gain =threadcfg.gain;
 	encoder_shm_addr->exposure = threadcfg.record_exposure;
-    encoder_shm_addr->record_quality = threadcfg.record_quality;
+	encoder_shm_addr->record_quality = threadcfg.record_quality;
+	encoder_shm_addr->is_night_mode = 1;
 
 	system("pwd");
 	system("./encoder&");

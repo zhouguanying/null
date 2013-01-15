@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
 {
 	int width, height;
 	int i;
-	int is_night_mode = 1;
+	int is_night_mode;
 
 	printf("************************start encoder process************************\n");
 
@@ -169,10 +169,14 @@ int main(int argc, char* argv[])
 
 	v4l2_contrl_exposure(vd, encoder_shm_addr->exposure);
 	v4l2_contrl_brightness(vd, threadcfg.brightness);
-	if( encoder_shm_addr->is_night_mode )
+	is_night_mode = encoder_shm_addr->is_night_mode;
+	v4l2_contrl_daynight_mode(vd, is_night_mode);
+	if( is_night_mode )
 		v4l2_contrl_contrast(vd, threadcfg.contrast * DAY_NIGHT_CONTRAST_RATIO );
 	else
 		v4l2_contrl_contrast(vd, threadcfg.contrast);
+
+
 
 	while(1)
 	{
@@ -213,7 +217,7 @@ int main(int argc, char* argv[])
 		if( is_night_mode != encoder_shm_addr->is_night_mode ){
 			is_night_mode = encoder_shm_addr->is_night_mode;
 			v4l2_contrl_daynight_mode(vd, is_night_mode);
-			if( encoder_shm_addr->is_night_mode )
+			if( is_night_mode )
 				v4l2_contrl_contrast(vd, threadcfg.contrast * DAY_NIGHT_CONTRAST_RATIO );
 			else
 				v4l2_contrl_contrast(vd, threadcfg.contrast);
